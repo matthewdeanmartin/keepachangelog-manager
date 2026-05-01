@@ -1,0 +1,50 @@
+[2021-06-01T09:22:20.468Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement glm/[=0.1.2+0.9.9.4]@application/master overridden by framework-stock/4.0.1@application/stable to glm/0.1.2+0.9.9.4@application/master 
+[2021-06-01T09:22:20.468Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement gsl-lite/[=0.1.0+0.36.0]@application/master overridden by framework-stock/4.0.1@application/stable to gsl-lite/0.1.0+0.36.0@application/master 
+[2021-06-01T09:22:20.468Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement icu4c/[=0.1.4+63.1]@application/master overridden by framework-stock/4.0.1@application/stable to icu4c/0.1.4+63.1@application/master 
+[2021-06-01T09:22:20.468Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement jsoncpp/[=0.1.2+1.8.4]@application/master overridden by framework-stock/4.0.1@application/stable to jsoncpp/0.1.2+1.8.4@application/master 
+[2021-06-01T09:22:20.468Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement libcurl/[=0.1.15+7.66.0]@application/master overridden by framework-stock/4.0.1@application/stable to libcurl/0.1.15+7.66.0@application/master 
+[2021-06-01T09:22:20.468Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement testaccess-accessor/[=0.4.1]@application/stable overridden by framework-stock/4.0.1@application/stable to testaccess-accessor/0.4.1@application/stable 
+[2021-06-01T09:22:20.468Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement testaccess-model/[=1.0.2]@application/stable overridden by framework-stock/4.0.1@application/stable to testaccess-model/1.0.2@application/stable 
+[2021-06-01T09:22:20.468Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement escalatoraccess-common/[=0.33.0]@application/master overridden by framework-stock/4.0.1@application/stable to escalatoraccess-common/0.33.0@application/master 
+[2021-06-01T09:22:20.469Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement escalatoraccess-graph/[=0.7.12]@application/master overridden by framework-stock/4.0.1@application/stable to escalatoraccess-graph/0.7.12@application/master 
+[2021-06-01T09:22:20.469Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement escalatoraccess-topology/[=0.45.3]@application/master overridden by framework-stock/4.0.1@application/stable to escalatoraccess-topology/0.45.3@application/master 
+[2021-06-01T09:22:20.469Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement supermarket-shoppingassistance-model/[=1.3.4]@application/master overridden by framework-stock/4.0.1@application/stable to supermarket-shoppingassistance-model/1.3.4@application/master 
+[2021-06-01T09:22:20.469Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement supermarket-receipt-engine-interface/[=18.3.0]@application/stable overridden by framework-stock/4.0.1@application/stable to supermarket-receipt-engine-interface/18.3.0@application/stable 
+[2021-06-01T09:22:20.469Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement supermarket-receipt-engine/[=1.72.1]@application/stable overridden by framework-stock/4.0.1@application/stable to supermarket-receipt-engine/1.72.1@application/stable 
+[2021-06-01T09:22:20.469Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement supermarket-offboardescalatoraccess-mock/[=9.2.5]@application/stable overridden by framework-stock/4.0.1@application/stable to supermarket-offboardescalatoraccess-mock/9.2.5@application/stable 
+[2021-06-01T09:22:20.469Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement supermarket-offboardescalatoraccess/[=22.2.0]@application/stable overridden by framework-stock/4.0.1@application/stable to supermarket-offboardescalatoraccess/22.2.0@application/stable 
+[2021-06-01T09:22:20.469Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement supermarket-local-supplier/[=0.11.0]@application/stable overridden by framework-stock/4.0.1@application/stable to supermarket-local-supplier/0.11.0@application/stable 
+[2021-06-01T09:22:20.469Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement supermarket-local-supplier-interface/[=0.15.0]@application/stable overridden by framework-stock/4.0.1@application/stable to supermarket-local-supplier-interface/0.15.0@application/stable 
+[2021-06-01T09:22:20.469Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement supermarket-sales-policy/[=3.3.1]@application/stable overridden by framework-stock/4.0.1@application/stable to supermarket-sales-policy/3.3.1@application/stable 
+[2021-06-01T09:22:20.469Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement sales-model/[=0.2.0]@application/stable overridden by framework-stock/4.0.1@application/stable to sales-model/0.2.0@application/stable 
+[2021-06-01T09:22:20.469Z] WARN: supermarket_officer/8.1.0+4.4.3@application/stable: requirement manager-accessor/[=2.1.1]@application/stable overridden by framework-stock/4.0.1@application/stable to manager-accessor/2.1.1@application/stable 
+[2021-06-01T09:22:20.469Z] supermarket-sales-policy/3.3.1@application/stable: Not found in local cache, looking in remotes...
+[2021-06-01T09:22:20.469Z] supermarket-sales-policy/3.3.1@application/stable: Trying with 'application-testapp'...
+[2021-06-01T09:22:20.501Z] supermarket-local-supplier-interface/0.15.0@application/stable: Package is up to date
+[2021-06-01T09:22:20.501Z] traffic-route/0.1.193@application/master: Package is up to date
+[2021-06-01T09:22:20.521Z] /code/supermarket-buyer-supplier/src/offers/convert_customer_receipt.cpp:295:53: warning: 'fruit_section' is deprecated: 2021.Q2 Deprecated Use application::supermarket_app::receipt_engine::receipt::FruitInformation::fruit_section_labels [-Wdeprecated-declarations]
+[2021-06-01T09:22:20.521Z]       customer_receipt.outgoing_fruit_information.fruit_section.empty()) {
+[2021-06-01T09:22:20.521Z]                                                     ^
+[2021-06-01T09:22:20.521Z] /code/.conan/data/supermarket-receipt-engine-interface/18.3.0/application/stable/package/11fb79b907b16b5761824e1660ffa4cace66da21/include/application/supermarket_app/receipt_engine/receipt.hpp:274:5: note: 'fruit_section' has been explicitly marked deprecated here
+[2021-06-01T09:22:20.521Z]     application_supermarket_app_DEPRECATED_MSG(
+[2021-06-01T09:22:20.521Z]     ^
+[2021-06-01T09:22:20.521Z] /code/.conan/data/framework-customers/0.1.1/application/stable/package/5ab84d6acfe1f23c4fae0ab88f26e3a396351ac9/include/application/supermarket_app/customers.hpp:46:3: note: expanded from macro 'application_supermarket_app_DEPRECATED_MSG'
+[2021-06-01T09:22:20.521Z]   __INTERNAL_DEPRECATED_ATTRIBUTE_MSG(YEAR_AND_QUARTER, "Deprecated", MSG)
+[2021-06-01T09:22:20.521Z]   ^
+[2021-06-01T09:22:20.521Z] /code/.conan/data/framework-customers/0.1.1/application/stable/package/5ab84d6acfe1f23c4fae0ab88f26e3a396351ac9/include/application/supermarket_app/customers.hpp:40:5: note: expanded from macro '__INTERNAL_DEPRECATED_ATTRIBUTE_MSG'
+[2021-06-01T09:22:20.521Z]   [[deprecated(YEAR_AND_QUARTER " " TAG " " MSG)]]
+[2021-06-01T09:22:20.521Z]     ^
+[2021-06-01T09:22:20.521Z] /code/supermarket-buyer-supplier/src/offers/convert_customer_receipt.cpp:383:82: warning: 'fruit_section' is deprecated: 2021.Q2 Deprecated Use application::supermarket_app::receipt_engine::receipt::FruitInformation::fruit_section_labels [-Wdeprecated-declarations]
+[2021-06-01T09:22:20.521Z]                                    customer_receipt.outgoing_fruit_information.fruit_section),
+[2021-06-01T09:22:20.521Z]                                                                                  ^
+[2021-06-01T09:22:20.525Z] Downloading conanmanifest.txt
+[2021-06-01T09:22:20.525Z] Downloading conanfile.py
+[2021-06-01T09:22:20.525Z] meat_section/0.1.2+2.0.3@application/master: Downloaded recipe revision e4c45412ee9dde96d3a82276002c372d
+[2021-06-01T09:22:20.525Z] framework-drinks/0.1.7@application/master: Not found in local cache, looking in remotes...
+[2021-06-01T09:22:20.525Z] framework-drinks/0.1.7@application/master: Trying with 'application-testapp'...
+[2021-06-01T09:22:20.525Z] Downloading conanmanifest.txt
+[2021-06-01T09:22:20.525Z] Downloading conanfile.py
+[2021-06-01T09:22:20.525Z] framework-drinks/0.1.7@application/master: Downloaded recipe revision 9e93fcd084f0f2d6493c2754304b710d
+[2021-06-01T09:22:20.525Z] framework-cleanup-utils/0.0.27@application/master: Not found in local cache, looking in remotes...
+[2021-06-01T09:22:20.525Z] framework-cleanup-utils/0.0.27@application/master: Trying with 'application-testapp'...
+[2021-06-01T09:22:20.533Z] [ 11%] Building CXX object supermarket-buyer-supplier/CMakeFiles/supermarket-buyer-supplier.dir/src/common/fruit_list.cpp.o

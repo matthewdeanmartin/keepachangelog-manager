@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0; see LICENSE.md.
+
 """Changelog Manager."""
 
 from __future__ import annotations
@@ -7,8 +9,8 @@ from dataclasses import dataclass
 from typing import Optional, Sequence
 
 import inquirer
-import llvm_diagnostics as logging
 
+import changelogmanager._llvm_diagnostics as logging
 from changelogmanager.change_types import TYPES_OF_CHANGE, UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
 from changelogmanager.changelog_reader import ChangelogReader

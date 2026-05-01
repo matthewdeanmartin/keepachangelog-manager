@@ -739,7 +739,6 @@ dependencies = [
     { name = "inquirer", version = "3.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9.2'" },
     { name = "inquirer", version = "3.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9.2'" },
     { name = "keepachangelog" },
-    { name = "llvm-diagnostics" },
     { name = "pyyaml" },
     { name = "semantic-version" },
     { name = "urllib3" },
@@ -754,14 +753,13 @@ dev = [
     { name = "flake8" },
     { name = "flake8-formatter-junit-xml" },
     { name = "flake8-pyproject" },
+    { name = "freezegun" },
     { name = "pylint", version = "3.3.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pylint", version = "4.0.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pytest", version = "9.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pytest-cov" },
-    { name = "pytest-freezegun" },
     { name = "pytest-mock" },
-    { name = "setuptools" },
 ]
 lint = [
     { name = "black", version = "25.11.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -777,19 +775,17 @@ security = [
     { name = "bandit", version = "1.9.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
 test = [
+    { name = "freezegun" },
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pytest", version = "9.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pytest-cov" },
-    { name = "pytest-freezegun" },
     { name = "pytest-mock" },
-    { name = "setuptools" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "inquirer", specifier = ">=3.2.2" },
     { name = "keepachangelog", specifier = ">=2.0.0" },
-    { name = "llvm-diagnostics", specifier = ">=3.0.1,<4" },
     { name = "pyyaml", specifier = ">=6.0.2,<7" },
     { name = "semantic-version", specifier = ">=2.10.0,<3" },
     { name = "urllib3", specifier = ">=2.6.3" },
@@ -802,12 +798,11 @@ dev = [
     { name = "flake8" },
     { name = "flake8-formatter-junit-xml" },
     { name = "flake8-pyproject" },
+    { name = "freezegun" },
     { name = "pylint" },
     { name = "pytest" },
     { name = "pytest-cov" },
-    { name = "pytest-freezegun" },
     { name = "pytest-mock" },
-    { name = "setuptools" },
 ]
 lint = [
     { name = "black" },
@@ -818,23 +813,10 @@ lint = [
 ]
 security = [{ name = "bandit" }]
 test = [
+    { name = "freezegun" },
     { name = "pytest" },
     { name = "pytest-cov" },
-    { name = "pytest-freezegun" },
     { name = "pytest-mock" },
-    { name = "setuptools" },
-]
-
-[[package]]
-name = "llvm-diagnostics"
-version = "3.0.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/10/17/ecb54db99380a8f0c332bf286a586c202925043ab4b1667ca9dee9ffac6b/llvm-diagnostics-3.0.1.tar.gz", hash = "sha256:67470811bbab34bf75d6ef298d6a6f35b1133c710e8fc15c793eb6755d07215f", size = 35632, upload-time = "2023-10-03T12:48:41.344Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fb/8f/35f24961ecd06a81edface2212e7c32ea580c640943fd8a27e7a9b58f6b7/llvm_diagnostics-3.0.1-py3-none-any.whl", hash = "sha256:51aac4c0a29dc4bcd21c15bd7e2c050f2e5d59ef95ae0e8a1e0174b7964a386c", size = 11283, upload-time = "2023-10-03T12:48:39.818Z" },
 ]
 
 [[package]]
@@ -1088,20 +1070,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pytest-freezegun"
-version = "0.4.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "freezegun" },
-    { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "pytest", version = "9.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f0/e3/c39d7c3d3afef5652f19323f3483267d7e6b0d9911c3867e10d6e2d3c9ae/pytest-freezegun-0.4.2.zip", hash = "sha256:19c82d5633751bf3ec92caa481fb5cffaac1787bd485f0df6436fd6242176949", size = 9059, upload-time = "2020-07-19T17:50:03.678Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9e/09/0bdd7d24b9d21453ad3364ae1efbd65082045bb6081b5fd5eade91a9b644/pytest_freezegun-0.4.2-py2.py3-none-any.whl", hash = "sha256:5318a6bfb8ba4b709c8471c94d0033113877b3ee02da5bfcd917c1889cde99a7", size = 4590, upload-time = "2020-07-19T17:50:02.191Z" },
-]
-
-[[package]]
 name = "pytest-mock"
 version = "3.15.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1306,15 +1274,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/7d/31/f2289ce78b9b473d582568c234e104d2a342fd658cc288a7553d83bb8595/semantic_version-2.10.0.tar.gz", hash = "sha256:bdabb6d336998cbb378d4b9db3a4b56a1e3235701dc05ea2690d9a997ed5041c", size = 52289, upload-time = "2022-05-26T13:35:23.454Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6a/23/8146aad7d88f4fcb3a6218f41a60f6c2d4e3a72de72da1825dc7c8f7877c/semantic_version-2.10.0-py2.py3-none-any.whl", hash = "sha256:de78a3b8e0feda74cabc54aab2da702113e33ac9d9eb9d2389bcf1f58b7d9177", size = 15552, upload-time = "2022-05-26T13:35:21.206Z" },
-]
-
-[[package]]
-name = "setuptools"
-version = "82.0.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/4f/db/cfac1baf10650ab4d1c111714410d2fbb77ac5a616db26775db562c8fab2/setuptools-82.0.1.tar.gz", hash = "sha256:7d872682c5d01cfde07da7bccc7b65469d3dca203318515ada1de5eda35efbf9", size = 1152316, upload-time = "2026-03-09T12:47:17.221Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9d/76/f789f7a86709c6b087c5a2f52f911838cad707cc613162401badc665acfe/setuptools-82.0.1-py3-none-any.whl", hash = "sha256:a59e362652f08dcd477c78bb6e7bd9d80a7995bc73ce773050228a348ce2e5bb", size = 1006223, upload-time = "2026-03-09T12:47:15.026Z" },
 ]
 
 [[package]]

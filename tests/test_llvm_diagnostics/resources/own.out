@@ -1,0 +1,11 @@
+[1mfake_file.py:10:15: [94mwarning[0m: Value exceeds maximum, automatically capped to 100[0m
+mPercentage = 105
+              [92m^[0m[92m~~[0m
+              100
+[1mfake_file.py:10:15: [31merror[0m: Incorrect type assigned to mPercentage[0m
+mPercentage = "105"
+              [92m^[0m[92m~~~~[0m
+[1mfake_file.py:10:1: [34mnote[0m: mPercentage is deprecated and will be removed in 2030[0m
+mPercentage = 105
+[92m^[0m
+[1mfake_file.py:0:0: [34mnote[0m: Missing copyright information[0m

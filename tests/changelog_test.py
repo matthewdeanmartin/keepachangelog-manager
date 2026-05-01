@@ -13,26 +13,20 @@
 # limitations under the License.
 
 from typing import Sequence
-import pytest
 
-import llvm_diagnostics as logging
+import pytest
+from freezegun import freeze_time
 from semantic_version import Version
 
-from changelogmanager.changelog_reader import ChangelogReader
+import changelogmanager._llvm_diagnostics as logging
 from changelogmanager.change_types import CATEGORIES, VersionCore
-from changelogmanager.changelog import (
-    DEFAULT_CHANGELOG_FILE,
-    UNRELEASED_ENTRY,
-    Changelog,
-)
+from changelogmanager.changelog import (DEFAULT_CHANGELOG_FILE,
+                                        UNRELEASED_ENTRY, Changelog)
+from changelogmanager.changelog_reader import ChangelogReader
 
-from .utils import (
-    empty_changelog_file,
-    changelog_file,
-    released_only_changelog_file,
-    unreleased_changelog_file,
-    get_changelog_expectations,
-)
+from .utils import (changelog_file, empty_changelog_file,
+                    get_changelog_expectations, released_only_changelog_file,
+                    unreleased_changelog_file)
 
 
 def test_default_changelog(mocker):
@@ -146,7 +140,7 @@ def test_get_invalid_version(changelog_file):
     )
 
 
-@pytest.mark.freeze_time("2100-12-03 12:34:56")
+@freeze_time("2100-12-03 12:34:56")
 def test_release(changelog_file):
     """Verifies that unreleased changes get released"""
 
@@ -158,7 +152,7 @@ def test_release(changelog_file):
     assert changelog.get() == get_changelog_expectations(released=True)
 
 
-@pytest.mark.freeze_time("2100-12-03 12:34:56")
+@freeze_time("2100-12-03 12:34:56")
 def test_initial_release(unreleased_changelog_file):
     """Verifies that the initial unreleasd version can be released"""
 
@@ -171,7 +165,7 @@ def test_initial_release(unreleased_changelog_file):
     assert changelog.get() == get_changelog_expectations(released=True, initial=True)
 
 
-@pytest.mark.freeze_time("2100-12-03 12:34:56")
+@freeze_time("2100-12-03 12:34:56")
 def test_release_override_version(changelog_file):
     """Verifies that unreleased changes get released with specified version"""
 
@@ -183,7 +177,7 @@ def test_release_override_version(changelog_file):
     assert changelog.get() == get_changelog_expectations(released=True)
 
 
-@pytest.mark.freeze_time("2100-12-03 12:34:56")
+@freeze_time("2100-12-03 12:34:56")
 def test_release_override_prefixed_version(changelog_file):
     """Verifies that unreleased changes get released with specified version"""
 
