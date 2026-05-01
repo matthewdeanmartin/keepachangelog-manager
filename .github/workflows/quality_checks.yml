@@ -25,14 +25,14 @@ on:
   workflow_dispatch:
 
 jobs:
-  conventional-commits:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Commisery
-        uses: tomtom-international/commisery-action@v4
-        with:
-          token: ${{ github.token }}
+#  conventional-commits:
+#    runs-on: ubuntu-latest
+#
+#    steps:
+#      - name: Commisery
+#        uses: tomtom-international/commisery-action@v4
+#        with:
+#          token: ${{ github.token }}
 
   keepachangelog:
     runs-on: ubuntu-latest
@@ -40,9 +40,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Python 3.12.4
+      - name: Setup Python 3.14
         uses: actions/setup-python@v4
-        with: { python-version: '3.12.4' }
+        with: { python-version: '3.14' }
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v6

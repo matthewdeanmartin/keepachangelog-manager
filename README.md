@@ -2,6 +2,8 @@
 
 Python package allowing you to manage your `CHANGELOG.md` files
 
+Fork of keepachangelog-manager-fork
+
 ![gif](https://raw.githubusercontent.com/matthewdeanmartin/keepachangelog-manager/main/resources/usage.gif)
 
 ## Installation
