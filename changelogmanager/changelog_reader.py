@@ -26,7 +26,7 @@ from semantic_version import Version
 
 from changelogmanager.change_types import (
     DEFAULT_CHANGELOG_FILE,
-    TypesOfChange,
+    TYPES_OF_CHANGE,
     UNRELEASED_ENTRY,
 )
 
@@ -65,7 +65,7 @@ class ChangelogReader:
     def __validate_change_heading(self, line_number, line, depth, content):
         """Check if acceptable keywords are present"""
 
-        accepted_types = [change_type.title() for change_type in TypesOfChange]
+        accepted_types = [change_type.title() for change_type in TYPES_OF_CHANGE]
 
         if content not in accepted_types:
             friendly_types = ", ".join(accepted_types)

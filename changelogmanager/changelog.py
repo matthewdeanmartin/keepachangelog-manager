@@ -32,7 +32,6 @@ from changelogmanager.change_types import (
     VersionCore,
 )
 
-
 INITIAL_VERSION = Version("0.0.1")
 
 
@@ -122,7 +121,10 @@ class Changelog:
         if not self.__has_only_unreleased_version() and _version < self.version():
             raise logging.Error(
                 file_path=self.get_file_path(),
-                message=f"Unable to release a version older than the last release '{self.version()}'",
+                message=(
+                    "Unable to release a version older than the last release "
+                    f"'{self.version()}'"
+                ),
             )
 
         def update_unreleased_version(changelog: Mapping, new_version: Version):
@@ -209,17 +211,21 @@ class Changelog:
     def write_to_json(self, file: str, version: Optional[str] = None) -> None:
         """Stores the Changelog file in JSON format"""
 
+        with open(file, "w", encoding="UTF-8") as file_handle:
+            file_handle.write(self.to_json(version=version))
+
+    def to_json(self, version: Optional[str] = None) -> str:
+        """Returns the Changelog file in JSON format"""
+
         content = self.get(version=version)
         json_data = [value for _, value in content.items()]
-
-        with open(file, "w", encoding="UTF-8") as file_handle:
-            file_handle.write(json.dumps(json_data, indent=4))
+        return json.dumps(json_data, indent=4)
 
     def write_to_file(self) -> None:
         """Updates CHANGELOG.md based on the Keep a Changelog standard"""
 
         with open(self.__changelog_file_path, "w", encoding="UTF-8") as file_handle:
-            file_handle.write(self.__str__())
+            file_handle.write(str(self))
 
     def __has_only_unreleased_version(self):
         """Returns True when the changelog only contains an Unreleased version"""

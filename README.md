@@ -2,14 +2,14 @@
 
 Python package allowing you to manage your `CHANGELOG.md` files
 
-![gif](https://raw.githubusercontent.com/tomtom-international/keepachangelog-manager/master/resources/usage.gif)
+![gif](https://raw.githubusercontent.com/matthewdeanmartin/keepachangelog-manager/main/resources/usage.gif)
 
 ## Installation
 
-In order to install the python scripts you can use the following command:
+In order to install the CLI with uv you can use the following command:
 
 ```sh
-% pip install keepachangelog-manager
+% uv tool install keepachangelog-manager
 ```
 
 ## Usage
@@ -37,6 +37,9 @@ Commands:
   validate        Command to validate the CHANGELOG.md for inconsistencies
   version         Command to retrieve versions from a CHANGELOG.md
 ```
+
+Every subcommand also accepts `--dry-run` to validate inputs and preview the action
+without modifying files or calling GitHub.
 
 ### Validate the layout of your CHANGELOG.md
 Although every command will validate the contents of your `CHANGELOG.md`, the
@@ -247,12 +250,12 @@ Options:
 For example:
 
 ```sh
-% changelogmanager github-release --github-token <PAT> --repository tomtom-international/keepachangelog-manager
+% changelogmanager github-release --github-token <PAT> --repository matthewdeanmartin/keepachangelog-manager
 ```
 
 Will result in something alike:
 
-![Draft Release Example](https://raw.githubusercontent.com/tomtom-international/keepachangelog-manager/master/resources/draft_example.png)
+![Draft Release Example](https://raw.githubusercontent.com/matthewdeanmartin/keepachangelog-manager/main/resources/draft_example.png)
 
 Providing the `--release` flag will update and publish the draft Release.
 

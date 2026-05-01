@@ -17,7 +17,6 @@
 from dataclasses import dataclass
 from enum import Enum
 
-
 UNRELEASED_ENTRY = "unreleased"
 DEFAULT_CHANGELOG_FILE = "CHANGELOG.md"
 
@@ -54,4 +53,4 @@ CATEGORIES = {
     ),
 }
 
-TypesOfChange = list(CATEGORIES.keys())
+TYPES_OF_CHANGE = list(CATEGORIES.keys())

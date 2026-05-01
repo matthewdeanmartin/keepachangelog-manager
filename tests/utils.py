@@ -43,6 +43,7 @@ def unreleased_changelog_file(tmpdir_factory):
     )
     return changelog
 
+
 @pytest.fixture(scope="session")
 def changelog_file(tmpdir_factory):
     """Changelog file containing both released and unreleased versions"""
@@ -98,7 +99,7 @@ def released_only_changelog_file(tmpdir_factory):
     return changelog
 
 
-def get_changelog_expectations(released: bool = False, initial = False):
+def get_changelog_expectations(released: bool = False, initial=False):
     """Check expectations"""
 
     initial_version = {}
@@ -150,9 +151,7 @@ def get_changelog_expectations(released: bool = False, initial = False):
         }
 
     if initial:
-        return OrderedDict(
-            **initial_version
-        )
+        return OrderedDict(**initial_version)
 
     return OrderedDict(
         {

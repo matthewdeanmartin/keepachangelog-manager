@@ -34,13 +34,16 @@ jobs:
         with:
           python-version: 3.12.4
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install tox
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: uv sync --frozen
 
       - name: Run PyTest
-        run: tox -e pytest
+        run: make test
 
   flake8:
     runs-on: ubuntu-latest
@@ -53,13 +56,16 @@ jobs:
         with:
           python-version: 3.12.4
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install tox
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: uv sync --frozen
 
       - name: Run Flake8
-        run: tox -e flake8
+        run: make flake8
 
   pylint:
     runs-on: ubuntu-latest
@@ -72,13 +78,16 @@ jobs:
         with:
           python-version: 3.12.4
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install tox
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: uv sync --frozen
 
       - name: Run Pylint
-        run: tox -e pylint
+        run: make pylint
 
   bandit:
     runs-on: ubuntu-latest
@@ -91,10 +100,13 @@ jobs:
         with:
           python-version: 3.12.4
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install tox
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: uv sync --frozen
 
       - name: Run Bandit
-        run: tox -e bandit
+        run: make bandit

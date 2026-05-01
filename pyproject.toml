@@ -1,0 +1,104 @@
+[build-system]
+requires = [
+    "setuptools>=80",
+    "setuptools-scm[toml]>=8",
+    "setuptools_scm_git_archive>=1.4",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "keepachangelog-manager-fork"
+description = "Python package allowing you to manage your CHANGELOG.md files"
+readme = "README.md"
+version = "5.0.0"
+requires-python = ">=3.10"
+dynamic = ["version"]
+license = "Apache-2.0"
+license-files = ["LICENSE.md"]
+dependencies = [
+    "Click>=8.2.1,<9", # has to go.
+    "pyyaml>=6.0.2,<7",
+    "semantic_version>=2.10.0,<3",
+    "keepachangelog>=2.0.0,<3",
+    "urllib3>=2.4.0,<3",
+    "llvm-diagnostics>=3.0.1,<4",
+    "inquirer>=3.4.0,<4",
+]
+[project.urls]
+Homepage = "https://github.com/matthewdeanmartin/keepachangelog-manager"
+Issues = "https://github.com/matthewdeanmartin/keepachangelog-manager/issues"
+Source = "https://github.com/matthewdeanmartin/keepachangelog-manager"
+
+[project.scripts]
+changelogmanager = "changelogmanager.__main__:main"
+
+[dependency-groups]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-freezegun",
+    "pytest-mock",
+    "setuptools",
+]
+lint = [
+    "black",
+    "flake8",
+    "flake8-pyproject",
+    "flake8_formatter_junit_xml",
+    "pylint",
+]
+security = [
+    "bandit",
+]
+dev = [
+    { include-group = "test" },
+    { include-group = "lint" },
+    { include-group = "security" },
+]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.setuptools]
+zip-safe = true
+
+[tool.setuptools.packages.find]
+include = ["changelogmanager*"]
+
+[tool.setuptools_scm]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["changelogmanager"]
+
+[tool.flake8]
+exclude = [
+    ".cache",
+    ".eggs",
+    ".git",
+    ".tox",
+    "__pycache__",
+    "doc/source/conf.py",
+    "venv*",
+    "*.pyc",
+    "*.egg-info",
+]
+ignore = [
+    "E121",
+    "E123",
+    "E126",
+    "E133",
+    "E203",
+    "E221",
+    "E226",
+    "E241",
+    "E242",
+    "E251",
+    "E704",
+    "W503",
+    "W504",
+    "W505",
+]
+max-line-length = 160

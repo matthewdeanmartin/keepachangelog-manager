@@ -26,7 +26,13 @@ from changelogmanager.changelog import (
     Changelog,
 )
 
-from .utils import empty_changelog_file, changelog_file, released_only_changelog_file, unreleased_changelog_file, get_changelog_expectations
+from .utils import (
+    empty_changelog_file,
+    changelog_file,
+    released_only_changelog_file,
+    unreleased_changelog_file,
+    get_changelog_expectations,
+)
 
 
 def test_default_changelog(mocker):
@@ -151,17 +157,19 @@ def test_release(changelog_file):
     changelog.release()
     assert changelog.get() == get_changelog_expectations(released=True)
 
+
 @pytest.mark.freeze_time("2100-12-03 12:34:56")
 def test_initial_release(unreleased_changelog_file):
     """Verifies that the initial unreleasd version can be released"""
 
     changelog = Changelog(
         file_path=unreleased_changelog_file,
-        changelog=ChangelogReader(file_path=unreleased_changelog_file).read()
+        changelog=ChangelogReader(file_path=unreleased_changelog_file).read(),
     )
 
     changelog.release()
     assert changelog.get() == get_changelog_expectations(released=True, initial=True)
+
 
 @pytest.mark.freeze_time("2100-12-03 12:34:56")
 def test_release_override_version(changelog_file):
@@ -174,6 +182,7 @@ def test_release_override_version(changelog_file):
     changelog.release(override_version="1.1.0")
     assert changelog.get() == get_changelog_expectations(released=True)
 
+
 @pytest.mark.freeze_time("2100-12-03 12:34:56")
 def test_release_override_prefixed_version(changelog_file):
     """Verifies that unreleased changes get released with specified version"""
@@ -184,6 +193,7 @@ def test_release_override_prefixed_version(changelog_file):
     )
     changelog.release(override_version="v1.1.0")
     assert changelog.get() == get_changelog_expectations(released=True)
+
 
 def test_release_override_invalid_version(changelog_file):
     """Verifies that an Exception is raised when an invalid version is attempted to be released"""
@@ -209,7 +219,8 @@ def test_release_override_duplicate_version(changelog_file):
         changelog.release(override_version="1.0.0")
 
     assert (
-        str(exc_info.value.message) == "Unable to release an already released version '1.0.0'"
+        str(exc_info.value.message)
+        == "Unable to release an already released version '1.0.0'"
     )
 
 
@@ -239,8 +250,7 @@ def test_release_override_no_unreleased_version(released_only_changelog_file):
     with pytest.raises(logging.Error) as exc_info:
         changelog.release(override_version="1.1.0")
     assert (
-        str(exc_info.value.message)
-        == "Unable to release without [Unreleased] section"
+        str(exc_info.value.message) == "Unable to release without [Unreleased] section"
     )
 
 

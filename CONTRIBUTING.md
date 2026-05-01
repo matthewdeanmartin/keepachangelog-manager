@@ -13,9 +13,10 @@ Use your best judgment, and feel free to propose changes to this document in a p
 Feel free to make a branch on the repository for your personal contributions.
 Before creating a Pull Request, please ensure:
 
-* You ran `black` on your source files to ensure consistency of coding standards
-* All unit tests (`pytest`) are passing, incl. additions created as part of your contribution
-* Both `flake8` and `pylint` show now quality degradation
+* You synced the local environment with `make sync`
+* You ran `make format-check` to ensure consistency of coding standards
+* All unit tests are passing via `make test`
+* Both `flake8` and `pylint` pass via `make lint`
 
 ### Pull Requests
 

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" Changelog Manager """
+"""Changelog Manager."""
 
 from typing import Mapping, Optional
 
@@ -21,13 +21,30 @@ import inquirer
 from click import group, option, pass_context, Choice, File
 import llvm_diagnostics as logging
 
-from changelogmanager.change_types import TypesOfChange
+from changelogmanager.change_types import TYPES_OF_CHANGE, UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
 from changelogmanager.changelog_reader import ChangelogReader
 from changelogmanager.config import get_component_from_config
 from changelogmanager.github import GitHub
 
 VERSION_REFERENCES = ["previous", "current", "future"]
+
+
+def dry_run_option(function):
+    """Adds the dry-run option to a CLI command."""
+
+    return option(
+        "--dry-run",
+        is_flag=True,
+        default=False,
+        help="Preview the command without modifying files or calling GitHub",
+    )(function)
+
+
+def print_dry_run(message: str) -> None:
+    """Reports that a command ran in dry-run mode."""
+
+    print(f"Dry run: {message}")
 
 
 @group()
@@ -72,8 +89,9 @@ def main(
 
 
 @main.command()
+@dry_run_option
 @pass_context
-def create(ctx: Mapping) -> None:
+def create(ctx: Mapping, dry_run: bool) -> None:
     """Command to create a new (empty) CHANGELOG.md"""
     changelog = ctx.obj["changelog"]
 
@@ -81,6 +99,10 @@ def create(ctx: Mapping) -> None:
         raise logging.Info(
             file_path=changelog.get_file_path(), message="File already exists"
         )
+
+    if dry_run:
+        print_dry_run(f"would create {changelog.get_file_path()}")
+        return
 
     changelog.write_to_file()
 
@@ -93,9 +115,11 @@ def create(ctx: Mapping) -> None:
     default="current",
     help="Which version to retrieve",
 )
+@dry_run_option
 @pass_context
-def version(ctx: Mapping, reference: str) -> None:
+def version(ctx: Mapping, reference: str, dry_run: bool) -> None:
     """Command to retrieve versions from a CHANGELOG.md"""
+    _ = dry_run
 
     changelog = ctx.obj["changelog"]
 
@@ -110,9 +134,11 @@ def version(ctx: Mapping, reference: str) -> None:
 
 
 @main.command()
+@dry_run_option
 @pass_context
-def validate(_: Mapping) -> None:
+def validate(_: Mapping, dry_run: bool) -> None:
     """Command to validate the CHANGELOG.md for inconsistencies"""
+    _ = dry_run
 
 
 @main.command()
@@ -121,12 +147,17 @@ def validate(_: Mapping) -> None:
     default=None,
     help="Version to release, defaults to auto-resolve",
 )
+@dry_run_option
 @pass_context
-def release(ctx: Mapping, override_version: Optional[str]) -> None:
+def release(ctx: Mapping, override_version: Optional[str], dry_run: bool) -> None:
     """Release changes added to [Unreleased] block"""
 
     changelog = ctx.obj["changelog"]
     changelog.release(override_version)
+
+    if dry_run:
+        print_dry_run(f"would release {changelog.get_file_path()}")
+        return
 
     changelog.write_to_file()
 
@@ -137,10 +168,17 @@ def release(ctx: Mapping, override_version: Optional[str]) -> None:
     default="CHANGELOG.json",
     help="Filename of the JSON output",
 )
+@dry_run_option
 @pass_context
-def to_json(ctx: Mapping, file_name: str) -> None:
+def to_json(ctx: Mapping, file_name: str, dry_run: bool) -> None:
     """Exports the contents of the CHANGELOG.md to a JSON file"""
     changelog = ctx.obj["changelog"]
+
+    if dry_run:
+        changelog.to_json()
+        print_dry_run(f"would write JSON output to {file_name}")
+        return
+
     changelog.write_to_json(file=file_name)
 
 
@@ -148,7 +186,7 @@ def to_json(ctx: Mapping, file_name: str) -> None:
 @option(
     "-t",
     "--change-type",
-    type=Choice(TypesOfChange),
+    type=Choice(TYPES_OF_CHANGE),
     help="Type of the change",
 )
 @option(
@@ -156,25 +194,35 @@ def to_json(ctx: Mapping, file_name: str) -> None:
     "--message",
     help="Changelog entry",
 )
+@dry_run_option
 @pass_context
-def add(ctx: Mapping, change_type: str, message: str) -> None:
+def add(ctx: Mapping, change_type: str, message: str, dry_run: bool) -> None:
     """Command to add a new message to the CHANGELOG.md"""
     changelog_entry = {}
 
     prompts = []
     if not change_type:
         prompts.append(
-            inquirer.List('change_type', message="Specify the type of your change", choices=TypesOfChange)
+            inquirer.List(
+                "change_type",
+                message="Specify the type of your change",
+                choices=TYPES_OF_CHANGE,
+            )
         )
 
     if not message:
         prompts.append(
-            inquirer.Text('message', message="Message of the changelog entry to add")
+            inquirer.Text("message", message="Message of the changelog entry to add")
         )
 
     if len(prompts) > 0:
         prompts.append(
-            inquirer.List('confirm', message="Apply changes to your CHANGELOG.md", choices=["Yes", "No"], default="Yes")
+            inquirer.List(
+                "confirm",
+                message="Apply changes to your CHANGELOG.md",
+                choices=["Yes", "No"],
+                default="Yes",
+            )
         )
         changelog_entry = inquirer.prompt(prompts)
 
@@ -183,9 +231,15 @@ def add(ctx: Mapping, change_type: str, message: str) -> None:
     changelog_entry.setdefault("confirm", "Yes")
 
     changelog = ctx.obj["changelog"]
-    changelog.add(change_type=changelog_entry["change_type"], message=changelog_entry["message"])
+    changelog.add(
+        change_type=changelog_entry["change_type"], message=changelog_entry["message"]
+    )
 
     if changelog_entry["confirm"] == "Yes":
+        if dry_run:
+            print_dry_run(f"would update {changelog.get_file_path()}")
+            return
+
         changelog.write_to_file()
 
 
@@ -197,11 +251,24 @@ def add(ctx: Mapping, change_type: str, message: str) -> None:
     default=True,
     help="Update/Create the GitHub Release in either Draft or Release state",
 )
+@dry_run_option
 @pass_context
-def github_release(ctx, repository: str, github_token: str, draft: bool) -> None:
+def github_release(
+    ctx, repository: str, github_token: str, draft: bool, dry_run: bool
+) -> None:
     """Deletes all releases marked as 'Draft' on GitHub and creates a new 'Draft'-release"""
 
     changelog = ctx.obj["changelog"]
+
+    if dry_run:
+        changelog.get(UNRELEASED_ENTRY)
+        future_version = changelog.suggest_future_version()
+        release_state = "draft" if draft else "published"
+        print_dry_run(
+            "would create or update "
+            f"{release_state} GitHub release v{future_version} in {repository}"
+        )
+        return
 
     github = GitHub(repository=repository, token=github_token)
     github.delete_draft_releases()
