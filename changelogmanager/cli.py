@@ -128,11 +128,17 @@ def resolve_config(config: str | None) -> str | None:
 
 
 def _config_source_text(args: argparse.Namespace, config_path: str | None) -> str:
-    if args.config:
+    config_arg = args.config if isinstance(args.config, str) else None
+    if config_arg:
         return f"explicit --config ({config_path})"
     if config_path:
         return f"auto-detected ({config_path})"
     return "built-in defaults"
+
+
+def _resolved_config_path(args: argparse.Namespace) -> str | None:
+    resolved = getattr(args, "_resolved_config", None)
+    return resolved if isinstance(resolved, str) else None
 
 
 def _config_prompt_choices(
@@ -350,10 +356,11 @@ def command_config(args: argparse.Namespace, ctx: CliContext) -> None:
     """Shows the effective configuration and its origin."""
 
     logger.info("Running config command")
-    resolved_config = getattr(args, "_resolved_config", None)
-    if args.config and not Path(args.config).is_file():
+    resolved_config = _resolved_config_path(args)
+    config_arg = args.config if isinstance(args.config, str) else None
+    if config_arg and not Path(config_arg).is_file():
         raise logging.Error(
-            file_path=args.config, message="Configuration file not found"
+            file_path=config_arg, message="Configuration file not found"
         )
 
     active_path = (
@@ -377,24 +384,26 @@ def command_config_init(args: argparse.Namespace, ctx: CliContext) -> None:
     """Creates or updates configuration interactively."""
 
     logger.info("Running config init command")
-    resolved_config = getattr(args, "_resolved_config", None)
+    resolved_config = _resolved_config_path(args)
+    config_arg = args.config if isinstance(args.config, str) else None
     existing_path = (
         resolved_config if resolved_config and Path(resolved_config).is_file() else None
     )
     existing_config = get_effective_configuration(existing_path)
-    default_format = (
-        config_format_from_path(args.config or existing_path)
-        if (args.config or existing_path)
-        else "pyproject"
-    )
+    if config_arg:
+        default_format = config_format_from_path(config_arg)
+    elif existing_path:
+        default_format = config_format_from_path(existing_path)
+    else:
+        default_format = "pyproject"
     answers = prompt_for_config_init(
         existing_config,
         default_format=default_format,
-        prompt_for_format=args.config is None,
+        prompt_for_format=config_arg is None,
     )
     target_path = (
-        args.config
-        if args.config
+        config_arg
+        if config_arg
         else (
             existing_path
             if existing_path
@@ -533,7 +542,7 @@ def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
         return
 
     # --fix mode: re-read with autofix, normalise, and write back.
-    config = getattr(args, "_resolved_config", None)
+    config = _resolved_config_path(args)
     enforce_preamble = bool(
         get_validation_options(config).get("enforce_preamble", False)
     )
@@ -1037,6 +1046,11 @@ def run_validate_all(
     for component in components:
         path = component.get("changelog")
         name = component.get("name")
+        if not isinstance(path, str) or not isinstance(name, str):
+            raise logging.Error(
+                file_path=config_path,
+                message="Each component must define string 'name' and 'changelog' values",
+            )
         if changed is not None and Path(path).as_posix() not in changed:
             logger.info("Skipping unchanged component %s at %s", name, path)
             summaries.append({"component": name, "path": path, "status": "skipped"})
@@ -1398,8 +1412,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
             return run_gui()
 
-        resolved_config = resolve_config(args.config)
-        args._resolved_config = resolved_config  # type: ignore[attr-defined]
+        config_arg = args.config if isinstance(args.config, str) else None
+        resolved_config = resolve_config(config_arg)
+        args._resolved_config = resolved_config
 
         # --all branch for validate uses an aggregate flow, no single changelog load.
         if args.command == "validate" and getattr(args, "all_components", False):

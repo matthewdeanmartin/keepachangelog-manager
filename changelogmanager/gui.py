@@ -8,6 +8,7 @@ import io
 import os
 import sys
 import traceback
+from collections.abc import Callable
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any
@@ -225,7 +226,7 @@ class ChangelogManagerGUI:
                 left,
                 text=command,
                 width=18,
-                command=lambda c=command: self._on_command_button(c),
+                command=self._command_button_callback(command),
             ).pack(padx=6, pady=3, anchor="w")
 
     def _build_center_panel(self, parent: ttk.Frame) -> None:
@@ -302,12 +303,12 @@ class ChangelogManagerGUI:
         ttk.Button(
             run_row,
             text=f"Run {command}",
-            command=lambda c=command: self._run_command(c),
+            command=self._run_command_callback(command),
         ).pack(side=tk.LEFT)
         ttk.Button(
             run_row,
             text="Clear output",
-            command=lambda c=command: self._clear_output(c),
+            command=self._clear_output_callback(command),
         ).pack(side=tk.LEFT, padx=6)
 
         output = scrolledtext.ScrolledText(frame, wrap=tk.WORD, height=20)
@@ -338,12 +339,36 @@ class ChangelogManagerGUI:
     # ------------------------------------------------------------------
     # Event handlers
     # ------------------------------------------------------------------
+    def _command_button_callback(self, command: str) -> Callable[[], None]:
+        def callback() -> None:
+            self._on_command_button(command)
+
+        return callback
+
+    def _run_command_callback(self, command: str) -> Callable[[], None]:
+        def callback() -> None:
+            self._run_command(command)
+
+        return callback
+
+    def _clear_output_callback(self, command: str) -> Callable[[], None]:
+        def callback() -> None:
+            self._clear_output(command)
+
+        return callback
+
+    def _select_notebook_tab(self, tab: ttk.Frame) -> None:
+        self.notebook.tk.call(str(self.notebook), "select", str(tab))
+
+    def _current_notebook_tab_text(self) -> str:
+        tab_id = str(self.notebook.tk.call(str(self.notebook), "select"))
+        return str(self.notebook.tk.call(str(self.notebook), "tab", tab_id, "-text"))
+
     def _on_command_button(self, command: str) -> None:
-        self.notebook.select(self._tab_frames[command])
+        self._select_notebook_tab(self._tab_frames[command])
 
     def _on_tab_changed(self, _event: Any) -> None:
-        tab_id = self.notebook.select()
-        tab_text = self.notebook.tab(tab_id, "text")
+        tab_text = self._current_notebook_tab_text()
         self._current_command = tab_text
         self._show_help(tab_text)
 

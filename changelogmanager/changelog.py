@@ -29,6 +29,17 @@ INITIAL_VERSION = Version("0.0.1")
 logger = get_logger(__name__)
 
 
+def _require_string_entries(
+    entries: object, *, file_path: str, change_type: str
+) -> list[str]:
+    if not isinstance(entries, list) or not all(isinstance(entry, str) for entry in entries):
+        raise logging.Error(
+            file_path=file_path,
+            message=f"Invalid '{change_type}' entries in [Unreleased]",
+        )
+    return entries
+
+
 class Changelog:
     """Changelog"""
 
@@ -121,7 +132,11 @@ class Changelog:
                 message="Unable to remove without [Unreleased] section",
             )
         unreleased = self.__changelog[UNRELEASED_ENTRY]
-        entries = unreleased.get(change_type)
+        entries = _require_string_entries(
+            unreleased.get(change_type),
+            file_path=self.get_file_path(),
+            change_type=change_type,
+        )
         if not entries:
             raise logging.Error(
                 file_path=self.get_file_path(),
@@ -161,7 +176,11 @@ class Changelog:
                 message="Unable to edit without [Unreleased] section",
             )
         unreleased = self.__changelog[UNRELEASED_ENTRY]
-        entries = unreleased.get(change_type)
+        entries = _require_string_entries(
+            unreleased.get(change_type),
+            file_path=self.get_file_path(),
+            change_type=change_type,
+        )
         if not entries:
             raise logging.Error(
                 file_path=self.get_file_path(),

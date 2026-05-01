@@ -19,15 +19,16 @@ logger = get_logger(__name__)
 
 
 class Traversable(Protocol):
-    """Protocol for importlib resource traversables."""
+    """Protocol for bundled resource traversables."""
 
-    name: str
+    @property
+    def name(self) -> str: ...
 
     def is_dir(self) -> bool: ...
 
     def iterdir(self) -> Iterator[Traversable]: ...
 
-    def joinpath(self, child: str) -> Traversable: ...
+    def joinpath(self, child: str, /) -> Traversable: ...
 
     def read_bytes(self) -> bytes: ...
 

@@ -19,11 +19,11 @@ try:
     _HAS_TOMLLIB = True
 except ImportError:  # Python < 3.11
     try:
-        import tomli as tomllib  # type: ignore[import-not-found,no-redef]
+        import tomli as tomllib  # type: ignore[import-not-found]
 
         _HAS_TOMLLIB = True
     except ImportError:
-        tomllib = None  # type: ignore[assignment]
+        tomllib = None
         _HAS_TOMLLIB = False
 
 
@@ -35,13 +35,15 @@ CONFIG_FILE_CANDIDATES = (
 )
 PYPROJECT_FILE = "pyproject.toml"
 DEFAULT_CONFIG_FILE = CONFIG_FILE_CANDIDATES[0]
+DEFAULT_COMMIT_STYLE = "conventional"
+DEFAULT_VERSIONING_SCHEME = "semver"
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "project": {
         "components": [{"name": "default", "changelog": "CHANGELOG.md"}],
         "validation": {"enforce_preamble": False},
-        "commits": {"style": "conventional"},
-        "versioning": {"scheme": "semver"},
+        "commits": {"style": DEFAULT_COMMIT_STYLE},
+        "versioning": {"scheme": DEFAULT_VERSIONING_SCHEME},
     }
 }
 
@@ -115,7 +117,7 @@ def _load_yaml(path: Path) -> dict[str, Any]:
         raise logging.Error(
             file_path=str(path), message="Configuration file is not a mapping"
         )
-    return data
+    return dict(data)
 
 
 def _load_pyproject(path: Path) -> dict[str, Any]:
@@ -131,12 +133,12 @@ def _load_pyproject(path: Path) -> dict[str, Any]:
     with path.open("rb") as file_handle:
         data = tomllib.load(file_handle)
     tool_section = data.get("tool", {}).get("changelogmanager")
-    if not tool_section:
+    if not isinstance(tool_section, Mapping) or not tool_section:
         raise logging.Error(
             file_path=str(path),
             message="No [tool.changelogmanager] section found in pyproject.toml",
         )
-    return tool_section
+    return dict(tool_section)
 
 
 def auto_detect_config(start_dir: Optional[Path] = None) -> Optional[str]:
@@ -233,9 +235,9 @@ def get_validation_options(config: Optional[str]) -> dict[str, Any]:
         return {}
     project = configuration.get("project", {}) or {}
     validation = project.get("validation", {}) or {}
-    if not isinstance(validation, dict):
+    if not isinstance(validation, Mapping):
         return {}
-    return validation
+    return dict(validation)
 
 
 def get_commit_style(config: Optional[str]) -> str:
@@ -244,10 +246,12 @@ def get_commit_style(config: Optional[str]) -> str:
     logger.log(VERBOSE, "Resolving commit style from %s", config or "<defaults>")
     configuration = get_effective_configuration(config)
     commits = configuration.get("project", {}).get("commits", {}) or {}
-    style = commits.get("style", DEFAULT_CONFIG["project"]["commits"]["style"])
+    style = commits.get("style", DEFAULT_COMMIT_STYLE)
+    if not isinstance(style, str):
+        return DEFAULT_COMMIT_STYLE
     if style not in COMMIT_STYLE_LABELS:
-        return DEFAULT_CONFIG["project"]["commits"]["style"]
-    return str(style)
+        return DEFAULT_COMMIT_STYLE
+    return style
 
 
 def get_versioning_scheme(config: Optional[str]) -> str:
@@ -256,10 +260,12 @@ def get_versioning_scheme(config: Optional[str]) -> str:
     logger.log(VERBOSE, "Resolving versioning scheme from %s", config or "<defaults>")
     configuration = get_effective_configuration(config)
     versioning = configuration.get("project", {}).get("versioning", {}) or {}
-    scheme = versioning.get("scheme", DEFAULT_CONFIG["project"]["versioning"]["scheme"])
+    scheme = versioning.get("scheme", DEFAULT_VERSIONING_SCHEME)
+    if not isinstance(scheme, str):
+        return DEFAULT_VERSIONING_SCHEME
     if scheme not in VERSIONING_SCHEMES:
-        return DEFAULT_CONFIG["project"]["versioning"]["scheme"]
-    return str(scheme)
+        return DEFAULT_VERSIONING_SCHEME
+    return scheme
 
 
 def get_versioning_label(scheme: str) -> str:
