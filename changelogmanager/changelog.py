@@ -6,10 +6,10 @@ import json
 import os
 from collections import OrderedDict
 from datetime import datetime
-from typing import Mapping, Optional
+from typing import Any, Dict, Mapping, Optional
 
-import keepachangelog
-from semantic_version import Version
+import keepachangelog  # type: ignore
+from semantic_version import Version  # type: ignore
 
 import changelogmanager._llvm_diagnostics as logging
 from changelogmanager.change_types import (CATEGORIES, DEFAULT_CHANGELOG_FILE,
@@ -22,20 +22,22 @@ class Changelog:
     """Changelog"""
 
     def __init__(
-        self, file_path: str = DEFAULT_CHANGELOG_FILE, changelog: Optional[str] = None
-    ):
+        self,
+        file_path: str = DEFAULT_CHANGELOG_FILE,
+        changelog: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """Constructor"""
         self.__changelog_file_path = file_path
         self.__changelog = changelog if changelog else {}
 
-    def get_file_path(self):
+    def get_file_path(self) -> str:
         """Returns the path to the changelog file"""
         return self.__changelog_file_path
 
     def add(self, change_type: str, message: str) -> None:
         """Adds a new message to the specified change identifier in the Changelog"""
 
-        changelog = OrderedDict(self.__changelog.copy())
+        changelog: OrderedDict[str, Any] = OrderedDict(self.__changelog.copy())
 
         changelog.setdefault(
             UNRELEASED_ENTRY,
@@ -52,13 +54,13 @@ class Changelog:
         # Ensure that the new entry is on top
         changelog.move_to_end(UNRELEASED_ENTRY, last=False)
 
-        self.__changelog = changelog.copy()
+        self.__changelog = dict(changelog)
 
-    def exists(self):
+    def exists(self) -> bool:
         """Verifies if the Changelog file exists"""
         return os.path.isfile(self.__changelog_file_path)
 
-    def get(self, version: Optional[str] = None) -> Mapping:
+    def get(self, version: Optional[str] = None) -> Mapping[str, Any]:
         """Returns the specified version"""
 
         if not version:
@@ -70,7 +72,8 @@ class Changelog:
                 message=f"Version '{version}' not available in the Changelog",
             )
 
-        return self.__changelog[str(version)]
+        res: Mapping[str, Any] = self.__changelog[str(version)]
+        return res
 
     def release(self, override_version: Optional[str] = None) -> None:
         """Releases the Unreleased version"""
@@ -110,10 +113,12 @@ class Changelog:
                 ),
             )
 
-        def update_unreleased_version(changelog: Mapping, new_version: Version):
-            changelog = OrderedDict(changelog.copy())
-            changelog[str(new_version)] = changelog.pop(UNRELEASED_ENTRY)
-            changelog[str(new_version)]["metadata"] = {
+        def update_unreleased_version(
+            changelog_in: Dict[str, Any], new_version: Version
+        ) -> OrderedDict[str, Any]:
+            changelog_out = OrderedDict(changelog_in.copy())
+            changelog_out[str(new_version)] = changelog_out.pop(UNRELEASED_ENTRY)
+            changelog_out[str(new_version)]["metadata"] = {
                 "version": str(new_version),
                 "release_date": datetime.now().strftime("%Y-%m-%d"),
                 "semantic_version": {
@@ -126,11 +131,11 @@ class Changelog:
             }
 
             # Ensure that the new entry is on top
-            changelog.move_to_end(str(new_version), last=False)
+            changelog_out.move_to_end(str(new_version), last=False)
 
-            return changelog
+            return changelog_out
 
-        self.__changelog = update_unreleased_version(self.__changelog, _version)
+        self.__changelog = dict(update_unreleased_version(self.__changelog, _version))
 
     def version(self) -> Version:
         """Returns the last released version"""
@@ -175,7 +180,7 @@ class Changelog:
         if self.__has_only_unreleased_version():
             return INITIAL_VERSION
 
-        def determine_version(unreleased: Mapping, prev_version: Version):
+        def determine_version(unreleased: Mapping[str, Any], prev_version: Version) -> Version:
             bump_type = VersionCore.PATCH
             for identifier, category in CATEGORIES.items():
                 if identifier in unreleased and category.bump.value > bump_type.value:
@@ -210,11 +215,11 @@ class Changelog:
         with open(self.__changelog_file_path, "w", encoding="UTF-8") as file_handle:
             file_handle.write(str(self))
 
-    def __has_only_unreleased_version(self):
+    def __has_only_unreleased_version(self) -> bool:
         """Returns True when the changelog only contains an Unreleased version"""
         return UNRELEASED_ENTRY in self.__changelog and len(self.__changelog) == 1
 
-    def __str__(self):
+    def __str__(self) -> str:
         """String representation"""
 
-        return keepachangelog.from_dict(self.__changelog)
+        return str(keepachangelog.from_dict(self.__changelog))

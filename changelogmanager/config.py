@@ -2,14 +2,14 @@
 
 """Configuration Management"""
 
-from typing import Mapping, Sequence
+from typing import Any, Dict, Mapping, Sequence
 
 import yaml
 
 import changelogmanager._llvm_diagnostics as logging
 
 
-def validate_configuration(file_path: str, config: Mapping):
+def validate_configuration(file_path: str, config: Mapping[str, Any]) -> None:
     """Verifies if the provided configuration file is accoriding to expectations"""
     if not config.get("project") or not config["project"].get("components"):
         raise logging.Error(
@@ -23,20 +23,22 @@ def validate_configuration(file_path: str, config: Mapping):
             )
 
 
-def get_component_from_config(config: str, component: str):
+def get_component_from_config(config: str, component: str) -> Dict[str, Any]:
     """Retrieves a specific component from the configuration file"""
     with open(config, "r", encoding="UTF-8") as file_handle:
         configuration = yaml.safe_load(file_handle)
 
     validate_configuration(config, configuration)
 
-    project = configuration.get("project")
+    project = configuration.get("project", {})
 
-    def filter_component(components: Sequence, name: str) -> Mapping:
+    def filter_component(
+        components: Sequence[Dict[str, Any]], name: str
+    ) -> Dict[str, Any]:
         for component in components:
             if component.get("name") == name:
                 return component
 
         raise logging.Error(file_path=config, message=f"Unknown component name: {name}")
 
-    return filter_component(project.get("components"), component)
+    return filter_component(project.get("components", []), component)

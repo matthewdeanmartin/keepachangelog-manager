@@ -7,7 +7,7 @@ import sys
 from changelogmanager import cli
 
 
-def main():
+def main() -> None:
     """Entrypoint."""
 
     sys.exit(cli.main())

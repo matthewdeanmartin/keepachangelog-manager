@@ -6,7 +6,7 @@ import json
 import os
 from enum import Enum
 from textwrap import dedent
-from typing import Mapping, Optional, Sequence
+from typing import Any, Dict, Mapping, Optional, Sequence
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -28,7 +28,7 @@ class HttpMethods(Enum):
 class GitHub:
     """GitHub"""
 
-    def __init__(self, repository: str, token: str):
+    def __init__(self, repository: str, token: str) -> None:
         """Constructor"""
 
         self.__repository = repository
@@ -38,18 +38,18 @@ class GitHub:
         }
 
     def __github_request(
-        self, api: str, method: HttpMethods, data: Optional[Mapping] = None
-    ):
+        self, api: str, method: HttpMethods, data: Optional[Mapping[str, Any]] = None
+    ) -> Optional[Any]:
         url = f"https://api.github.com/repos/{self.__repository}/{api}"
 
         request = Request(
             method=method.value,
             url=url,
-            data=json.dumps(data).encode(),
+            data=json.dumps(data).encode() if data else None,
             headers=self.__headers,
         )
 
-        response = []
+        response = ""
         try:
             with urlopen(request) as resp:  # nosec
                 response = resp.read().decode()
@@ -59,15 +59,19 @@ class GitHub:
 
             return json.loads(response)
         except URLError as url_error:
-            raise logging.Error(message=dedent(f"""
+            raise logging.Error(
+                message=dedent(
+                    f"""
                 Failure during GitHub request:
                   URL:    {url}
                   Method: {method.value}
-                  Data:   {data}""")) from url_error
+                  Data:   {data}"""
+                )
+            ) from url_error
 
-    def get_releases(self) -> Sequence:
+    def get_releases(self) -> Sequence[Dict[str, Any]]:
         """Retrieves available releases"""
-        releases = []
+        releases: list[Dict[str, Any]] = []
         index = 1
 
         while True:
@@ -79,6 +83,9 @@ class GitHub:
                     "page": index,
                 },
             )
+
+            if not data:
+                break
 
             releases.extend(data)
 
@@ -98,17 +105,17 @@ class GitHub:
             if rel.get("draft"):
                 self.delete_release(rel)
 
-    def delete_release(self, release: Mapping) -> None:
+    def delete_release(self, release: Mapping[str, Any]) -> None:
         """Deletes a release"""
 
         self.__github_request(
             method=HttpMethods.DELETE, api=f"releases/{release.get('id')}"
         )
 
-    def create_release(self, changelog: Changelog, draft: bool):
+    def create_release(self, changelog: Changelog, draft: bool) -> None:
         """Creates a new release on GitHub"""
 
-        def generate_release_notes(release: Mapping):
+        def generate_release_notes(release: Mapping[str, Any]) -> str:
             body = "## What's changed" + os.linesep + os.linesep
             body += os.linesep.join(
                 [

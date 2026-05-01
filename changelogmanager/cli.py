@@ -8,7 +8,7 @@ import argparse
 from dataclasses import dataclass
 from typing import Optional, Sequence
 
-import inquirer
+import inquirer  # type: ignore
 
 import changelogmanager._llvm_diagnostics as logging
 from changelogmanager.change_types import TYPES_OF_CHANGE, UNRELEASED_ENTRY
@@ -59,12 +59,12 @@ def load_changelog(config: Optional[str], component: str, input_file: str) -> Ch
 
     if config:
         component_config = get_component_from_config(config=config, component=component)
-        file_path = component_config.get("changelog")
+        file_path = component_config.get("changelog", input_file)
     else:
         file_path = input_file
 
-    changelog = ChangelogReader(file_path=file_path).read()
-    return Changelog(file_path=file_path, changelog=changelog)
+    changelog_dict = ChangelogReader(file_path=file_path).read()
+    return Changelog(file_path=file_path, changelog=changelog_dict)
 
 
 def command_create(args: argparse.Namespace, ctx: CliContext) -> None:
@@ -135,7 +135,7 @@ def prompt_for_missing_add_arguments(
     """Prompts for any missing add arguments."""
 
     changelog_entry: dict[str, str] = {}
-    prompts = []
+    prompts: list[inquirer.questions.Question] = []
 
     if not change_type:
         prompts.append(
@@ -162,8 +162,10 @@ def prompt_for_missing_add_arguments(
         )
         changelog_entry = inquirer.prompt(prompts) or {}
 
-    changelog_entry.setdefault("change_type", change_type)
-    changelog_entry.setdefault("message", message)
+    if change_type:
+        changelog_entry.setdefault("change_type", change_type)
+    if message:
+        changelog_entry.setdefault("message", message)
     changelog_entry.setdefault("confirm", "Yes")
     return changelog_entry
 

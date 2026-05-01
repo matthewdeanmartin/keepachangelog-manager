@@ -5,8 +5,10 @@
 from dataclasses import dataclass
 from enum import Enum
 
-UNRELEASED_ENTRY = "unreleased"
-DEFAULT_CHANGELOG_FILE = "CHANGELOG.md"
+from typing import Dict, List
+
+UNRELEASED_ENTRY: str = "unreleased"
+DEFAULT_CHANGELOG_FILE: str = "CHANGELOG.md"
 
 
 class VersionCore(Enum):
@@ -26,7 +28,7 @@ class Category:
     bump: VersionCore
 
 
-CATEGORIES = {
+CATEGORIES: Dict[str, Category] = {
     "added": Category(emoji="rocket", title="New Features", bump=VersionCore.MINOR),
     "changed": Category(
         emoji="scissors", title="Updated Features", bump=VersionCore.PATCH
@@ -41,4 +43,4 @@ CATEGORIES = {
     ),
 }
 
-TYPES_OF_CHANGE = list(CATEGORIES.keys())
+TYPES_OF_CHANGE: List[str] = list(CATEGORIES.keys())

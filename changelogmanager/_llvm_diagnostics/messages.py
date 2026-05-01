@@ -18,11 +18,11 @@ class Range:
     start: int = 1
     range: Optional[int] = None
 
-    def end(self):
+    def end(self) -> int:
         """Returns the last index of the Range"""
-        return self.start + self.range
+        return self.start + (self.range if self.range is not None else 0)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.start, self.range))
 
 
@@ -31,17 +31,18 @@ class __Message(Exception):  # pylint: disable=C0103
     """Diagnostics Message"""
 
     message: str
+    level: Level = Level.NOTE
     file_path: Optional[str] = None
     column_number: Range = Range()
     expectations: Optional[str] = None
     line: Optional[str] = None
     line_number: Range = Range()
 
-    def report(self):
+    def report(self) -> None:
         """Formats the Diagnostics message and sends it to `stderr`"""
         print(self, file=stderr)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Formats the Diagnostics message"""
         return formatters.get_config().format(message=self)
 

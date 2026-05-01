@@ -20,12 +20,12 @@ class TextFormat(Enum):
     CYAN = 94
 
 
-def format_string(string: str, color: TextFormat):
+def format_string(string: str, color: TextFormat) -> str:
     """Applies ANSI code formatting to string"""
     return f"\033[{color.value}m{string}\033[0m"
 
 
-def strip_ansi_escape_chars(string: str):
+def strip_ansi_escape_chars(string: str) -> str:
     """Removes all ANSI code characters from string"""
     return _ANSI_ESCAPE.sub("", string)
 

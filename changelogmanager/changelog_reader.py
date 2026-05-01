@@ -5,10 +5,10 @@
 import datetime
 import os
 import re
-from typing import Mapping
+from typing import Any, Dict, Generator, Mapping, Optional
 
-import keepachangelog
-from semantic_version import Version
+import keepachangelog  # type: ignore
+from semantic_version import Version  # type: ignore
 
 import changelogmanager._llvm_diagnostics as logging
 from changelogmanager.change_types import (DEFAULT_CHANGELOG_FILE,
@@ -21,12 +21,12 @@ class ChangelogReader:
     def __init__(
         self,
         file_path: str = DEFAULT_CHANGELOG_FILE,
-    ):
+    ) -> None:
         """Constructor"""
 
         self.__file_path = file_path
 
-    def read(self):
+    def read(self) -> Dict[str, Any]:
         """Reads the CHANGELOG.md file and checks for validity"""
 
         if not os.path.isfile(self.__file_path):
@@ -40,13 +40,17 @@ class ChangelogReader:
                 message=f"{errors} errors detected in the layout",
             )
 
-        changelog = keepachangelog.to_dict(self.__file_path, show_unreleased=True)
+        changelog: Dict[str, Any] = keepachangelog.to_dict(
+            self.__file_path, show_unreleased=True
+        )
 
         self.validate_contents(changelog)
 
         return changelog
 
-    def __validate_change_heading(self, line_number, line, depth, content):
+    def __validate_change_heading(
+        self, line_number: int, line: str, depth: int, content: str
+    ) -> Generator[logging.Error, None, None]:
         """Check if acceptable keywords are present"""
 
         accepted_types = [change_type.title() for change_type in TYPES_OF_CHANGE]
@@ -64,7 +68,9 @@ class ChangelogReader:
                 ),
             )
 
-    def __validate_version_heading(self, line_number, line, depth, content):
+    def __validate_version_heading(
+        self, line_number: int, line: str, depth: int, content: str
+    ) -> Generator[logging.Error, None, None]:
         # Check if version tag ([x.y.z]) is present
         match = re.compile(r"\[(.*)\](.*)").match(content)
 
@@ -78,23 +84,23 @@ class ChangelogReader:
             )
             return
 
-        version = match.group(1)
+        version_str = match.group(1)
 
-        if version == UNRELEASED_ENTRY.title():
+        if version_str == UNRELEASED_ENTRY.title():
             return
 
         # Verify that the version is valid SemVer syntax
         try:
-            version = Version(version)
+            version = Version(version_str)
         except ValueError:
             yield logging.Error(
                 file_path=self.__file_path,
                 line=line,
                 line_number=logging.Range(start=line_number),
                 column_number=logging.Range(
-                    start=line.find("[") + 2, range=len(version)
+                    start=line.find("[") + 2, range=len(version_str)
                 ),
-                message=f"Incompatible version '{version}' specified, MUST be SemVer compliant",
+                message=f"Incompatible version '{version_str}' specified, MUST be SemVer compliant",
             )
             return
 
@@ -148,7 +154,9 @@ class ChangelogReader:
                 ),
             )
 
-    def __validate_heading(self, line_number, line):
+    def __validate_heading(
+        self, line_number: int, line: str
+    ) -> Generator[logging.Error, None, None]:
         match = re.compile(r"^(#{1,6}) (.*)").match(line)
 
         if not match:
@@ -181,7 +189,9 @@ class ChangelogReader:
                 line_number=line_number, line=line, depth=depth, content=content
             )
 
-    def __validate_entry(self, line_number, line):
+    def __validate_entry(
+        self, line_number: int, line: str
+    ) -> Generator[logging.Error, None, None]:
         match = re.compile(r"(\s*)[-+*] (.*)").match(line)
 
         if not match:
@@ -231,7 +241,7 @@ class ChangelogReader:
                     message=rule["error"],
                 )
 
-    def validate_layout(self):
+    def validate_layout(self) -> int:
         """Validates the changelog file according to KeepAChangelog conventions"""
 
         line_number = 1
@@ -247,11 +257,11 @@ class ChangelogReader:
 
         return len(errors)
 
-    def validate_contents(self, changelog: Mapping):
+    def validate_contents(self, changelog: Mapping[str, Any]) -> None:
         """Validates the contents of the CHANGELOG.md file"""
 
         is_first_entry = True
-        prev_version = None
+        prev_version: Optional[Version] = None
         message = logging.Warning(
             file_path=self.__file_path,
             message="Unknown warning",
