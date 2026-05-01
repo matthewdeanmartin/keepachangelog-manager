@@ -96,6 +96,7 @@ class ChangelogReader:
                 ),
                 message=f"Incompatible version '{version}' specified, MUST be SemVer compliant",
             )
+            return
 
         # Validate the availability of meta data (' - ')
         match = re.compile(r" - (.*)").match(match.group(2))
@@ -181,13 +182,24 @@ class ChangelogReader:
             )
 
     def __validate_entry(self, line_number, line):
-        match = re.compile(r"[-+*] (.*)").match(line)
+        match = re.compile(r"(\s*)[-+*] (.*)").match(line)
 
         if not match:
             # Not an entry, no validation required.
             return
 
-        entry = match.group(1)
+        indent = match.group(1)
+        entry = match.group(2)
+
+        if indent:
+            yield logging.Error(
+                file_path=self.__file_path,
+                line=line,
+                line_number=logging.Range(start=line_number),
+                column_number=logging.Range(start=1, range=len(indent)),
+                message="Sub-lists are not permitted in changelog entries",
+            )
+            return
 
         rules = [
             {
