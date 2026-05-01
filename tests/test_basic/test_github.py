@@ -6,7 +6,7 @@ import pytest
 import changelogmanager._llvm_diagnostics as logging
 from changelogmanager.change_types import UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
-from changelogmanager.github import GitHub, HttpMethods, RELEASES_CHUNK_SIZE
+from changelogmanager.github import RELEASES_CHUNK_SIZE, GitHub, HttpMethods
 
 
 def test_get_releases_paginates_until_partial_page(monkeypatch):

@@ -4,9 +4,10 @@
 
 import json
 import os
+from collections.abc import Mapping, Sequence
 from enum import Enum
 from textwrap import dedent
-from typing import Any, Dict, Mapping, Optional, Sequence
+from typing import Any, Optional
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -69,9 +70,9 @@ class GitHub:
                 )
             ) from url_error
 
-    def get_releases(self) -> Sequence[Dict[str, Any]]:
+    def get_releases(self) -> Sequence[dict[str, Any]]:
         """Retrieves available releases"""
-        releases: list[Dict[str, Any]] = []
+        releases: list[dict[str, Any]] = []
         index = 1
 
         while True:

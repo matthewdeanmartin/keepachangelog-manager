@@ -2,7 +2,9 @@
 
 """Configuration Management"""
 
-from typing import Any, Dict, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -23,9 +25,9 @@ def validate_configuration(file_path: str, config: Mapping[str, Any]) -> None:
             )
 
 
-def get_component_from_config(config: str, component: str) -> Dict[str, Any]:
+def get_component_from_config(config: str, component: str) -> dict[str, Any]:
     """Retrieves a specific component from the configuration file"""
-    with open(config, "r", encoding="UTF-8") as file_handle:
+    with Path(config).open(encoding="UTF-8") as file_handle:
         configuration = yaml.safe_load(file_handle)
 
     validate_configuration(config, configuration)
@@ -33,8 +35,8 @@ def get_component_from_config(config: str, component: str) -> Dict[str, Any]:
     project = configuration.get("project", {})
 
     def filter_component(
-        components: Sequence[Dict[str, Any]], name: str
-    ) -> Dict[str, Any]:
+        components: Sequence[dict[str, Any]], name: str
+    ) -> dict[str, Any]:
         for component in components:
             if component.get("name") == name:
                 return component

@@ -7,7 +7,6 @@ import pytest
 import changelogmanager._llvm_diagnostics as logging
 from changelogmanager.config import get_component_from_config, validate_configuration
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

@@ -7,7 +7,6 @@ import pytest
 import changelogmanager._llvm_diagnostics as logging
 from changelogmanager.changelog_reader import ChangelogReader
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

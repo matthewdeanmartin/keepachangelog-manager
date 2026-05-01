@@ -7,7 +7,7 @@ from semantic_version import Version
 
 import changelogmanager._llvm_diagnostics as logging
 from changelogmanager.change_types import UNRELEASED_ENTRY
-from changelogmanager.changelog import Changelog, INITIAL_VERSION
+from changelogmanager.changelog import INITIAL_VERSION, Changelog
 
 
 def released_entry(version, release_date="2024-01-01", **sections):

@@ -4,8 +4,7 @@
 """Diagnostic Message Formatters"""
 
 import os
-import sys
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from changelogmanager._llvm_diagnostics import utils
 from changelogmanager._llvm_diagnostics.utils import Level
@@ -13,11 +12,7 @@ from changelogmanager._llvm_diagnostics.utils import Level
 if TYPE_CHECKING:
     from changelogmanager._llvm_diagnostics.messages import __Message
 
-if sys.version_info >= (3, 8):
-    from typing import Protocol
-else:
-    from typing_extensions import Protocol
-
+from typing import Protocol
 
 # pylint: disable=R0903
 

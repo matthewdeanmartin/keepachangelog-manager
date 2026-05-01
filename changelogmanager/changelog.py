@@ -3,17 +3,17 @@
 """Changelog"""
 
 import json
-import os
 from collections import OrderedDict
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Any, Dict, Mapping, Optional
+from pathlib import Path
+from typing import Any, Optional
 
 import keepachangelog  # type: ignore
 from semantic_version import Version  # type: ignore
 
 import changelogmanager._llvm_diagnostics as logging
-from changelogmanager.change_types import (CATEGORIES, DEFAULT_CHANGELOG_FILE,
-                                           UNRELEASED_ENTRY, VersionCore)
+from changelogmanager.change_types import CATEGORIES, DEFAULT_CHANGELOG_FILE, UNRELEASED_ENTRY, VersionCore
 
 INITIAL_VERSION = Version("0.0.1")
 
@@ -24,7 +24,7 @@ class Changelog:
     def __init__(
         self,
         file_path: str = DEFAULT_CHANGELOG_FILE,
-        changelog: Optional[Dict[str, Any]] = None,
+        changelog: Optional[dict[str, Any]] = None,
     ) -> None:
         """Constructor"""
         self.__changelog_file_path = file_path
@@ -58,7 +58,7 @@ class Changelog:
 
     def exists(self) -> bool:
         """Verifies if the Changelog file exists"""
-        return os.path.isfile(self.__changelog_file_path)
+        return Path(self.__changelog_file_path).is_file()
 
     def get(self, version: Optional[str] = None) -> Mapping[str, Any]:
         """Returns the specified version"""
@@ -98,7 +98,7 @@ class Changelog:
             _message = f"Version '{override_version}' is not SemVer compliant"
             raise logging.Error(message=_message) from exc_info
 
-        if str(_version) in self.get().keys():
+        if str(_version) in self.get():
             raise logging.Error(
                 file_path=self.get_file_path(),
                 message=f"Unable to release an already released version '{_version}'",
@@ -114,7 +114,7 @@ class Changelog:
             )
 
         def update_unreleased_version(
-            changelog_in: Dict[str, Any], new_version: Version
+            changelog_in: dict[str, Any], new_version: Version
         ) -> OrderedDict[str, Any]:
             changelog_out = OrderedDict(changelog_in.copy())
             changelog_out[str(new_version)] = changelog_out.pop(UNRELEASED_ENTRY)
@@ -199,7 +199,7 @@ class Changelog:
     def write_to_json(self, file: str, version: Optional[str] = None) -> None:
         """Stores the Changelog file in JSON format"""
 
-        with open(file, "w", encoding="UTF-8") as file_handle:
+        with Path(file).open("w", encoding="UTF-8") as file_handle:
             file_handle.write(self.to_json(version=version))
 
     def to_json(self, version: Optional[str] = None) -> str:
@@ -212,7 +212,7 @@ class Changelog:
     def write_to_file(self) -> None:
         """Updates CHANGELOG.md based on the Keep a Changelog standard"""
 
-        with open(self.__changelog_file_path, "w", encoding="UTF-8") as file_handle:
+        with Path(self.__changelog_file_path).open("w", encoding="UTF-8") as file_handle:
             file_handle.write(str(self))
 
     def __has_only_unreleased_version(self) -> bool:

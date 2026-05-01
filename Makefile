@@ -3,7 +3,7 @@ PACKAGE = changelogmanager
 BUILD_DIR = build
 PYLINT_TEMPLATE = {path}:{line}: [{msg_id}({symbol}),{obj}] {msg}
 
-.PHONY: help sync clean format format-check test flake8 pylint mypy bandit lint quality build validate
+.PHONY: help sync clean format format-check test flake8 pylint mypy bandit lint quality build validate ruff
 
 help:
 	@echo Available targets:
@@ -14,8 +14,9 @@ help:
 	@echo   flake8        Run flake8 and write JUnit XML output
 	@echo   pylint        Run pylint and write a text report
 	@echo   mypy          Run mypy type checking
+	@echo   ruff          Run ruff check
 	@echo   bandit        Run bandit and write a JSON report
-	@echo   lint          Run flake8, pylint and mypy
+	@echo   lint          Run flake8, pylint, mypy and ruff
 	@echo   quality       Run format, lint, bandit, test, and changelog validation checks
 	@echo   build         Build source and wheel distributions with uv
 	@echo   validate      Validate CHANGELOG.md with changelogmanager
@@ -51,11 +52,14 @@ pylint:
 mypy:
 	$(UV) run mypy $(PACKAGE)
 
+ruff:
+	$(UV) run ruff check .
+
 bandit:
 	$(UV) run python -c "from pathlib import Path; Path('$(BUILD_DIR)').mkdir(exist_ok=True)"
 	$(UV) run bandit --format json --output $(BUILD_DIR)/bandit-report.json --recursive $(PACKAGE)
 
-lint: flake8 pylint mypy
+lint: flake8 pylint mypy ruff
 
 quality: format-check lint bandit test validate
 

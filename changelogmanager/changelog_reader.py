@@ -3,16 +3,16 @@
 """Changelog Reader"""
 
 import datetime
-import os
 import re
-from typing import Any, Dict, Generator, Mapping, Optional
+from collections.abc import Generator, Mapping
+from pathlib import Path
+from typing import Any, Optional
 
 import keepachangelog  # type: ignore
 from semantic_version import Version  # type: ignore
 
 import changelogmanager._llvm_diagnostics as logging
-from changelogmanager.change_types import (DEFAULT_CHANGELOG_FILE,
-                                           TYPES_OF_CHANGE, UNRELEASED_ENTRY)
+from changelogmanager.change_types import DEFAULT_CHANGELOG_FILE, TYPES_OF_CHANGE, UNRELEASED_ENTRY
 
 
 class ChangelogReader:
@@ -26,10 +26,10 @@ class ChangelogReader:
 
         self.__file_path = file_path
 
-    def read(self) -> Dict[str, Any]:
+    def read(self) -> dict[str, Any]:
         """Reads the CHANGELOG.md file and checks for validity"""
 
-        if not os.path.isfile(self.__file_path):
+        if not Path(self.__file_path).is_file():
             return {}
 
         errors = self.validate_layout()
@@ -40,7 +40,7 @@ class ChangelogReader:
                 message=f"{errors} errors detected in the layout",
             )
 
-        changelog: Dict[str, Any] = keepachangelog.to_dict(
+        changelog: dict[str, Any] = keepachangelog.to_dict(
             self.__file_path, show_unreleased=True
         )
 
@@ -246,7 +246,7 @@ class ChangelogReader:
 
         line_number = 1
         errors = []
-        with open(self.__file_path, "r", encoding="UTF-8") as file_handle:
+        with Path(self.__file_path).open(encoding="UTF-8") as file_handle:
             for line in file_handle:
                 errors.extend(list(self.__validate_heading(line_number, line)))
                 errors.extend(list(self.__validate_entry(line_number, line)))
@@ -267,7 +267,7 @@ class ChangelogReader:
             message="Unknown warning",
         )
 
-        for version in changelog.keys():
+        for version in changelog:
             if version == UNRELEASED_ENTRY:
                 if not is_first_entry:
                     message.message = (

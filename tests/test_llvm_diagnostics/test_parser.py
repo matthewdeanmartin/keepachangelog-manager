@@ -11,14 +11,12 @@ RESOURCES_DIR = Path(__file__).resolve().parent / "resources"
 
 
 def _check_expectations_vs_file(file, expectations):
-    index = 0
-    for item in parser.diagnostics_messages_from_file(file):
+    for index, item in enumerate(parser.diagnostics_messages_from_file(file)):
         assert isinstance(item, llvm_diagnostics.messages.__Message)
         assert item.file_path == expectations[index].get("filepath")
         assert item.line_number.start == expectations[index].get("line")
         assert item.column_number.start == expectations[index].get("column")
         assert item.message == expectations[index].get("message")
-        index += 1
 
 
 def test_parse_from_logging():

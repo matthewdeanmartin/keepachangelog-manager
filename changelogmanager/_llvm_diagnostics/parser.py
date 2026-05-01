@@ -3,13 +3,13 @@
 
 """Logging parser"""
 
-import os
 import re
+from collections.abc import Generator
+from pathlib import Path
+from typing import Union
 
 import changelogmanager._llvm_diagnostics as llvm_diagnostics
 from changelogmanager._llvm_diagnostics import utils
-
-from typing import Generator, Type, Union
 
 DIAGNOSTICS_HEADER = re.compile(
     r"[a-zA-Z\.\_\/\0-9]+:[0-9]+:[0-9]+:\ (?:error|warning|note): .*"
@@ -24,7 +24,7 @@ def diagnostics_messages_from_file(
     None,
 ]:
     """Returns Diagnostic Messages derived from the provided logging file"""
-    with open(file_path, "r", encoding="UTF-8") as file_obj:
+    with Path(file_path).open(encoding="UTF-8") as file_obj:
         for line in file_obj:
             _stripped = utils.strip_ansi_escape_chars(line)
             _element = re.search(DIAGNOSTICS_HEADER, _stripped)
@@ -41,9 +41,9 @@ def diagnostics_messages_from_file(
                 level = llvm_diagnostics.Level[_level.strip(" ").upper()]
 
                 _message_class_type: Union[
-                    Type[llvm_diagnostics.Info],
-                    Type[llvm_diagnostics.Error],
-                    Type[llvm_diagnostics.Warning],
+                    type[llvm_diagnostics.Info],
+                    type[llvm_diagnostics.Error],
+                    type[llvm_diagnostics.Warning],
                 ] = llvm_diagnostics.Info
 
                 if level == llvm_diagnostics.Level.ERROR:
@@ -55,5 +55,5 @@ def diagnostics_messages_from_file(
                     file_path=_file_path,
                     line_number=llvm_diagnostics.Range(int(_line_number)),
                     column_number=llvm_diagnostics.Range(int(_column_number)),
-                    message=_message.rstrip(os.linesep).strip(" "),
+                    message=_message.rstrip("\n\r").strip(" "),
                 )

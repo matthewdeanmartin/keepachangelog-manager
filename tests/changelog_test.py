@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Sequence
+from collections.abc import Sequence
 
 import pytest
 from freezegun import freeze_time
@@ -20,13 +20,10 @@ from semantic_version import Version
 
 import changelogmanager._llvm_diagnostics as logging
 from changelogmanager.change_types import CATEGORIES, VersionCore
-from changelogmanager.changelog import (DEFAULT_CHANGELOG_FILE,
-                                        UNRELEASED_ENTRY, Changelog)
+from changelogmanager.changelog import DEFAULT_CHANGELOG_FILE, UNRELEASED_ENTRY, Changelog
 from changelogmanager.changelog_reader import ChangelogReader
 
-from .utils import (changelog_file, empty_changelog_file,
-                    get_changelog_expectations, released_only_changelog_file,
-                    unreleased_changelog_file)
+from .utils import changelog_file, empty_changelog_file, get_changelog_expectations, released_only_changelog_file, unreleased_changelog_file
 
 
 def test_default_changelog(mocker):
@@ -58,7 +55,7 @@ def test_add_change(empty_changelog_file):
         changelog=ChangelogReader(file_path=empty_changelog_file).read(),
     )
 
-    for change_type in CATEGORIES.keys():
+    for change_type in CATEGORIES:
         changelog.add(change_type=change_type, message=f"Validating {change_type}")
 
     assert changelog.get(UNRELEASED_ENTRY) == {
@@ -96,10 +93,10 @@ def test_exists(changelog_file):
         file_path=changelog_file,
         changelog=ChangelogReader(file_path=changelog_file).read(),
     )
-    assert changelog.exists() == True
+    assert changelog.exists()
 
     changelog = Changelog(file_path="does-not-exist.md")
-    assert changelog.exists() == False
+    assert not changelog.exists()
 
 
 def test_get_all_versions(changelog_file):
@@ -119,7 +116,7 @@ def test_get_specific_version(changelog_file):
         file_path=changelog_file,
         changelog=ChangelogReader(file_path=changelog_file).read(),
     )
-    for version in get_changelog_expectations().keys():
+    for version in get_changelog_expectations():
         assert changelog.get(version) == get_changelog_expectations().get(version)
 
 

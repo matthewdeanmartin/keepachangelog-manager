@@ -8,9 +8,8 @@ import pytest
 from semantic_version import Version
 
 import changelogmanager._llvm_diagnostics as logging
-from changelogmanager.changelog import Changelog, INITIAL_VERSION
 from changelogmanager.change_types import UNRELEASED_ENTRY
-
+from changelogmanager.changelog import INITIAL_VERSION, Changelog
 
 # ---------------------------------------------------------------------------
 # Helpers

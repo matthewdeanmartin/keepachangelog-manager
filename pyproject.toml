@@ -31,6 +31,7 @@ keepachangelog-manager = "changelogmanager.__main__:main"
 [dependency-groups]
 test = [
     "freezegun",
+    "hypothesis",
     "pytest",
     "pytest-cov",
     "pytest-mock",
@@ -42,6 +43,7 @@ lint = [
     "flake8_formatter_junit_xml",
     "mypy",
     "pylint",
+    "ruff>=0.15.12",
     "types-PyYAML",
 ]
 security = [
@@ -70,6 +72,20 @@ show_error_codes = true
 
 [tool.uv]
 default-groups = ["dev"]
+
+[tool.ruff]
+line-length = 160
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "RET", "ARG", "PTH", "ERA"]
+ignore = [
+    "E203", "E501", # line length handled by line-length
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F401", "F811", "ARG001", "ARG002", "ARG005", "A004"]
+"changelogmanager/_llvm_diagnostics/*" = ["N818", "A001"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["changelogmanager"]

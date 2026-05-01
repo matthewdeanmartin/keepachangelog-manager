@@ -5,8 +5,8 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Optional, Sequence
 
 import inquirer  # type: ignore
 
@@ -54,7 +54,7 @@ def configure_logging(error_format: str) -> None:
     )
 
 
-def load_changelog(config: Optional[str], component: str, input_file: str) -> Changelog:
+def load_changelog(config: str | None, component: str, input_file: str) -> Changelog:
     """Loads the changelog configured for this invocation."""
 
     if config:
@@ -130,7 +130,7 @@ def command_to_json(args: argparse.Namespace, ctx: CliContext) -> None:
 
 
 def prompt_for_missing_add_arguments(
-    change_type: Optional[str], message: Optional[str]
+    change_type: str | None, message: str | None
 ) -> dict[str, str]:
     """Prompts for any missing add arguments."""
 
@@ -321,7 +321,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     """CLI entrypoint."""
 
     parser = build_parser()
