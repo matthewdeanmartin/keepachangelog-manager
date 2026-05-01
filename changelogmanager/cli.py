@@ -318,7 +318,18 @@ def build_parser() -> argparse.ArgumentParser:
     add_dry_run_argument(github_release_parser)
     github_release_parser.set_defaults(handler=command_github_release)
 
+    gui_parser = subparsers.add_parser("gui", help="Launch the Tkinter GUI")
+    gui_parser.set_defaults(handler=_command_gui)
+
     return parser
+
+
+def _command_gui(_args: argparse.Namespace, _ctx: CliContext) -> None:
+    """Launch the Tkinter GUI (handler used only as a fallback path)."""
+
+    from changelogmanager.gui import run_gui
+
+    raise SystemExit(run_gui())
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -329,6 +340,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         args = parser.parse_args(argv)
         configure_logging(args.error_format)
+        if args.command == "gui":
+            from changelogmanager.gui import run_gui
+
+            return run_gui()
         context = CliContext(
             changelog=load_changelog(
                 config=args.config,

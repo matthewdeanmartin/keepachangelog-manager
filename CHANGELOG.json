@@ -1,0 +1,22 @@
+[
+    {
+        "metadata": {
+            "version": "1.20.0",
+            "release_date": "2026-04-18",
+            "semantic_version": {
+                "major": 1,
+                "minor": 20,
+                "patch": 0,
+                "prerelease": null,
+                "buildmetadata": null
+            }
+        },
+        "added": [
+            "In session macros",
+            "Slop docs"
+        ],
+        "removed": [
+            "AI feature removed."
+        ]
+    }
+]
