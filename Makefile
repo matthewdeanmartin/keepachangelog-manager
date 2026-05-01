@@ -3,7 +3,7 @@ PACKAGE = changelogmanager
 BUILD_DIR = build
 PYLINT_TEMPLATE = {path}:{line}: [{msg_id}({symbol}),{obj}] {msg}
 
-.PHONY: help sync clean format format-check test flake8 pylint mypy bandit lint quality build validate ruff
+.PHONY: help sync clean format format-check test flake8 pylint mypy bandit lint quality check build validate ruff gha-validate gha-pin gha-upgrade
 
 help:
 	@echo Available targets:
@@ -18,8 +18,12 @@ help:
 	@echo   bandit        Run bandit and write a JSON report
 	@echo   lint          Run flake8, pylint, mypy and ruff
 	@echo   quality       Run format, lint, bandit, test, and changelog validation checks
+	@echo   check         Alias for quality
 	@echo   build         Build source and wheel distributions with uv
 	@echo   validate      Validate CHANGELOG.md with changelogmanager
+	@echo   gha-validate  Validate GitHub Actions workflow safety checks
+	@echo   gha-pin       Pin GitHub Actions to current SHAs
+	@echo   gha-upgrade   Pin and validate GitHub Actions workflows
 	@echo   clean         Remove local build artifacts
 
 sync:
@@ -63,8 +67,28 @@ lint: flake8 pylint mypy ruff
 
 quality: format-check lint bandit test validate
 
+check: quality
+
 build:
 	$(UV) build --no-sources
 
 validate:
 	$(UV) run changelogmanager --error-format github validate
+
+gha-validate:
+	@echo Validating GitHub Actions workflows
+	$(UV) run python -c "import pathlib, yaml; [yaml.safe_load(path.read_text(encoding='utf-8')) for path in pathlib.Path('.github/workflows').glob('*.yml')]; print('YAML parse OK')"
+	$(UV) run python -c "from pathlib import Path; import yaml; checks=[('publish_to_pypi.yml','build','pypi-publish'),('release.yml','build','deploy')]; exec(\"for workflow_name, upload_job, download_job in checks:\\n data=yaml.safe_load(Path('.github/workflows', workflow_name).read_text(encoding='utf-8'))\\n upload_steps=data['jobs'][upload_job]['steps']\\n download_steps=data['jobs'][download_job]['steps']\\n upload=next(step for step in upload_steps if step.get('uses','').startswith('actions/upload-artifact@'))\\n download=next(step for step in download_steps if step.get('uses','').startswith('actions/download-artifact@'))\\n assert upload['with']['name']==download['with']['name']=='packages'\\n assert upload['with']['path']==download['with']['path']=='dist/'\\n print(f'Artifact handoff OK for {workflow_name}:', upload['uses'], '->', download['uses'])\")"
+	$(UV) tool run --from zizmor zizmor --no-progress --no-exit-codes .
+
+gha-pin:
+	@echo Pinning GitHub Actions to current SHAs
+	$(UV) run python -c "import os, subprocess; token=os.environ.get('GITHUB_TOKEN'); \
+result=None if token else subprocess.run(['gh', 'auth', 'token'], capture_output=True, text=True, check=False); \
+token=token or (result.stdout.strip() if result else ''); \
+assert token, 'Set GITHUB_TOKEN or log in with gh auth login'; \
+env=dict(os.environ, GITHUB_TOKEN=token); \
+raise SystemExit(subprocess.run(['uv', 'tool', 'run', '--from', 'gha-update', 'gha-update'], env=env, check=False).returncode)"
+
+gha-upgrade: gha-pin gha-validate
+	@echo GitHub Actions upgrade complete
