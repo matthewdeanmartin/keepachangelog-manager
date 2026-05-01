@@ -62,7 +62,18 @@ changelogmanager validate
 
 No output means no errors. Errors are printed in LLVM diagnostic format by default (compatible with many editors and CI systems).
 
+## Prefer a GUI?
+
+If you'd rather click than type, run:
+
+```sh
+changelogmanager gui
+```
+
+This opens a paneled Tkinter window with every command available as a button. See the [Desktop GUI](gui.md) page for details.
+
 ## What's next
 
 - Learn the full set of [workflows](workflows.md) including GitHub releases and JSON export
 - Read the complete [CLI reference](cli.md) for every flag and option
+- Try the [Desktop GUI](gui.md) for an interactive front-end

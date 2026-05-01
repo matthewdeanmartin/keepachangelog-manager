@@ -168,3 +168,17 @@ changelogmanager github-release [OPTIONS]
 | `--dry-run` | | Preview without calling GitHub |
 
 The command first deletes all existing draft releases for the repository, then creates a new one tagged with the auto-calculated future version. The release body is generated from the `[Unreleased]` entries, grouped by change type with emoji headers.
+
+---
+
+## gui
+
+Launch the optional Tkinter desktop GUI.
+
+```
+changelogmanager gui
+```
+
+Global options (`--config`, `--component`, `-f/--error-format`, `--input-file`) are applied as initial values in the window's Inputs panel and can be changed at runtime.
+
+If `tkinter` is not available in the current Python installation, the command exits with code 1 and prints platform-specific install hints. See the [Desktop GUI](gui.md) page for the full layout and behaviour.

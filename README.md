@@ -34,14 +34,33 @@ Commands:
   add             Command to add a new message to the CHANGELOG.md
   create          Command to create a new (empty) CHANGELOG.md
   github-release  Deletes all releases marked as 'Draft' on GitHub and...
+  gui             Launch the Tkinter desktop GUI
   release         Release changes added to [Unreleased] block
   to-json         Exports the contents of the CHANGELOG.md to a JSON file
   validate        Command to validate the CHANGELOG.md for inconsistencies
   version         Command to retrieve versions from a CHANGELOG.md
 ```
 
-Every subcommand also accepts `--dry-run` to validate inputs and preview the action
-without modifying files or calling GitHub.
+Every subcommand (other than `gui`) also accepts `--dry-run` to validate inputs and
+preview the action without modifying files or calling GitHub.
+
+### Desktop GUI
+
+Prefer a window over a terminal? Run:
+
+```sh
+% changelogmanager gui
+```
+
+This opens a paneled Tkinter UI: command buttons on the left, shared inputs on top,
+context-sensitive help on the right, and per-command output in the middle along with
+a tab that displays the current `CHANGELOG.md`. The non-destructive `version` and
+`validate` commands run automatically the first time you open their tab.
+
+If `tkinter` isn't available in your Python build, the command exits with a clear
+message and platform-specific install hints (Debian/Ubuntu: `sudo apt-get install
+python3-tk`; Windows: re-run the python.org installer with the "tcl/tk and IDLE"
+option). The rest of the CLI keeps working either way.
 
 ### Validate the layout of your CHANGELOG.md
 Although every command will validate the contents of your `CHANGELOG.md`, the

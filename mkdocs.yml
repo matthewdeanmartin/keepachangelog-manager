@@ -22,4 +22,5 @@ nav:
   - Installation: installation.md
   - Key Workflows: workflows.md
   - CLI reference: cli.md
+  - Desktop GUI: gui.md
   - Contributing: contributing.md

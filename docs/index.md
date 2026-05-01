@@ -25,6 +25,7 @@ On top of what the `keepachangelog` library provides, this tool gives you:
 - **GitHub integration** — creates or updates a Draft Release from your unreleased changes
 - **JSON export** — dumps the full changelog as structured JSON for downstream tooling
 - **Multi-component repos** — point commands at any `CHANGELOG.md` via a YAML config file
+- **Desktop GUI** — an optional Tkinter window that surfaces every command, launched with `changelogmanager gui`
 
 ## Next steps
 
@@ -32,3 +33,4 @@ On top of what the `keepachangelog` library provides, this tool gives you:
 - [Installation](installation.md) — all installation methods
 - [Key Workflows](workflows.md) — day-to-day usage patterns
 - [CLI reference](cli.md) — every command and option
+- [Desktop GUI](gui.md) — running the optional Tkinter front-end
