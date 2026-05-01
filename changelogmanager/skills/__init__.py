@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: Apache-2.0; see LICENSE.md.
+
+"""Bundled skills for changelogmanager."""
