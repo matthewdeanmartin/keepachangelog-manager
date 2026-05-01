@@ -1,302 +1,151 @@
 # (Keep a) Changelog Manager
 
-Python package allowing you to manage your `CHANGELOG.md` files
+CLI and Python library for managing `CHANGELOG.md` files that follow the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
-Fork of keepachangelog-manager-fork
+Fork of `keepachangelog-manager-fork`.
 
 ![gif](https://raw.githubusercontent.com/matthewdeanmartin/keepachangelog-manager/main/resources/usage.gif)
 
-## Installation
-
-In order to install the CLI with uv you can use the following command:
+## Install
 
 ```sh
-% uv tool install keepachangelog-manager
+uv tool install keepachangelog-manager-fork
 ```
 
-## Usage
+The package name on PyPI is `keepachangelog-manager-fork`. The installed commands are `changelogmanager` and `keepachangelog-manager`.
 
+## What it does
+
+`keepachangelog-manager` helps you:
+
+- create and validate changelogs
+- add, edit, list, and remove `[Unreleased]` entries
+- infer the next SemVer release from change types
+- release `[Unreleased]` with an optional confirmation guard
+- seed `[Unreleased]` from git history using Conventional Commit subjects
+- export changelogs as JSON, YAML, or HTML
+- export a bundled CLI skill for Copilot or Claude
+- create or update GitHub releases
+- work with multi-component repositories via config files
+- script the CLI with `--dry-run`, `--quiet`, and `--json`
+- use an optional Tkinter GUI for common workflows
+
+## Commands
+
+```text
+create
+version
+validate
+release
+to-json
+to-yaml
+to-html
+add
+remove
+edit
+github-release
+from-commits
+skill export
+gui
 ```
-Usage: changelogmanager [OPTIONS] COMMAND [ARGS]...
 
-  (Keep a) Changelog Manager
+## Quick examples
 
-Options:
-  --config TEXT                   Configuration file
-  --component TEXT                Name of the component to update
-  -f, --error-format [llvm|github]
-                                  Type of formatting to apply to error
-                                  messages
-  --input-file TEXT               Changelog file to work with
-  --help                          Show this message and exit.
-
-Commands:
-  add             Command to add a new message to the CHANGELOG.md
-  create          Command to create a new (empty) CHANGELOG.md
-  github-release  Deletes all releases marked as 'Draft' on GitHub and...
-  gui             Launch the Tkinter desktop GUI
-  release         Release changes added to [Unreleased] block
-  to-json         Exports the contents of the CHANGELOG.md to a JSON file
-  validate        Command to validate the CHANGELOG.md for inconsistencies
-  version         Command to retrieve versions from a CHANGELOG.md
-```
-
-Every subcommand (other than `gui`) also accepts `--dry-run` to validate inputs and
-preview the action without modifying files or calling GitHub.
-
-### Desktop GUI
-
-Prefer a window over a terminal? Run:
+Add an entry:
 
 ```sh
-% changelogmanager gui
+changelogmanager add --change-type added --message "Document the new release flow"
 ```
 
-This opens a paneled Tkinter UI: command buttons on the left, shared inputs on top,
-context-sensitive help on the right, and per-command output in the middle along with
-a tab that displays the current `CHANGELOG.md`. The non-destructive `version` and
-`validate` commands run automatically the first time you open their tab.
-
-If `tkinter` isn't available in your Python build, the command exits with a clear
-message and platform-specific install hints (Debian/Ubuntu: `sudo apt-get install
-python3-tk`; Windows: re-run the python.org installer with the "tcl/tk and IDLE"
-option). The rest of the CLI keeps working either way.
-
-### Validate the layout of your CHANGELOG.md
-Although every command will validate the contents of your `CHANGELOG.md`, the
-command `validate` will do nothing more than this.
+Edit or remove an existing `[Unreleased]` entry:
 
 ```sh
-% changelogmanager validate
+changelogmanager remove --list
+changelogmanager edit --change-type added --index 0 --message "Document the guarded release flow"
+changelogmanager remove --change-type added --index 0
 ```
 
-You can change the error messages to GitHub format by providing the `--error-format`
-option:
+Seed `[Unreleased]` from commit history:
 
 ```sh
-% changelogmanager --error-format github validate
+changelogmanager from-commits
 ```
 
-### Create a new CHANGELOG.md
-Creating a new `CHANGELOG.md` file is as simple as running:
+Validate and autofix common issues:
 
 ```sh
-% changelogmanager create
+changelogmanager validate --fix
 ```
 
-This will create an empty changelog in the current working directory:
-
-```md
-# Changelog
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-```
-
-### Add a change to your changelog
-The `add` command can be used to add a new change to the `CHANGELOG.md`:
-
-```
-Usage: changelogmanager add [OPTIONS]
-
-  Command to add a new message to the CHANGELOG.md
-
-Options:
-  -t, --change-type [added|changed|deprecated|removed|fixed|security]
-                                  Type of the change
-  -m, --message TEXT              Changelog entry
-  --help                          Show this message and exit.
-```
-
-The options `--change-type` and `--message` can be omitted, providing a simple user
-interface for defining the contents:
+Release non-interactively:
 
 ```sh
-% changelogmanager add
-
-? Specify the type of your change 
-? Message of the changelog entry to add  
-? Apply changes to your CHANGELOG.md  (Y/n)
-
+changelogmanager release --yes
 ```
 
-In addition, you can provide a single command as well:
+Export structured output:
 
 ```sh
-% changelogmanager add --change-type added --message "Added an example to the documentation"
+changelogmanager to-json
+changelogmanager to-yaml
+changelogmanager to-html
 ```
 
-This will create a new `[Unreleased]` entry in your `CHANGELOG.md`:
-
-```md
-## [Unreleased]
-### Added
-- Added an example to the documentation
-```
-
-### Retrieving versions
-
-The `version` command can be used to retrieve versions based on the `CHANGELOG.md`:
-
-```
-Usage: changelogmanager version [OPTIONS]
-
-  Command to retrieve versions from a CHANGELOG.md
-
-Options:
-  -r, --reference [previous|current|future]
-                                  Which version to retrieve
-  --help                          Show this message and exit.
-```
-
-Taking the following `CHANGELOG.md` as reference:
-
-```md
-## [Unreleased]
-### Added
-- Added an example to the documentation
-
-
-## [2.1.0] - 2022-03-09
-### Fixed
-- Handle empty `CHANGELOG.md` files gracefully
-
-## [2.0.0] - 2022-03-08
-### Fixed
-- No longer throw exceptions when releasing `CHANGELOG.md` containing only an `[Unreleased]` section
-
-### Added
-- Added support for creating a new `CHANGELOG.md` file, using the `create` command
-```
+Export the bundled CLI skill:
 
 ```sh
-% changelogmanager version
-2.1.0
-
-% changelogmanager version --reference previous
-2.0.0
-
-% changelogmanager version --reference future
-2.2.0
+changelogmanager skill export
 ```
 
-> **NOTE**: The `future` version is based on the changes listed in the `[Unreleased]` section in your `CHANGELOG.md` (applying Semantic Versioning)
-
-### Release a new CHANGELOG.md
-
-The `release` command allows you to "release" any "unreleased" changes:
-
-```
-Usage: changelogmanager release [OPTIONS]
-
-  Release changes added to [Unreleased] block
-
-Options:
-  --override-version TEXT  Version to release, defaults to auto-resolve
-  --help                   Show this message and exit.
-```
-
-For example:
+Machine-readable mode for scripts:
 
 ```sh
-% changelogmanager release
+changelogmanager --json version --reference future
+changelogmanager --quiet validate
 ```
 
-This will rename the `[Unreleased]` section and add the current date next to it, marking
-the change as "Released"
+## Configuration
 
-### Export your CHANGELOG.md to JSON
+Use `--config` and `--component` for multi-component repositories:
 
-The `to-json` command allows you to export the `CHANGELOG.md` file into a JSON format:
-
-```
-Usage: changelogmanager to-json [OPTIONS]
-
-  Exports the contents of the CHANGELOG.md to a JSON file
-
-Options:
-  --file-name TEXT  Filename of the JSON output
-  --help            Show this message and exit.
-```
-
-For example:
-
-```sh
-% changelogmanager to-json
-```
-
-This will create a file named `CHANGELOG.json` contain content similar to:
-
-```json
-{
-    "3.2.0": {
-        "metadata": {
-          "version": "3.2.0",
-          "release_date": "2022-08-18",
-          "semantic_version": {
-            "major": 3,
-            "minor": 2,
-            "patch": 0,
-            "prerelease": null,
-            "buildmetadata": null
-          }
-        },
-        "added": [
-            "The command `to-json` allows you to export the changelog contents in JSON format (useful for external automation purposes)"
-        ]
-    }
-    "3.1.0": { ... }
-}
-```
-
-### Create/Update Release in GitHub
-
-The `github-release` command will create/update a draft Release based on the contents of the
-`[Unreleased]` section in your `CHANGELOG.md`:
-
-```sh
-Usage: changelogmanager github-release [OPTIONS]
-
-  Creates a new (Draft) release in Github
-
-Options:
-  -r, --repository TEXT    Repository  [required]
-  -t, --github-token TEXT  Github Token  [required]
-  --draft / --release      Update/Create the GitHub Release in either Draft or
-                           Release state
-  --help                   Show this message and exit.
-```
-
-For example:
-
-```sh
-% changelogmanager github-release --github-token <PAT> --repository matthewdeanmartin/keepachangelog-manager
-```
-
-Will result in something alike:
-
-![Draft Release Example](https://raw.githubusercontent.com/matthewdeanmartin/keepachangelog-manager/main/resources/draft_example.png)
-
-Providing the `--release` flag will update and publish the draft Release.
-
-### Working with multiple CHANGELOG.md files in a single repository
-
-You can create a configuration file with the following schema:
-
-```yml
+```yaml
 project:
   components:
-  - name: Service Component
-    changelog: service/CHANGELOG.md
-  - name: Client Interface
-    changelog: client/CHANGELOG.md
+    - name: Service
+      changelog: service/CHANGELOG.md
+    - name: Client
+      changelog: client/CHANGELOG.md
+  commits:
+    style: conventional
+  versioning:
+    scheme: semver
+  validation:
+    enforce_preamble: false
 ```
-
-You can provide the `--config` and `--component` options to select a specific
-`CHANGELOG.md` file, eg.
 
 ```sh
-% changelogmanager --config config.yml --component "Client Interface" version
-3.7.3
+changelogmanager --config .changelogmanager.yml --component Service validate
+changelogmanager config
+changelogmanager config init
+changelogmanager skill export
 ```
+
+If `--config` is omitted, the CLI auto-detects `.changelogmanager.yml`, `.changelogmanager.yaml`, `changelogmanager.yml`, `changelogmanager.yaml`, or `[tool.changelogmanager]` in `pyproject.toml` from the current directory.
+
+`changelogmanager config init` is the quickest way to bootstrap config. It defaults to `pyproject.toml`, `Conventional Commits`, and `semver`, and re-running it updates the active config instead of starting from scratch.
+
+## Optional desktop GUI
+
+```sh
+changelogmanager gui
+```
+
+The GUI currently wraps the common commands `create`, `version`, `validate`, `release`, `to-json`, `add`, and `github-release`.
+
+## Documentation
+
+- [Quick start](docs/quickstart.md)
+- [Installation](docs/installation.md)
+- [Key workflows](docs/workflows.md)
+- [CLI reference](docs/cli.md)
+- [Desktop GUI](docs/gui.md)

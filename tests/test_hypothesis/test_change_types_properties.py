@@ -50,4 +50,8 @@ class TestCategoriesConsistency:
         # VersionCore.MAJOR > MINOR > PATCH by numeric value
         for name in names:
             bump = CATEGORIES[name].bump
-            assert bump.value in (VersionCore.MAJOR.value, VersionCore.MINOR.value, VersionCore.PATCH.value)
+            assert bump.value in (
+                VersionCore.MAJOR.value,
+                VersionCore.MINOR.value,
+                VersionCore.PATCH.value,
+            )

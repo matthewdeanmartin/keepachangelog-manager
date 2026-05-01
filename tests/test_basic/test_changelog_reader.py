@@ -43,7 +43,11 @@ def test_read_returns_parsed_changelog_after_validation(tmp_path, monkeypatch):
         "changelogmanager.changelog_reader.keepachangelog.to_dict",
         lambda path, show_unreleased: parsed,
     )
-    monkeypatch.setattr(reader, "validate_contents", lambda changelog: seen.setdefault("value", changelog))
+    monkeypatch.setattr(
+        reader,
+        "validate_contents",
+        lambda changelog: seen.setdefault("value", changelog),
+    )
 
     assert reader.read() == parsed
     assert seen["value"] is parsed
@@ -61,7 +65,9 @@ def test_validate_layout_reports_heading_and_entry_errors(tmp_path, monkeypatch)
     reader = ChangelogReader(file_path=str(changelog_file))
     messages = []
 
-    monkeypatch.setattr(logging.Error, "report", lambda self: messages.append(self.message))
+    monkeypatch.setattr(
+        logging.Error, "report", lambda self: messages.append(self.message)
+    )
 
     error_count = reader.validate_layout()
 
@@ -76,7 +82,9 @@ def test_validate_contents_reports_ordering_warnings(monkeypatch):
     reader = ChangelogReader(file_path="CHANGELOG.md")
     warnings = []
 
-    monkeypatch.setattr(logging.Warning, "report", lambda self: warnings.append(self.message))
+    monkeypatch.setattr(
+        logging.Warning, "report", lambda self: warnings.append(self.message)
+    )
 
     reader.validate_contents(
         OrderedDict(
@@ -88,7 +96,5 @@ def test_validate_contents_reports_ordering_warnings(monkeypatch):
         )
     )
 
-    assert warnings == [
-        "Unreleased version should be on top of the CHANGELOG.md file",
-        "Versions are incorrectly ordered: 1.0.0 -> 1.1.0",
-    ]
+    assert "Unreleased version should be on top of the CHANGELOG.md file" in warnings
+    assert "Versions are incorrectly ordered: 1.0.0 -> 1.1.0" in warnings

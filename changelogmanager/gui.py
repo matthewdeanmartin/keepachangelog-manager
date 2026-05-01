@@ -9,7 +9,7 @@ import os
 import sys
 import traceback
 from contextlib import redirect_stderr, redirect_stdout
-from typing import Any, Callable
+from typing import Any
 
 try:
     import tkinter as tk
@@ -25,8 +25,8 @@ except Exception as exc:  # pragma: no cover - exercised only when tk is missing
     _TK_IMPORT_ERROR = exc
 
 from changelogmanager.change_types import TYPES_OF_CHANGE
-from changelogmanager.cli import VERSION_REFERENCES, build_parser, main as cli_main
-
+from changelogmanager.cli import VERSION_REFERENCES
+from changelogmanager.cli import main as cli_main
 
 HELP_TEXT: dict[str, str] = {
     "create": (
@@ -123,7 +123,7 @@ def _run_cli(argv: list[str]) -> tuple[int, str]:
 class ChangelogManagerGUI:
     """Top-level GUI controller."""
 
-    def __init__(self, root: "tk.Tk") -> None:
+    def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("Changelog Manager")
         self.root.geometry("1100x720")
@@ -188,7 +188,9 @@ class ChangelogManagerGUI:
         row2 = ttk.Frame(top)
         row2.pack(fill=tk.X, padx=4, pady=2)
         ttk.Label(row2, text="Config:").pack(side=tk.LEFT)
-        ttk.Entry(row2, textvariable=self.config_var, width=30).pack(side=tk.LEFT, padx=4)
+        ttk.Entry(row2, textvariable=self.config_var, width=30).pack(
+            side=tk.LEFT, padx=4
+        )
         ttk.Button(row2, text="Browse…", command=self._browse_config_file).pack(
             side=tk.LEFT
         )
@@ -208,7 +210,7 @@ class ChangelogManagerGUI:
             side=tk.LEFT, padx=12
         )
 
-    def _build_left_panel(self, parent: "ttk.Frame") -> None:
+    def _build_left_panel(self, parent: ttk.Frame) -> None:
         left = ttk.LabelFrame(parent, text="Commands")
         left.pack(side=tk.LEFT, fill=tk.Y, padx=6, pady=6)
         for command in COMMANDS:
@@ -219,7 +221,7 @@ class ChangelogManagerGUI:
                 command=lambda c=command: self._on_command_button(c),
             ).pack(padx=6, pady=3, anchor="w")
 
-    def _build_center_panel(self, parent: "ttk.Frame") -> None:
+    def _build_center_panel(self, parent: ttk.Frame) -> None:
         center = ttk.Frame(parent)
         center.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=4, pady=6)
 
@@ -239,7 +241,7 @@ class ChangelogManagerGUI:
         self._tab_frames["changelog"] = cl_frame
         self._build_changelog_tab(cl_frame)
 
-    def _build_command_tab(self, command: str, frame: "ttk.Frame") -> None:
+    def _build_command_tab(self, command: str, frame: ttk.Frame) -> None:
         controls = ttk.Frame(frame)
         controls.pack(fill=tk.X, padx=6, pady=4)
 
@@ -305,7 +307,7 @@ class ChangelogManagerGUI:
         output.pack(fill=tk.BOTH, expand=True, padx=6, pady=4)
         self._output_widgets[command] = output
 
-    def _build_changelog_tab(self, frame: "ttk.Frame") -> None:
+    def _build_changelog_tab(self, frame: ttk.Frame) -> None:
         toolbar = ttk.Frame(frame)
         toolbar.pack(fill=tk.X, padx=6, pady=4)
         ttk.Button(toolbar, text="Reload", command=self._reload_changelog).pack(
@@ -318,10 +320,12 @@ class ChangelogManagerGUI:
         self._changelog_view = scrolledtext.ScrolledText(frame, wrap=tk.WORD)
         self._changelog_view.pack(fill=tk.BOTH, expand=True, padx=6, pady=4)
 
-    def _build_right_panel(self, parent: "ttk.Frame") -> None:
+    def _build_right_panel(self, parent: ttk.Frame) -> None:
         right = ttk.LabelFrame(parent, text="Help")
         right.pack(side=tk.RIGHT, fill=tk.Y, padx=6, pady=6)
-        self._help_text_widget = tk.Text(right, width=42, wrap=tk.WORD, state=tk.DISABLED)
+        self._help_text_widget = tk.Text(
+            right, width=42, wrap=tk.WORD, state=tk.DISABLED
+        )
         self._help_text_widget.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
 
     # ------------------------------------------------------------------

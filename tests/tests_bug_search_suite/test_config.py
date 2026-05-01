@@ -11,6 +11,7 @@ from changelogmanager.config import get_component_from_config, validate_configur
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def write_config(path: Path, content: str) -> str:
     p = path / "config.yml"
     p.write_text(content, encoding="utf-8")
@@ -54,32 +55,38 @@ project:
 # validate_configuration
 # ---------------------------------------------------------------------------
 
+
 class TestValidateConfiguration:
     def test_valid_config_does_not_raise(self, tmp_path):
         import yaml
+
         config = yaml.safe_load(VALID_CONFIG)
         validate_configuration(str(tmp_path / "config.yml"), config)
 
     def test_missing_project_key_raises(self, tmp_path):
         import yaml
+
         config = yaml.safe_load(MISSING_PROJECT_KEY)
         with pytest.raises(logging.Error, match="configuration format"):
             validate_configuration(str(tmp_path / "config.yml"), config)
 
     def test_missing_components_key_raises(self, tmp_path):
         import yaml
+
         config = yaml.safe_load(MISSING_COMPONENTS_KEY)
         with pytest.raises(logging.Error, match="configuration format"):
             validate_configuration(str(tmp_path / "config.yml"), config)
 
     def test_component_missing_name_raises(self, tmp_path):
         import yaml
+
         config = yaml.safe_load(COMPONENT_MISSING_NAME)
         with pytest.raises(logging.Error, match="Component configuration"):
             validate_configuration(str(tmp_path / "config.yml"), config)
 
     def test_component_missing_changelog_raises(self, tmp_path):
         import yaml
+
         config = yaml.safe_load(COMPONENT_MISSING_CHANGELOG)
         with pytest.raises(logging.Error, match="Component configuration"):
             validate_configuration(str(tmp_path / "config.yml"), config)
@@ -96,6 +103,7 @@ class TestValidateConfiguration:
 # ---------------------------------------------------------------------------
 # get_component_from_config
 # ---------------------------------------------------------------------------
+
 
 class TestGetComponentFromConfig:
     def test_returns_correct_component(self, tmp_path):

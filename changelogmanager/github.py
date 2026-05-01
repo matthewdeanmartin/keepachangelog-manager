@@ -60,15 +60,11 @@ class GitHub:
 
             return json.loads(response)
         except URLError as url_error:
-            raise logging.Error(
-                message=dedent(
-                    f"""
+            raise logging.Error(message=dedent(f"""
                 Failure during GitHub request:
                   URL:    {url}
                   Method: {method.value}
-                  Data:   {data}"""
-                )
-            ) from url_error
+                  Data:   {data}""")) from url_error
 
     def get_releases(self) -> Sequence[dict[str, Any]]:
         """Retrieves available releases"""

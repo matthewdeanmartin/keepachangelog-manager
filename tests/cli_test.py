@@ -62,6 +62,8 @@ def test_top_level_help_lists_commands():
 
     assert result.exit_code == 0
     assert "usage: changelogmanager" in result.stdout
+    assert "config" in result.stdout
+    assert "skill" in result.stdout
     assert "github-release" in result.stdout
 
 
@@ -84,6 +86,136 @@ def test_create_dry_run_does_not_write_file(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert "Dry run: would create CHANGELOG.md" in result.stdout
     assert not changelog_path.exists()
+
+
+def test_config_show_uses_built_in_defaults_when_no_file(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    result = run_cli(["config"])
+
+    assert result.exit_code == 0
+    assert "Config source: built-in defaults" in result.stdout
+    assert "style: conventional" in result.stdout
+    assert "scheme: semver" in result.stdout
+
+
+def test_config_show_reports_auto_detected_source(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / ".changelogmanager.yml"
+    config_path.write_text(
+        "project:\n"
+        "  components:\n"
+        "    - name: default\n"
+        "      changelog: CHANGELOG.md\n"
+        "  commits:\n"
+        "    style: gitmoji\n",
+        encoding="utf-8",
+    )
+
+    result = run_cli(["config"])
+
+    assert result.exit_code == 0
+    assert f"Config source: auto-detected ({config_path})" in result.stdout
+    assert "style: gitmoji" in result.stdout
+
+
+def test_config_init_writes_pyproject_by_default(tmp_path, monkeypatch, mocker):
+    monkeypatch.chdir(tmp_path)
+    mocker.patch(
+        "changelogmanager.cli.inquirer.prompt",
+        return_value={
+            "config_format": "pyproject.toml",
+            "commit_style": "Conventional Commits",
+            "versioning_scheme": "PEP 440",
+            "enforce_preamble": "Yes",
+            "component_name": "default",
+            "changelog_path": "CHANGELOG.md",
+        },
+    )
+
+    result = run_cli(["config", "init"])
+
+    assert result.exit_code == 0
+    pyproject = (tmp_path / "pyproject.toml").read_text(encoding="UTF-8")
+    assert "[tool.changelogmanager]" in pyproject
+    assert 'scheme = "pep440"' in pyproject
+    assert 'style = "conventional"' in pyproject
+    assert "Wrote config: pyproject.toml" in result.stdout
+
+
+def test_config_init_updates_existing_yaml_on_second_run(tmp_path, monkeypatch, mocker):
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / ".changelogmanager.yml"
+    config_path.write_text(
+        "project:\n"
+        "  components:\n"
+        "    - name: default\n"
+        "      changelog: CHANGELOG.md\n"
+        "  commits:\n"
+        "    style: conventional\n"
+        "  versioning:\n"
+        "    scheme: semver\n",
+        encoding="utf-8",
+    )
+    mocker.patch(
+        "changelogmanager.cli.inquirer.prompt",
+        return_value={
+            "config_format": "YAML",
+            "commit_style": "Gitmoji",
+            "versioning_scheme": "Calendar Versioning",
+            "enforce_preamble": "No",
+            "component_name": "default",
+            "changelog_path": "docs/CHANGELOG.md",
+        },
+    )
+
+    result = run_cli(["config", "init"])
+
+    assert result.exit_code == 0
+    text = config_path.read_text(encoding="UTF-8")
+    assert "style: gitmoji" in text
+    assert "scheme: calver" in text
+    assert "changelog: docs/CHANGELOG.md" in text
+    assert f"Updated config: {config_path}" in result.stdout
+
+
+def test_skill_export_writes_bundled_skill_to_requested_path(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    export_root = tmp_path / "exports"
+
+    result = run_cli(["skill", "export", "--path", str(export_root)])
+
+    assert result.exit_code == 0
+    skill_file = export_root / "keepachangelog-manager-cli" / "SKILL.md"
+    assert skill_file.exists()
+    assert "keepachangelog-manager CLI" in skill_file.read_text(encoding="UTF-8")
+    assert f"Exported skill: {skill_file.parent}" in result.stdout
+
+
+def test_skill_export_prompts_for_common_location_when_path_missing(
+    tmp_path, monkeypatch, mocker
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    mocker.patch(
+        "changelogmanager.cli.inquirer.prompt",
+        side_effect=[
+            {
+                "location": f"GitHub Copilot project ({tmp_path / '.github' / 'skills'})"
+            }
+        ],
+    )
+
+    result = run_cli(["skill", "export"])
+
+    assert result.exit_code == 0
+    assert (
+        tmp_path
+        / ".github"
+        / "skills"
+        / "keepachangelog-manager-cli"
+        / "SKILL.md"
+    ).exists()
 
 
 def test_add_dry_run_does_not_modify_file(tmp_path, monkeypatch):

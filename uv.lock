@@ -797,6 +797,7 @@ dependencies = [
     { name = "keepachangelog" },
     { name = "pyyaml" },
     { name = "semantic-version" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "urllib3" },
 ]
 
@@ -858,6 +859,7 @@ requires-dist = [
     { name = "keepachangelog", specifier = ">=2.0.0" },
     { name = "pyyaml", specifier = ">=6.0.2,<7" },
     { name = "semantic-version", specifier = ">=2.10.0,<3" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.1" },
     { name = "urllib3", specifier = ">=2.6.3" },
 ]
 

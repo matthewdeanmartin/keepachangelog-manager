@@ -58,7 +58,10 @@ def test_create_release_posts_expected_payload(monkeypatch):
                         "fixed": ["Bug"],
                     },
                 ),
-                ("1.0.0", {"metadata": {"version": "1.0.0", "release_date": "2024-01-01"}}),
+                (
+                    "1.0.0",
+                    {"metadata": {"version": "1.0.0", "release_date": "2024-01-01"}},
+                ),
             ]
         )
     )

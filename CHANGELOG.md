@@ -5,18 +5,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-### Fixed
-- Validator now detects indented sub-list items (e.g. `  - nested`) as errors; previously lines with leading whitespace were silently skipped by `__validate_entry`
-- Validator no longer cascades two errors for a single invalid version heading; after reporting an incompatible SemVer version the generator now returns early, preventing a spurious "Missing metadata" error on the same line
-
-## [5.0.0] - 2026-05-01
 ### Changed
 - Project forked. Tomtom International doesn't appear to support it anymore.
 - Phased out setup.py in favor of uv, pyproject.toml
+- Generated changelog preambles and optional preamble validation now respect the configured versioning scheme, including PEP 440 and Calendar Versioning
+- pyproject.toml config loading and auto-detection now work on Python 3.9+ via the tomli fallback
+- Bundled skill assets now ship in the package for export from installed builds
+
+### Fixed
+- Validator now detects indented sub-list items (e.g. `  - nested`) as errors; previously lines with leading whitespace
+- were silently skipped by `__validate_entry`
+- Validator no longer cascades two errors for a single invalid version heading; after reporting an incompatible SemVer
+- version the generator now returns early, preventing a spurious "Missing metadata" error on the same line
 
 ### Added
-- `--dry-run` option to support migration away from Click 
-
+- New 'edit' command to modify or recategorise existing [Unreleased] entries
+- New 'remove' command (with '--list') to drop entries from [Unreleased] by index
+- New 'from-commits' command that seeds [Unreleased] from git history, parsing Conventional Commits
+- New 'to-yaml' and 'to-html' export commands (PyYAML + stdlib html.escape, no new dependencies)
+- 'release --yes' (alias '-y') confirmation guard; non-interactive runs without --yes are refused
+- 'validate --fix' applies autofixes: reorders versions descending, lowercases change types, drops empty sections,
+- dedupes entries
+- 'validate --all' iterates over every component declared in the config file
+- 'validate --changed-only' (with --all) skips components whose changelog is not modified per git status
+- Global '--quiet' flag suppresses human-friendly output for scripting use
+- Global '--json' flag emits a single machine-readable JSON object on stdout
+- 'github-release' now falls back to the GITHUB_TOKEN environment variable when --github-token is omitted
+- Auto-detect '.changelogmanager.yml/.yaml' in the current directory; on Python 3.11+ also
+- honour [tool.changelogmanager] in pyproject.toml
+- Validator now warns on empty version sections, empty change-type sections, and duplicate entries within a section
+- Optional canonical-preamble check, enabled via 'project.validation.enforce_preamble: true' in the config file
+- `--dry-run` option to support migration away from Click
+- New 'config' and 'config init' commands for viewing and interactively creating or updating YAML or pyproject.toml configuration
+- New 'skill export' command to export the bundled keepachangelog-manager-cli skill to Copilot, Claude, or a custom directory
 
 ## [4.0.0] - 2025-06-10
 ### Removed
@@ -46,7 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.2.0] - 2022-08-18
 ### Added
-- The command `to-json` allows you to export the changelog contents in JSON format (useful for external automation purposes)
+- The command `to-json` allows you to export the changelog contents in JSON format (useful for external automation
+- purposes)
 
 ## [3.1.0] - 2022-07-20
 ### Added
@@ -67,7 +89,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Releasing a Changelog containing no previously released version will now result in version `0.0.1` to be released
 
 ### Removed
-- Removed the `keepachangelog-draft-release`, `keepachangelog-release` and `keepachangelog-validate` actions as these have only been intended for internal use.
+- Removed the `keepachangelog-draft-release`, `keepachangelog-release` and `keepachangelog-validate` actions as these
+- have only been intended for internal use.
 
 ## [1.0.3] - 2022-05-17
 ### Fixed

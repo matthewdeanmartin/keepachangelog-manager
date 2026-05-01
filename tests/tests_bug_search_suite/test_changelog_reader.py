@@ -11,6 +11,7 @@ from changelogmanager.changelog_reader import ChangelogReader
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def write(path: Path, content: str) -> str:
     p = path / "CHANGELOG.md"
     p.write_text(content, encoding="utf-8")
@@ -20,6 +21,7 @@ def write(path: Path, content: str) -> str:
 # ---------------------------------------------------------------------------
 # read() — missing file
 # ---------------------------------------------------------------------------
+
 
 class TestReadMissingFile:
     def test_returns_empty_dict_when_file_absent(self, tmp_path):
@@ -32,6 +34,7 @@ class TestReadMissingFile:
 # validate_layout — heading depth
 # ---------------------------------------------------------------------------
 
+
 class TestValidateHeadingDepth:
     def test_four_hash_heading_is_an_error(self, tmp_path):
         content = "#### Too deep\n"
@@ -41,12 +44,7 @@ class TestValidateHeadingDepth:
         assert errors > 0
 
     def test_three_hash_heading_with_valid_type_is_ok(self, tmp_path):
-        content = (
-            "# Changelog\n\n"
-            "## [Unreleased]\n"
-            "### Added\n"
-            "- Something\n"
-        )
+        content = "# Changelog\n\n" "## [Unreleased]\n" "### Added\n" "- Something\n"
         p = write(tmp_path, content)
         reader = ChangelogReader(file_path=p)
         assert reader.validate_layout() == 0
@@ -69,6 +67,7 @@ class TestValidateHeadingDepth:
 # ---------------------------------------------------------------------------
 # validate_layout — version heading format
 # ---------------------------------------------------------------------------
+
 
 class TestValidateVersionHeading:
     def test_missing_version_tag_is_error(self, tmp_path):
@@ -124,6 +123,7 @@ class TestValidateVersionHeading:
 # validate_layout — change type headings
 # ---------------------------------------------------------------------------
 
+
 class TestValidateChangeTypeHeading:
     def test_invalid_change_type_is_error(self, tmp_path):
         content = "### Miscellaneous\n"
@@ -144,12 +144,15 @@ class TestValidateChangeTypeHeading:
             p = write(tmp_path, content)
             reader = ChangelogReader(file_path=p)
             errors = reader.validate_layout()
-            assert errors == 0, f"Expected 0 errors for '### {change_type}', got {errors}"
+            assert (
+                errors == 0
+            ), f"Expected 0 errors for '### {change_type}', got {errors}"
 
 
 # ---------------------------------------------------------------------------
 # validate_layout — forbidden entry content
 # ---------------------------------------------------------------------------
+
 
 class TestValidateEntryContent:
     def test_sublist_bullet_is_error(self, tmp_path):
@@ -193,6 +196,7 @@ class TestValidateEntryContent:
 # validate_contents — ordering rules
 # ---------------------------------------------------------------------------
 
+
 class TestValidateContents:
     def test_versions_out_of_order_reports_warning(self, tmp_path):
         content = (
@@ -216,6 +220,7 @@ class TestValidateContents:
     def test_unreleased_not_first_reports_warning(self, tmp_path):
         """validate_contents prints a warning but does not raise when Unreleased is not first."""
         import keepachangelog
+
         content = (
             "# Changelog\n\n"
             "## [1.0.0] - 2024-01-01\n"
@@ -239,6 +244,7 @@ class TestValidateContents:
 # ---------------------------------------------------------------------------
 # read() — full integration (write file then read)
 # ---------------------------------------------------------------------------
+
 
 class TestReadIntegration:
     def test_read_valid_changelog_returns_dict(self, tmp_path):

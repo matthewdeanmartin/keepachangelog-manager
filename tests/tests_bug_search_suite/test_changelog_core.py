@@ -15,6 +15,7 @@ from changelogmanager.changelog import INITIAL_VERSION, Changelog
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def write_changelog(path: Path, content: str) -> Path:
     p = path / "CHANGELOG.md"
     p.write_text(content, encoding="utf-8")
@@ -62,6 +63,7 @@ MULTI_VERSION = """\
 # Changelog.add
 # ---------------------------------------------------------------------------
 
+
 class TestChangelogAdd:
     def test_add_creates_unreleased_when_absent(self, tmp_path):
         cl = Changelog(file_path=str(tmp_path / "CHANGELOG.md"), changelog={})
@@ -86,9 +88,13 @@ class TestChangelogAdd:
         assert "Bug B" in data["fixed"]
 
     def test_add_keeps_unreleased_first(self, tmp_path):
-        changelog = OrderedDict({
-            "1.0.0": {"metadata": {"version": "1.0.0", "release_date": "2024-01-01"}},
-        })
+        changelog = OrderedDict(
+            {
+                "1.0.0": {
+                    "metadata": {"version": "1.0.0", "release_date": "2024-01-01"}
+                },
+            }
+        )
         cl = Changelog(file_path=str(tmp_path / "CHANGELOG.md"), changelog=changelog)
         cl.add("fixed", "Something")
         keys = list(cl.get().keys())
@@ -101,9 +107,13 @@ class TestChangelogAdd:
         assert "" in items
 
     def test_add_preserves_existing_released_versions(self, tmp_path):
-        changelog = OrderedDict({
-            "1.0.0": {"metadata": {"version": "1.0.0", "release_date": "2024-01-01"}},
-        })
+        changelog = OrderedDict(
+            {
+                "1.0.0": {
+                    "metadata": {"version": "1.0.0", "release_date": "2024-01-01"}
+                },
+            }
+        )
         cl = Changelog(file_path=str(tmp_path / "CHANGELOG.md"), changelog=changelog)
         cl.add("added", "New thing")
         assert "1.0.0" in cl.get()
@@ -119,8 +129,11 @@ class TestChangelogAdd:
 # Changelog.release
 # ---------------------------------------------------------------------------
 
+
 class TestChangelogRelease:
-    def _make_with_unreleased(self, tmp_path, change_type="added", released_version=None):
+    def _make_with_unreleased(
+        self, tmp_path, change_type="added", released_version=None
+    ):
         changelog = OrderedDict()
         changelog[UNRELEASED_ENTRY] = {
             "metadata": {"version": UNRELEASED_ENTRY, "release_date": None},
@@ -173,6 +186,7 @@ class TestChangelogRelease:
 
     def test_release_sets_release_date_today(self, tmp_path):
         from datetime import date
+
         cl = self._make_with_unreleased(tmp_path, released_version="1.0.0")
         cl.release(override_version="2.0.0")
         release_date = cl.get()["2.0.0"]["metadata"]["release_date"]
@@ -185,17 +199,23 @@ class TestChangelogRelease:
         assert keys[0] == "2.0.0"
 
     def test_release_auto_bump_added_gives_minor(self, tmp_path):
-        cl = self._make_with_unreleased(tmp_path, change_type="added", released_version="1.0.0")
+        cl = self._make_with_unreleased(
+            tmp_path, change_type="added", released_version="1.0.0"
+        )
         cl.release()
         assert "1.1.0" in cl.get()
 
     def test_release_auto_bump_removed_gives_major(self, tmp_path):
-        cl = self._make_with_unreleased(tmp_path, change_type="removed", released_version="1.0.0")
+        cl = self._make_with_unreleased(
+            tmp_path, change_type="removed", released_version="1.0.0"
+        )
         cl.release()
         assert "2.0.0" in cl.get()
 
     def test_release_auto_bump_fixed_gives_patch(self, tmp_path):
-        cl = self._make_with_unreleased(tmp_path, change_type="fixed", released_version="1.0.0")
+        cl = self._make_with_unreleased(
+            tmp_path, change_type="fixed", released_version="1.0.0"
+        )
         cl.release()
         assert "1.0.1" in cl.get()
 
@@ -222,6 +242,7 @@ class TestChangelogRelease:
 # ---------------------------------------------------------------------------
 # Changelog.version / previous_version
 # ---------------------------------------------------------------------------
+
 
 class TestChangelogVersionQueries:
     def _make(self, versions: list[str], with_unreleased=False) -> Changelog:
@@ -280,10 +301,15 @@ class TestChangelogVersionQueries:
 # Changelog.suggest_future_version
 # ---------------------------------------------------------------------------
 
+
 class TestSuggestFutureVersion:
-    def _make_unreleased(self, change_types: list[str], released_version=None) -> Changelog:
+    def _make_unreleased(
+        self, change_types: list[str], released_version=None
+    ) -> Changelog:
         changelog = OrderedDict()
-        unreleased: dict = {"metadata": {"version": UNRELEASED_ENTRY, "release_date": None}}
+        unreleased: dict = {
+            "metadata": {"version": UNRELEASED_ENTRY, "release_date": None}
+        }
         for ct in change_types:
             unreleased[ct] = ["An entry"]
         changelog[UNRELEASED_ENTRY] = unreleased
@@ -341,9 +367,12 @@ class TestSuggestFutureVersion:
 # Changelog.get
 # ---------------------------------------------------------------------------
 
+
 class TestChangelogGet:
     def test_get_no_version_returns_all(self, tmp_path):
-        cl = Changelog(file_path=str(tmp_path / "CHANGELOG.md"), changelog={"1.0.0": {}})
+        cl = Changelog(
+            file_path=str(tmp_path / "CHANGELOG.md"), changelog={"1.0.0": {}}
+        )
         result = cl.get()
         assert "1.0.0" in result
 
@@ -353,7 +382,9 @@ class TestChangelogGet:
         assert cl.get("1.0.0") == {"metadata": {}}
 
     def test_get_missing_version_raises_warning(self, tmp_path):
-        cl = Changelog(file_path=str(tmp_path / "CHANGELOG.md"), changelog={"1.0.0": {}})
+        cl = Changelog(
+            file_path=str(tmp_path / "CHANGELOG.md"), changelog={"1.0.0": {}}
+        )
         with pytest.raises(logging.Warning, match="not available"):
             cl.get("9.9.9")
 
@@ -361,6 +392,7 @@ class TestChangelogGet:
 # ---------------------------------------------------------------------------
 # Changelog.to_json / write_to_json
 # ---------------------------------------------------------------------------
+
 
 class TestChangelogJson:
     def _make_simple(self, tmp_path) -> Changelog:
@@ -379,8 +411,12 @@ class TestChangelogJson:
 
     def test_to_json_full_contains_all_versions(self, tmp_path):
         changelog = OrderedDict()
-        changelog["2.0.0"] = {"metadata": {"version": "2.0.0", "release_date": "2024-06-01"}}
-        changelog["1.0.0"] = {"metadata": {"version": "1.0.0", "release_date": "2024-01-01"}}
+        changelog["2.0.0"] = {
+            "metadata": {"version": "2.0.0", "release_date": "2024-06-01"}
+        }
+        changelog["1.0.0"] = {
+            "metadata": {"version": "1.0.0", "release_date": "2024-01-01"}
+        }
         cl = Changelog(file_path=str(tmp_path / "CHANGELOG.md"), changelog=changelog)
         parsed = json.loads(cl.to_json())
         assert len(parsed) == 2
@@ -395,8 +431,12 @@ class TestChangelogJson:
 
     def test_to_json_specific_version(self, tmp_path):
         changelog = OrderedDict()
-        changelog["2.0.0"] = {"metadata": {"version": "2.0.0", "release_date": "2024-06-01"}}
-        changelog["1.0.0"] = {"metadata": {"version": "1.0.0", "release_date": "2024-01-01"}}
+        changelog["2.0.0"] = {
+            "metadata": {"version": "2.0.0", "release_date": "2024-06-01"}
+        }
+        changelog["1.0.0"] = {
+            "metadata": {"version": "1.0.0", "release_date": "2024-01-01"}
+        }
         cl = Changelog(file_path=str(tmp_path / "CHANGELOG.md"), changelog=changelog)
         parsed = json.loads(cl.to_json(version="1.0.0"))
         # When requesting a specific version, get() returns the dict for that version
@@ -407,6 +447,7 @@ class TestChangelogJson:
 # ---------------------------------------------------------------------------
 # Changelog.write_to_file / roundtrip
 # ---------------------------------------------------------------------------
+
 
 class TestChangelogWriteRoundtrip:
     def test_write_to_file_creates_file(self, tmp_path):
@@ -428,8 +469,11 @@ class TestChangelogWriteRoundtrip:
                 "version": "1.0.0",
                 "release_date": "2024-01-01",
                 "semantic_version": {
-                    "major": 1, "minor": 0, "patch": 0,
-                    "prerelease": None, "buildmetadata": None,
+                    "major": 1,
+                    "minor": 0,
+                    "patch": 0,
+                    "prerelease": None,
+                    "buildmetadata": None,
                 },
             },
             "added": ["Initial release"],
@@ -445,6 +489,7 @@ class TestChangelogWriteRoundtrip:
 # ---------------------------------------------------------------------------
 # Release then re-release (state mutation safety)
 # ---------------------------------------------------------------------------
+
 
 class TestReleaseSequence:
     def test_double_release_creates_two_distinct_versions(self, tmp_path):

@@ -22,10 +22,16 @@ changelog_path = st.builds(
     name=component_name,
 )
 
-valid_component = st.fixed_dictionaries({"name": component_name, "changelog": changelog_path})
+valid_component = st.fixed_dictionaries(
+    {"name": component_name, "changelog": changelog_path}
+)
 
 valid_config = st.fixed_dictionaries(
-    {"project": st.fixed_dictionaries({"components": st.lists(valid_component, min_size=1, max_size=5)})}
+    {
+        "project": st.fixed_dictionaries(
+            {"components": st.lists(valid_component, min_size=1, max_size=5)}
+        )
+    }
 )
 
 

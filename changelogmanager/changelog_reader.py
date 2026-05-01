@@ -4,7 +4,8 @@
 
 import datetime
 import re
-from collections.abc import Generator, Mapping
+from collections import OrderedDict
+from collections.abc import Generator, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Optional
 
@@ -12,7 +13,13 @@ import keepachangelog  # type: ignore
 from semantic_version import Version  # type: ignore
 
 import changelogmanager._llvm_diagnostics as logging
-from changelogmanager.change_types import DEFAULT_CHANGELOG_FILE, TYPES_OF_CHANGE, UNRELEASED_ENTRY
+from changelogmanager.change_types import (
+    DEFAULT_CHANGELOG_FILE,
+    TYPES_OF_CHANGE,
+    UNRELEASED_ENTRY,
+)
+
+PREAMBLE_KEYWORDS = ("keep a changelog", "semantic versioning")
 
 
 class ChangelogReader:
@@ -21,10 +28,16 @@ class ChangelogReader:
     def __init__(
         self,
         file_path: str = DEFAULT_CHANGELOG_FILE,
+        enforce_preamble: bool = False,
+        preamble_keywords: Optional[Sequence[str]] = None,
     ) -> None:
         """Constructor"""
 
         self.__file_path = file_path
+        self.__enforce_preamble = enforce_preamble
+        self.__preamble_keywords = tuple(
+            keyword.lower() for keyword in (preamble_keywords or PREAMBLE_KEYWORDS)
+        )
 
     def read(self) -> dict[str, Any]:
         """Reads the CHANGELOG.md file and checks for validity"""
@@ -241,16 +254,43 @@ class ChangelogReader:
                     message=rule["error"],
                 )
 
+    def __validate_preamble(self) -> list[logging.Error]:
+        """Optional check that the first non-blank lines mention KaC + SemVer."""
+
+        if not self.__enforce_preamble:
+            return []
+
+        try:
+            content = Path(self.__file_path).read_text(encoding="UTF-8")
+        except OSError:
+            return []
+
+        head = content.lower()[:1024]
+        missing = [kw for kw in self.__preamble_keywords if kw not in head]
+        if not missing:
+            return []
+        return [
+            logging.Error(
+                file_path=self.__file_path,
+                message=(
+                    "Missing canonical Keep a Changelog preamble; "
+                    f"expected references to: {', '.join(missing)}"
+                ),
+            )
+        ]
+
     def validate_layout(self) -> int:
         """Validates the changelog file according to KeepAChangelog conventions"""
 
         line_number = 1
-        errors = []
+        errors: list[logging.Error] = []
         with Path(self.__file_path).open(encoding="UTF-8") as file_handle:
             for line in file_handle:
                 errors.extend(list(self.__validate_heading(line_number, line)))
                 errors.extend(list(self.__validate_entry(line_number, line)))
                 line_number += 1
+
+        errors.extend(self.__validate_preamble())
 
         for error in errors:
             error.report()
@@ -262,24 +302,159 @@ class ChangelogReader:
 
         is_first_entry = True
         prev_version: Optional[Version] = None
-        message = logging.Warning(
-            file_path=self.__file_path,
-            message="Unknown warning",
-        )
 
-        for version in changelog:
+        for version, release in changelog.items():
             if version == UNRELEASED_ENTRY:
                 if not is_first_entry:
-                    message.message = (
-                        "Unreleased version should be on top of the CHANGELOG.md file"
-                    )
-                    message.report()
+                    logging.Warning(
+                        file_path=self.__file_path,
+                        message="Unreleased version should be on top of the CHANGELOG.md file",
+                    ).report()
             else:
                 new_version = Version(version)
                 if prev_version and prev_version <= new_version:
-                    message.message = f"Versions are incorrectly ordered: {prev_version} -> {new_version}"  # pylint: disable=C0301
-                    message.report()
+                    logging.Warning(
+                        file_path=self.__file_path,
+                        message=(
+                            f"Versions are incorrectly ordered: "
+                            f"{prev_version} -> {new_version}"
+                        ),
+                    ).report()
 
                 prev_version = new_version
 
+            self.__validate_release_contents(version, release)
+
             is_first_entry = False
+
+    def __validate_release_contents(
+        self, version: str, release: Mapping[str, Any]
+    ) -> None:
+        """Validates per-release content: empty sections + duplicate entries."""
+
+        if not isinstance(release, Mapping):
+            return
+
+        change_sections = [
+            (change_type, entries)
+            for change_type, entries in release.items()
+            if change_type != "metadata"
+        ]
+
+        # Empty version (no change sections at all).
+        if not change_sections:
+            logging.Warning(
+                file_path=self.__file_path,
+                message=f"Version '{version}' has no change entries",
+            ).report()
+            return
+
+        for change_type, entries in change_sections:
+            if not isinstance(entries, list) or len(entries) == 0:
+                logging.Warning(
+                    file_path=self.__file_path,
+                    message=(f"Version '{version}' has empty '{change_type}' section"),
+                ).report()
+                continue
+
+            seen: dict[str, int] = {}
+            for entry in entries:
+                key = str(entry).strip().lower()
+                seen[key] = seen.get(key, 0) + 1
+            for key, count in seen.items():
+                if count > 1:
+                    logging.Warning(
+                        file_path=self.__file_path,
+                        message=(
+                            f"Duplicate entry under '{change_type}' in version "
+                            f"'{version}' ({count}x): '{key}'"
+                        ),
+                    ).report()
+
+    def autofix(self, changelog: Mapping[str, Any]) -> tuple[dict[str, Any], list[str]]:
+        """Returns a normalised copy of ``changelog`` plus a list of changes applied.
+
+        Currently fixes:
+          * Lowercases unrecognised-cased change-type keys (e.g. ``Added`` -> ``added``).
+          * Removes empty change-type sections.
+          * Re-sorts releases so the newest released version comes first
+            (preserving the [Unreleased] entry at the top).
+          * De-duplicates identical entries within a section.
+        """
+
+        applied: list[str] = []
+        fixed: OrderedDict[str, Any] = OrderedDict()
+
+        for version, release in changelog.items():
+            if not isinstance(release, dict):
+                fixed[version] = release
+                continue
+
+            new_release: dict[str, Any] = {}
+            for change_type, entries in release.items():
+                if change_type == "metadata":
+                    new_release[change_type] = entries
+                    continue
+
+                canonical = change_type.lower()
+                if canonical != change_type:
+                    applied.append(
+                        f"Renamed change type '{change_type}' -> '{canonical}' "
+                        f"in version '{version}'"
+                    )
+
+                if canonical not in TYPES_OF_CHANGE:
+                    new_release[canonical] = entries
+                    continue
+
+                if not isinstance(entries, list) or not entries:
+                    applied.append(
+                        f"Dropped empty '{canonical}' section in version '{version}'"
+                    )
+                    continue
+
+                seen: set[str] = set()
+                deduped: list[Any] = []
+                for entry in entries:
+                    key = str(entry).strip().lower()
+                    if key in seen:
+                        applied.append(
+                            f"Removed duplicate entry under '{canonical}' "
+                            f"in version '{version}': '{entry}'"
+                        )
+                        continue
+                    seen.add(key)
+                    deduped.append(entry)
+
+                # Merge if both 'Added' and 'added' existed (canonical wins)
+                if canonical in new_release and isinstance(
+                    new_release[canonical], list
+                ):
+                    new_release[canonical].extend(deduped)
+                else:
+                    new_release[canonical] = deduped
+
+            fixed[version] = new_release
+
+        # Re-sort: keep [Unreleased] first, then released versions in descending order.
+        unreleased = fixed.pop(UNRELEASED_ENTRY, None)
+        try:
+            sorted_releases = sorted(
+                fixed.items(),
+                key=lambda item: Version(item[0]),
+                reverse=True,
+            )
+        except ValueError:
+            sorted_releases = list(fixed.items())
+
+        result: OrderedDict[str, Any] = OrderedDict()
+        if unreleased is not None:
+            result[UNRELEASED_ENTRY] = unreleased
+        prev_keys = list(fixed.keys())
+        new_keys = [key for key, _ in sorted_releases]
+        if prev_keys != new_keys:
+            applied.append("Reordered released versions in descending semver order")
+        for key, value in sorted_releases:
+            result[key] = value
+
+        return dict(result), applied

@@ -1,6 +1,6 @@
 # Desktop GUI
 
-`keepachangelog-manager` ships with an optional Tkinter desktop GUI that surfaces every CLI command in a paneled window. It is useful for one-off edits, exploring a changelog interactively, or onboarding teammates who would rather click than memorise flags.
+`keepachangelog-manager` ships with an optional Tkinter desktop GUI for the common changelog workflows. It is useful for one-off edits, exploring a changelog interactively, or onboarding teammates who would rather click than memorise flags.
 
 ## Launch
 
@@ -21,9 +21,32 @@ python -m changelogmanager gui
 | Pane | Contents |
 |---|---|
 | **Top — Inputs** | Input file (with Browse), config file, component name, error format, and a global Dry-run toggle |
-| **Left — Commands** | One button per CLI subcommand; clicking jumps to the matching tab |
-| **Center — Tabs** | One tab per command with its specific inputs, a Run button, and a scrollable output log; plus a **changelog** tab that shows the current file |
+| **Left — Commands** | Buttons for the GUI-backed commands: `create`, `version`, `validate`, `release`, `to-json`, `add`, and `github-release` |
+| **Center — Tabs** | One tab per GUI-backed command with its specific inputs, a Run button, and a scrollable output log; plus a **changelog** tab that shows the current file |
 | **Right — Help** | Context-sensitive help for the currently selected tab |
+
+## Scope
+
+The GUI currently supports these commands:
+
+- `create`
+- `version`
+- `validate`
+- `release`
+- `to-json`
+- `add`
+- `github-release`
+
+Use the CLI directly for newer or more specialised workflows such as:
+
+- `remove`
+- `edit`
+- `from-commits`
+- `to-yaml`
+- `to-html`
+- `validate --fix`
+- `validate --all --changed-only`
+- `--quiet` and `--json`
 
 ## Auto-run on tab activation
 
@@ -31,7 +54,7 @@ The non-destructive commands `version` and `validate` run automatically the firs
 
 ## Destructive commands
 
-`release`, `add`, `to-json` (without `--dry-run`), and `github-release` all modify state. The GUI honours the global **Dry run** checkbox — leave it on while you experiment, then untick it once you're satisfied with the previewed output.
+`create`, `release`, `add`, `to-json` (without `--dry-run`), and `github-release` all modify state. The GUI honours the global **Dry run** checkbox — leave it on while you experiment, then untick it once you're satisfied with the previewed output.
 
 `github-release` additionally requires a repository (in `owner/repo` form) and a GitHub token. The token field is masked and pre-populated from the `GITHUB_TOKEN` environment variable when present.
 

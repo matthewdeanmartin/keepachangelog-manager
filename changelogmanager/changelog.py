@@ -2,7 +2,9 @@
 
 """Changelog"""
 
+import html
 import json
+import re
 from collections import OrderedDict
 from collections.abc import Mapping
 from datetime import datetime
@@ -10,10 +12,17 @@ from pathlib import Path
 from typing import Any, Optional
 
 import keepachangelog  # type: ignore
+import yaml
 from semantic_version import Version  # type: ignore
 
 import changelogmanager._llvm_diagnostics as logging
-from changelogmanager.change_types import CATEGORIES, DEFAULT_CHANGELOG_FILE, UNRELEASED_ENTRY, VersionCore
+from changelogmanager.change_types import (
+    CATEGORIES,
+    DEFAULT_CHANGELOG_FILE,
+    UNRELEASED_ENTRY,
+    VersionCore,
+)
+from changelogmanager.config import get_versioning_markdown
 
 INITIAL_VERSION = Version("0.0.1")
 
@@ -25,14 +34,20 @@ class Changelog:
         self,
         file_path: str = DEFAULT_CHANGELOG_FILE,
         changelog: Optional[dict[str, Any]] = None,
+        versioning_scheme: str = "semver",
     ) -> None:
         """Constructor"""
         self.__changelog_file_path = file_path
         self.__changelog = changelog if changelog else {}
+        self.__versioning_scheme = versioning_scheme
 
     def get_file_path(self) -> str:
         """Returns the path to the changelog file"""
         return self.__changelog_file_path
+
+    def set_data(self, data: dict[str, Any]) -> None:
+        """Replaces the in-memory changelog data (used by autofix)."""
+        self.__changelog = data
 
     def add(self, change_type: str, message: str) -> None:
         """Adds a new message to the specified change identifier in the Changelog"""
@@ -55,6 +70,93 @@ class Changelog:
         changelog.move_to_end(UNRELEASED_ENTRY, last=False)
 
         self.__changelog = dict(changelog)
+
+    def list_unreleased(self) -> list[tuple[str, int, str]]:
+        """Lists every entry in [Unreleased] as (change_type, index, message)."""
+
+        unreleased = self.__changelog.get(UNRELEASED_ENTRY, {})
+        result: list[tuple[str, int, str]] = []
+        for change_type, messages in unreleased.items():
+            if change_type == "metadata":
+                continue
+            if not isinstance(messages, list):
+                continue
+            for index, message in enumerate(messages):
+                result.append((change_type, index, message))
+        return result
+
+    def remove(self, change_type: str, index: int) -> str:
+        """Removes the entry at ``index`` for ``change_type`` from [Unreleased]."""
+
+        if UNRELEASED_ENTRY not in self.__changelog:
+            raise logging.Error(
+                file_path=self.get_file_path(),
+                message="Unable to remove without [Unreleased] section",
+            )
+        unreleased = self.__changelog[UNRELEASED_ENTRY]
+        entries = unreleased.get(change_type)
+        if not entries:
+            raise logging.Error(
+                file_path=self.get_file_path(),
+                message=f"No '{change_type}' entries in [Unreleased]",
+            )
+        if index < 0 or index >= len(entries):
+            raise logging.Error(
+                file_path=self.get_file_path(),
+                message=(
+                    f"Index {index} out of range for '{change_type}' "
+                    f"(0..{len(entries) - 1})"
+                ),
+            )
+        removed = entries.pop(index)
+        if not entries:
+            del unreleased[change_type]
+        return removed
+
+    def edit(
+        self,
+        change_type: str,
+        index: int,
+        new_message: Optional[str] = None,
+        new_change_type: Optional[str] = None,
+    ) -> None:
+        """Edits an entry in [Unreleased]; can also recategorise it."""
+
+        if UNRELEASED_ENTRY not in self.__changelog:
+            raise logging.Error(
+                file_path=self.get_file_path(),
+                message="Unable to edit without [Unreleased] section",
+            )
+        unreleased = self.__changelog[UNRELEASED_ENTRY]
+        entries = unreleased.get(change_type)
+        if not entries:
+            raise logging.Error(
+                file_path=self.get_file_path(),
+                message=f"No '{change_type}' entries in [Unreleased]",
+            )
+        if index < 0 or index >= len(entries):
+            raise logging.Error(
+                file_path=self.get_file_path(),
+                message=(
+                    f"Index {index} out of range for '{change_type}' "
+                    f"(0..{len(entries) - 1})"
+                ),
+            )
+
+        message = new_message if new_message is not None else entries[index]
+
+        if new_change_type and new_change_type != change_type:
+            if new_change_type not in CATEGORIES:
+                raise logging.Error(
+                    file_path=self.get_file_path(),
+                    message=f"Unknown change type '{new_change_type}'",
+                )
+            entries.pop(index)
+            if not entries:
+                del unreleased[change_type]
+            unreleased.setdefault(new_change_type, []).append(message)
+        else:
+            entries[index] = message
 
     def exists(self) -> bool:
         """Verifies if the Changelog file exists"""
@@ -180,7 +282,9 @@ class Changelog:
         if self.__has_only_unreleased_version():
             return INITIAL_VERSION
 
-        def determine_version(unreleased: Mapping[str, Any], prev_version: Version) -> Version:
+        def determine_version(
+            unreleased: Mapping[str, Any], prev_version: Version
+        ) -> Version:
             bump_type = VersionCore.PATCH
             for identifier, category in CATEGORIES.items():
                 if identifier in unreleased and category.bump.value > bump_type.value:
@@ -209,10 +313,63 @@ class Changelog:
         json_data = [value for _, value in content.items()]
         return json.dumps(json_data, indent=4)
 
+    def write_to_yaml(self, file: str, version: Optional[str] = None) -> None:
+        """Stores the Changelog file in YAML format."""
+
+        with Path(file).open("w", encoding="UTF-8") as file_handle:
+            file_handle.write(self.to_yaml(version=version))
+
+    def to_yaml(self, version: Optional[str] = None) -> str:
+        """Returns the Changelog file in YAML format."""
+
+        content = self.get(version=version)
+        yaml_data = [value for _, value in content.items()]
+        result: str = yaml.safe_dump(yaml_data, sort_keys=False, allow_unicode=True)
+        return result
+
+    def write_to_html(self, file: str, version: Optional[str] = None) -> None:
+        """Stores the Changelog file in HTML format."""
+
+        with Path(file).open("w", encoding="UTF-8") as file_handle:
+            file_handle.write(self.to_html(version=version))
+
+    def to_html(self, version: Optional[str] = None) -> str:
+        """Returns the Changelog file rendered as HTML."""
+
+        content = self.get(version=version)
+        parts: list[str] = [
+            "<!DOCTYPE html>",
+            '<html><head><meta charset="utf-8"><title>Changelog</title></head>',
+            "<body>",
+            "<h1>Changelog</h1>",
+        ]
+        for ver, release in content.items():
+            metadata = release.get("metadata", {}) if isinstance(release, dict) else {}
+            release_date = metadata.get("release_date")
+            heading = html.escape(str(ver))
+            if release_date:
+                heading += f" - {html.escape(str(release_date))}"
+            parts.append(f"<h2>{heading}</h2>")
+            for change_type, category in CATEGORIES.items():
+                entries = (
+                    release.get(change_type) if isinstance(release, dict) else None
+                )
+                if not entries:
+                    continue
+                parts.append(f"<h3>{html.escape(category.title)}</h3>")
+                parts.append("<ul>")
+                for entry in entries:
+                    parts.append(f"<li>{html.escape(str(entry))}</li>")
+                parts.append("</ul>")
+        parts.append("</body></html>")
+        return "\n".join(parts) + "\n"
+
     def write_to_file(self) -> None:
         """Updates CHANGELOG.md based on the Keep a Changelog standard"""
 
-        with Path(self.__changelog_file_path).open("w", encoding="UTF-8") as file_handle:
+        with Path(self.__changelog_file_path).open(
+            "w", encoding="UTF-8"
+        ) as file_handle:
             file_handle.write(str(self))
 
     def __has_only_unreleased_version(self) -> bool:
@@ -222,4 +379,20 @@ class Changelog:
     def __str__(self) -> str:
         """String representation"""
 
-        return str(keepachangelog.from_dict(self.__changelog))
+        rendered = str(keepachangelog.from_dict(self.__changelog))
+        return self.__render_preamble(rendered)
+
+    def __render_preamble(self, rendered: str) -> str:
+        if self.__versioning_scheme == "semver":
+            return rendered
+
+        replacement = (
+            "and this project adheres to "
+            f"{get_versioning_markdown(self.__versioning_scheme)}."
+        )
+        return re.sub(
+            r"and this project adheres to \[Semantic Versioning\]\(https://semver\.org/spec/v2\.0\.0\.html\)\.",
+            replacement,
+            rendered,
+            count=1,
+        )

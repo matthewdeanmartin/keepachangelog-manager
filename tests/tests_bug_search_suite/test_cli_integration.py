@@ -51,12 +51,57 @@ def write_changelog(path: Path, content: str = VALID_CHANGELOG) -> str:
 # create command
 # ---------------------------------------------------------------------------
 
+
 class TestCommandCreate:
     def test_create_makes_file(self, tmp_path):
         p = str(tmp_path / "CHANGELOG.md")
         rc = main(["--input-file", p, "create"])
         assert rc == 0
         assert Path(p).exists()
+
+    def test_create_uses_configured_versioning_preamble(self, tmp_path, monkeypatch):
+        (tmp_path / "pyproject.toml").write_text(
+            "[tool.changelogmanager.project.validation]\n"
+            "enforce_preamble = true\n\n"
+            "[tool.changelogmanager.project.commits]\n"
+            'style = "conventional"\n\n'
+            "[tool.changelogmanager.project.versioning]\n"
+            'scheme = "pep440"\n\n'
+            "[[tool.changelogmanager.project.components]]\n"
+            'name = "default"\n'
+            'changelog = "CHANGELOG.md"\n',
+            encoding="utf-8",
+        )
+        monkeypatch.chdir(tmp_path)
+
+        p = str(tmp_path / "CHANGELOG.md")
+        rc = main(["--input-file", p, "create"])
+
+        assert rc == 0
+        text = Path(p).read_text(encoding="utf-8")
+        assert "PEP 440" in text
+        assert "Semantic Versioning" not in text
+
+    def test_validate_accepts_matching_non_semver_preamble(self, tmp_path, monkeypatch):
+        (tmp_path / "pyproject.toml").write_text(
+            "[tool.changelogmanager.project.validation]\n"
+            "enforce_preamble = true\n\n"
+            "[tool.changelogmanager.project.commits]\n"
+            'style = "conventional"\n\n'
+            "[tool.changelogmanager.project.versioning]\n"
+            'scheme = "calver"\n\n'
+            "[[tool.changelogmanager.project.components]]\n"
+            'name = "default"\n'
+            'changelog = "CHANGELOG.md"\n',
+            encoding="utf-8",
+        )
+        monkeypatch.chdir(tmp_path)
+        p = str(tmp_path / "CHANGELOG.md")
+        main(["--input-file", p, "create"])
+
+        rc = main(["--input-file", p, "validate"])
+
+        assert rc == 0
 
     def test_create_existing_file_returns_zero(self, tmp_path):
         p = write_changelog(tmp_path)
@@ -73,6 +118,7 @@ class TestCommandCreate:
 # ---------------------------------------------------------------------------
 # validate command
 # ---------------------------------------------------------------------------
+
 
 class TestCommandValidate:
     def test_validate_valid_file_returns_zero(self, tmp_path):
@@ -100,6 +146,7 @@ class TestCommandValidate:
 # ---------------------------------------------------------------------------
 # version command
 # ---------------------------------------------------------------------------
+
 
 class TestCommandVersion:
     def test_version_current(self, tmp_path, capsys):
@@ -142,6 +189,7 @@ class TestCommandVersion:
 # add command
 # ---------------------------------------------------------------------------
 
+
 class TestCommandAdd:
     def test_add_appends_to_unreleased(self, tmp_path):
         p = write_changelog(tmp_path, RELEASED_ONLY)
@@ -154,14 +202,33 @@ class TestCommandAdd:
     def test_add_dry_run_does_not_modify(self, tmp_path):
         p = write_changelog(tmp_path, RELEASED_ONLY)
         original = Path(p).read_text(encoding="utf-8")
-        rc = main(["--input-file", p, "add", "-t", "fixed", "-m", "dry change", "--dry-run"])
+        rc = main(
+            ["--input-file", p, "add", "-t", "fixed", "-m", "dry change", "--dry-run"]
+        )
         assert rc == 0
         assert Path(p).read_text(encoding="utf-8") == original
 
     def test_add_all_change_types(self, tmp_path):
-        for change_type in ["added", "changed", "deprecated", "removed", "fixed", "security"]:
+        for change_type in [
+            "added",
+            "changed",
+            "deprecated",
+            "removed",
+            "fixed",
+            "security",
+        ]:
             p = write_changelog(tmp_path, RELEASED_ONLY)
-            rc = main(["--input-file", p, "add", "-t", change_type, "-m", f"A {change_type} entry"])
+            rc = main(
+                [
+                    "--input-file",
+                    p,
+                    "add",
+                    "-t",
+                    change_type,
+                    "-m",
+                    f"A {change_type} entry",
+                ]
+            )
             assert rc == 0, f"Failed for change type: {change_type}"
 
 
@@ -169,10 +236,11 @@ class TestCommandAdd:
 # release command
 # ---------------------------------------------------------------------------
 
+
 class TestCommandRelease:
     def test_release_creates_new_version(self, tmp_path):
         p = write_changelog(tmp_path, VALID_CHANGELOG)
-        rc = main(["--input-file", p, "release"])
+        rc = main(["--input-file", p, "release", "--yes"])
         assert rc == 0
         text = Path(p).read_text(encoding="utf-8")
         assert "[Unreleased]" not in text
@@ -180,21 +248,25 @@ class TestCommandRelease:
 
     def test_release_with_override_version(self, tmp_path):
         p = write_changelog(tmp_path, VALID_CHANGELOG)
-        rc = main(["--input-file", p, "release", "--override-version", "3.0.0"])
+        rc = main(
+            ["--input-file", p, "release", "--override-version", "3.0.0", "--yes"]
+        )
         assert rc == 0
         text = Path(p).read_text(encoding="utf-8")
         assert "3.0.0" in text
 
     def test_release_with_v_prefix_version(self, tmp_path):
         p = write_changelog(tmp_path, VALID_CHANGELOG)
-        rc = main(["--input-file", p, "release", "--override-version", "v3.0.0"])
+        rc = main(
+            ["--input-file", p, "release", "--override-version", "v3.0.0", "--yes"]
+        )
         assert rc == 0
         text = Path(p).read_text(encoding="utf-8")
         assert "3.0.0" in text
 
     def test_release_without_unreleased_returns_one(self, tmp_path):
         p = write_changelog(tmp_path, RELEASED_ONLY)
-        rc = main(["--input-file", p, "release"])
+        rc = main(["--input-file", p, "release", "--yes"])
         assert rc == 1
 
     def test_release_dry_run_does_not_modify(self, tmp_path):
@@ -204,9 +276,16 @@ class TestCommandRelease:
         assert rc == 0
         assert Path(p).read_text(encoding="utf-8") == original
 
+    def test_release_without_yes_in_non_interactive_returns_one(self, tmp_path):
+        p = write_changelog(tmp_path, VALID_CHANGELOG)
+        rc = main(["--input-file", p, "release"])
+        assert rc == 1
+
     def test_release_invalid_version_returns_one(self, tmp_path):
         p = write_changelog(tmp_path, VALID_CHANGELOG)
-        rc = main(["--input-file", p, "release", "--override-version", "not-semver"])
+        rc = main(
+            ["--input-file", p, "release", "--override-version", "not-semver", "--yes"]
+        )
         assert rc == 1
 
     def test_release_already_existing_version_returns_one(self, tmp_path):
@@ -224,6 +303,7 @@ class TestCommandRelease:
 # to-json command
 # ---------------------------------------------------------------------------
 
+
 class TestCommandToJson:
     def test_to_json_creates_file(self, tmp_path):
         p = write_changelog(tmp_path)
@@ -234,6 +314,7 @@ class TestCommandToJson:
 
     def test_to_json_output_is_valid_json(self, tmp_path):
         import json as _json
+
         p = write_changelog(tmp_path)
         out = str(tmp_path / "changelog.json")
         main(["--input-file", p, "to-json", "--file-name", out])
@@ -252,6 +333,7 @@ class TestCommandToJson:
 # Error format flag
 # ---------------------------------------------------------------------------
 
+
 class TestErrorFormat:
     def test_github_error_format_on_invalid_file(self, tmp_path):
         p = tmp_path / "CHANGELOG.md"
@@ -269,6 +351,7 @@ class TestErrorFormat:
 # ---------------------------------------------------------------------------
 # Config-driven multi-component
 # ---------------------------------------------------------------------------
+
 
 class TestConfigDrivenCLI:
     def test_config_selects_correct_changelog(self, tmp_path):

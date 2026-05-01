@@ -26,6 +26,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ```
 
+If you want config first, run:
+
+```sh
+changelogmanager config init
+```
+
+That interactive setup defaults to `pyproject.toml`, `Conventional Commits`, and `semver`. If you pick `pep440` or `calver`, future `create` runs use that wording in the generated preamble.
+
 ## 3. Add a change
 
 ```sh
@@ -62,6 +70,44 @@ changelogmanager validate
 
 No output means no errors. Errors are printed in LLVM diagnostic format by default (compatible with many editors and CI systems).
 
+If you want the tool to clean up common issues for you, use:
+
+```sh
+changelogmanager validate --fix
+```
+
+This can reorder released versions, lowercase change-type headings, drop empty sections, and remove duplicate entries.
+
+## 6. Edit or remove an unreleased entry
+
+List entries with their indices:
+
+```sh
+changelogmanager remove --list
+```
+
+Update an existing entry:
+
+```sh
+changelogmanager edit --change-type added --index 0 --message "Initial public release"
+```
+
+Remove an entry:
+
+```sh
+changelogmanager remove --change-type added --index 0
+```
+
+## 7. Prefer commit history over typing?
+
+Seed `[Unreleased]` from git commit subjects:
+
+```sh
+changelogmanager from-commits
+```
+
+By default this starts at the last git tag, falling back to full history when no tag exists. Use `--strict` to skip non-Conventional Commit subjects instead of treating them as `changed`.
+
 ## Prefer a GUI?
 
 If you'd rather click than type, run:
@@ -70,10 +116,10 @@ If you'd rather click than type, run:
 changelogmanager gui
 ```
 
-This opens a paneled Tkinter window with every command available as a button. See the [Desktop GUI](gui.md) page for details.
+This opens a paneled Tkinter window for the common commands. See the [Desktop GUI](gui.md) page for details.
 
 ## What's next
 
-- Learn the full set of [workflows](workflows.md) including GitHub releases and JSON export
+- Learn the full set of [workflows](workflows.md) including GitHub releases, commit seeding, exports, and automation flags
 - Read the complete [CLI reference](cli.md) for every flag and option
 - Try the [Desktop GUI](gui.md) for an interactive front-end

@@ -45,7 +45,9 @@ def test_get_returns_specific_version_and_warns_for_missing_version():
 def test_release_requires_unreleased_section():
     changelog = Changelog(changelog=OrderedDict([("1.0.0", released_entry("1.0.0"))]))
 
-    with pytest.raises(logging.Error, match="Unable to release without \\[Unreleased\\] section"):
+    with pytest.raises(
+        logging.Error, match="Unable to release without \\[Unreleased\\] section"
+    ):
         changelog.release()
 
 
@@ -113,7 +115,10 @@ def test_release_rejects_duplicate_and_older_versions():
             ]
         )
     )
-    with pytest.raises(logging.Error, match="Unable to release a version older than the last release '2.0.0'"):
+    with pytest.raises(
+        logging.Error,
+        match="Unable to release a version older than the last release '2.0.0'",
+    ):
         older.release("1.5.0")
 
 
@@ -131,7 +136,9 @@ def test_version_and_previous_version_cover_edge_cases():
             ]
         )
     )
-    with pytest.raises(logging.Warning, match="Only an Unreleased version is available"):
+    with pytest.raises(
+        logging.Warning, match="Only an Unreleased version is available"
+    ):
         only_unreleased.version()
     with pytest.raises(logging.Warning, match="No previous versions available"):
         only_unreleased.previous_version()
@@ -196,7 +203,10 @@ def test_to_json_and_write_to_json_render_changelog_content(tmp_path):
 
     rendered = changelog.to_json()
     assert json.loads(rendered) == [
-        {"metadata": {"version": "1.0.0", "release_date": "2024-01-01"}, "added": ["Feature"]}
+        {
+            "metadata": {"version": "1.0.0", "release_date": "2024-01-01"},
+            "added": ["Feature"],
+        }
     ]
 
     output_file = tmp_path / "CHANGELOG.json"

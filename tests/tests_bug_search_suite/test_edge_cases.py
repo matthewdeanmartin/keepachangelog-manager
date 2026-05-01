@@ -17,6 +17,7 @@ from changelogmanager.cli import main
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def write(path: Path, content: str, name: str = "CHANGELOG.md") -> str:
     p = path / name
     p.write_text(content, encoding="utf-8")
@@ -26,6 +27,7 @@ def write(path: Path, content: str, name: str = "CHANGELOG.md") -> str:
 # ---------------------------------------------------------------------------
 # Version ordering edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestVersionOrdering:
     def test_versions_in_correct_descending_order_reads_fine(self, tmp_path):
@@ -40,11 +42,19 @@ class TestVersionOrdering:
         assert list(result.keys()) == ["3.0.0", "2.0.0", "1.0.0"]
 
     def test_version_method_returns_first_released_key(self, tmp_path):
-        changelog = OrderedDict({
-            "3.0.0": {"metadata": {"version": "3.0.0", "release_date": "2024-03-01"}},
-            "2.0.0": {"metadata": {"version": "2.0.0", "release_date": "2024-02-01"}},
-            "1.0.0": {"metadata": {"version": "1.0.0", "release_date": "2024-01-01"}},
-        })
+        changelog = OrderedDict(
+            {
+                "3.0.0": {
+                    "metadata": {"version": "3.0.0", "release_date": "2024-03-01"}
+                },
+                "2.0.0": {
+                    "metadata": {"version": "2.0.0", "release_date": "2024-02-01"}
+                },
+                "1.0.0": {
+                    "metadata": {"version": "1.0.0", "release_date": "2024-01-01"}
+                },
+            }
+        )
         cl = Changelog(file_path="CHANGELOG.md", changelog=changelog)
         assert cl.version() == Version("3.0.0")
 
@@ -55,8 +65,12 @@ class TestVersionOrdering:
             "metadata": {"version": UNRELEASED_ENTRY, "release_date": None},
             "added": ["Something"],
         }
-        changelog["2.0.0"] = {"metadata": {"version": "2.0.0", "release_date": "2024-02-01"}}
-        changelog["1.0.0"] = {"metadata": {"version": "1.0.0", "release_date": "2024-01-01"}}
+        changelog["2.0.0"] = {
+            "metadata": {"version": "2.0.0", "release_date": "2024-02-01"}
+        }
+        changelog["1.0.0"] = {
+            "metadata": {"version": "1.0.0", "release_date": "2024-01-01"}
+        }
         cl = Changelog(file_path="CHANGELOG.md", changelog=changelog)
         # Should bump minor from 2.0.0 → 2.1.0, NOT from 1.0.0 → 1.1.0
         assert cl.suggest_future_version() == Version("2.1.0")
@@ -65,6 +79,7 @@ class TestVersionOrdering:
 # ---------------------------------------------------------------------------
 # to_json with specific version — potential bug: iterates values of a single entry
 # ---------------------------------------------------------------------------
+
 
 class TestToJsonSpecificVersion:
     def test_to_json_specific_version_structure(self, tmp_path):
@@ -90,6 +105,7 @@ class TestToJsonSpecificVersion:
 # add() with special characters
 # ---------------------------------------------------------------------------
 
+
 class TestAddSpecialCharacters:
     def test_add_unicode_message(self, tmp_path):
         cl = Changelog(file_path=str(tmp_path / "CHANGELOG.md"), changelog={})
@@ -113,6 +129,7 @@ class TestAddSpecialCharacters:
 # ---------------------------------------------------------------------------
 # Release with exact same version as auto-suggest
 # ---------------------------------------------------------------------------
+
 
 class TestReleaseOverrideEdgeCases:
     def test_release_override_same_as_auto_is_accepted(self, tmp_path):
@@ -145,6 +162,7 @@ class TestReleaseOverrideEdgeCases:
 # write_to_file idempotency
 # ---------------------------------------------------------------------------
 
+
 class TestWriteIdempotency:
     def test_write_read_write_is_stable(self, tmp_path):
         """Writing, reading back and writing again should produce identical output."""
@@ -161,6 +179,7 @@ class TestWriteIdempotency:
         p.write_text(content, encoding="utf-8")
 
         from changelogmanager.changelog_reader import ChangelogReader
+
         read1 = ChangelogReader(file_path=str(p)).read()
         cl = Changelog(file_path=str(p), changelog=read1)
         cl.write_to_file()
@@ -178,12 +197,13 @@ class TestWriteIdempotency:
 # CLI: add followed by release in sequence
 # ---------------------------------------------------------------------------
 
+
 class TestCLIAddReleaseCycle:
     def test_add_then_release_full_cycle(self, tmp_path):
         p = str(tmp_path / "CHANGELOG.md")
         main(["--input-file", p, "create"])
         main(["--input-file", p, "add", "-t", "added", "-m", "New feature"])
-        rc = main(["--input-file", p, "release"])
+        rc = main(["--input-file", p, "release", "--yes"])
         assert rc == 0
         text = Path(p).read_text(encoding="utf-8")
         assert "0.0.1" in text
@@ -193,9 +213,9 @@ class TestCLIAddReleaseCycle:
         p = str(tmp_path / "CHANGELOG.md")
         main(["--input-file", p, "create"])
         main(["--input-file", p, "add", "-t", "added", "-m", "Feature 1"])
-        main(["--input-file", p, "release"])
+        main(["--input-file", p, "release", "--yes"])
         main(["--input-file", p, "add", "-t", "removed", "-m", "Removed thing"])
-        rc = main(["--input-file", p, "release"])
+        rc = main(["--input-file", p, "release", "--yes"])
         assert rc == 0
         text = Path(p).read_text(encoding="utf-8")
         assert "0.0.1" in text
@@ -205,6 +225,7 @@ class TestCLIAddReleaseCycle:
 # ---------------------------------------------------------------------------
 # ChangelogReader — validate_layout returns error count correctly
 # ---------------------------------------------------------------------------
+
 
 class TestValidateLayoutErrorCount:
     def test_invalid_version_produces_exactly_one_error(self, tmp_path):
@@ -220,12 +241,7 @@ class TestValidateLayoutErrorCount:
         assert errors == 2
 
     def test_zero_errors_on_valid_content(self, tmp_path):
-        content = (
-            "# Changelog\n\n"
-            "## [Unreleased]\n"
-            "### Added\n"
-            "- Something\n"
-        )
+        content = "# Changelog\n\n" "## [Unreleased]\n" "### Added\n" "- Something\n"
         p = write(tmp_path, content)
         errors = ChangelogReader(file_path=p).validate_layout()
         assert errors == 0
@@ -234,6 +250,7 @@ class TestValidateLayoutErrorCount:
 # ---------------------------------------------------------------------------
 # Changelog.get — version as Version object vs string
 # ---------------------------------------------------------------------------
+
 
 class TestGetVersionTypes:
     def test_get_with_string_version(self, tmp_path):
@@ -254,6 +271,7 @@ class TestGetVersionTypes:
 # Changelog existence check
 # ---------------------------------------------------------------------------
 
+
 class TestChangelogExists:
     def test_exists_true_when_file_present(self, tmp_path):
         p = tmp_path / "CHANGELOG.md"
@@ -269,6 +287,7 @@ class TestChangelogExists:
 # ---------------------------------------------------------------------------
 # Validate layout with entries using '+' and '*' bullets
 # ---------------------------------------------------------------------------
+
 
 class TestAlternateBullets:
     def test_plus_bullet_validates_as_entry(self, tmp_path):
