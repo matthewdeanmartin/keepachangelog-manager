@@ -12,32 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Changelog Manager module"""
+"""Changelog Manager module."""
 
 import sys
-from click import ClickException
-import llvm_diagnostics as logging
+
 from changelogmanager import cli
 
 
 def main():
-    """Entrypoint"""
-    try:
-        cli.main(None, None, None, None, None)
-    # Exit gracefully in case an Warning or Information exception was raised
-    except (logging.Info, logging.Warning) as exc_info:
-        exc_info.report()
-        sys.exit(0)
+    """Entrypoint."""
 
-    # Failure
-    except logging.Error as exc_info:
-        exc_info.report()
-        sys.exit(1)
-
-    # Failure
-    except ClickException as exc_info:
-        exc_info.show()
-        sys.exit(1)
+    sys.exit(cli.main())
 
 
 if __name__ == "__main__":

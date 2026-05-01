@@ -11,18 +11,16 @@ name = "keepachangelog-manager-fork"
 description = "Python package allowing you to manage your CHANGELOG.md files"
 readme = "README.md"
 version = "5.0.0"
-requires-python = ">=3.10"
-dynamic = ["version"]
+requires-python = ">=3.9"
 license = "Apache-2.0"
 license-files = ["LICENSE.md"]
 dependencies = [
-    "Click>=8.2.1,<9", # has to go.
     "pyyaml>=6.0.2,<7",
     "semantic_version>=2.10.0,<3",
-    "keepachangelog>=2.0.0,<3",
-    "urllib3>=2.4.0,<3",
+    "keepachangelog>=2.0.0",
+    "urllib3>=2.6.3",
     "llvm-diagnostics>=3.0.1,<4",
-    "inquirer>=3.4.0,<4",
+    "inquirer>=3.2.2",
 ]
 [project.urls]
 Homepage = "https://github.com/matthewdeanmartin/keepachangelog-manager"
@@ -31,6 +29,7 @@ Source = "https://github.com/matthewdeanmartin/keepachangelog-manager"
 
 [project.scripts]
 changelogmanager = "changelogmanager.__main__:main"
+keepachangelog-manager = "changelogmanager.__main__:main"
 
 [dependency-groups]
 test = [
