@@ -18,19 +18,29 @@ CLAUDE_PERSONAL_SKILLS_DIR = Path.home() / ".claude" / "skills"
 logger = get_logger(__name__)
 
 
-class Traversable(Protocol):
+class Traversable(Protocol):  # pylint: disable=missing-function-docstring
     """Protocol for bundled resource traversables."""
 
     @property
-    def name(self) -> str: ...
+    def name(self) -> str:
+        """Return the resource name."""
+        raise NotImplementedError
 
-    def is_dir(self) -> bool: ...
+    def is_dir(self) -> bool:
+        """Return whether the resource is a directory."""
+        raise NotImplementedError
 
-    def iterdir(self) -> Iterator[Traversable]: ...
+    def iterdir(self) -> Iterator[Traversable]:
+        """Iterate over child resources."""
+        raise NotImplementedError
 
-    def joinpath(self, child: str, /) -> Traversable: ...
+    def joinpath(self, child: str, /) -> Traversable:
+        """Return a child resource."""
+        raise NotImplementedError
 
-    def read_bytes(self) -> bytes: ...
+    def read_bytes(self) -> bytes:
+        """Read the resource bytes."""
+        raise NotImplementedError
 
 
 def bundled_skill_root() -> Traversable:

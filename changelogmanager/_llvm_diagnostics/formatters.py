@@ -4,15 +4,13 @@
 """Diagnostic Message Formatters"""
 
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from changelogmanager._llvm_diagnostics import utils
 from changelogmanager._llvm_diagnostics.utils import Level
 
 if TYPE_CHECKING:
     from changelogmanager._llvm_diagnostics.messages import __Message
-
-from typing import Protocol
 
 # pylint: disable=R0903
 

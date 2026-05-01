@@ -429,7 +429,9 @@ class ChangelogReader:
                         ),
                     ).report()
 
-    def autofix(self, changelog: Mapping[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    def autofix(  # pylint: disable=too-many-locals,too-many-branches
+        self, changelog: Mapping[str, Any]
+    ) -> tuple[dict[str, Any], list[str]]:
         """Returns a normalised copy of ``changelog`` plus a list of changes applied.
 
         Currently fixes:

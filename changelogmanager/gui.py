@@ -2,6 +2,8 @@
 
 """Tkinter GUI surfacing the changelogmanager CLI features."""
 
+# pylint: disable=cyclic-import
+
 from __future__ import annotations
 
 import io
@@ -18,12 +20,12 @@ try:
     from tkinter import filedialog, messagebox, scrolledtext, ttk
 
     _TK_IMPORT_ERROR: Exception | None = None
-except Exception as exc:  # pragma: no cover - exercised only when tk is missing
-    tk = None  # type: ignore[assignment]
-    ttk = None  # type: ignore[assignment]
-    filedialog = None  # type: ignore[assignment]
-    messagebox = None  # type: ignore[assignment]
-    scrolledtext = None  # type: ignore[assignment]
+except Exception as exc:  # pylint: disable=broad-exception-caught  # pragma: no cover - exercised only when tk is missing
+    tk = None  # type: ignore[assignment]  # pylint: disable=invalid-name
+    ttk = None  # type: ignore[assignment]  # pylint: disable=invalid-name
+    filedialog = None  # type: ignore[assignment]  # pylint: disable=invalid-name
+    messagebox = None  # type: ignore[assignment]  # pylint: disable=invalid-name
+    scrolledtext = None  # type: ignore[assignment]  # pylint: disable=invalid-name
     _TK_IMPORT_ERROR = exc
 
 from changelogmanager.change_types import TYPES_OF_CHANGE
@@ -120,14 +122,14 @@ def _run_cli(argv: list[str]) -> tuple[int, str]:
             code = cli_main(argv)
         except SystemExit as exc:
             code = exc.code if isinstance(exc.code, int) else 1
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             logger.exception("Embedded CLI command crashed")
             traceback.print_exc()
             code = 1
     return code, buffer.getvalue()
 
 
-class ChangelogManagerGUI:
+class ChangelogManagerGUI:  # pylint: disable=too-many-instance-attributes,too-few-public-methods
     """Top-level GUI controller."""
 
     def __init__(self, root: tk.Tk) -> None:
@@ -159,6 +161,7 @@ class ChangelogManagerGUI:
         self._help_text_widget: tk.Text | None = None
         self._changelog_view: scrolledtext.ScrolledText | None = None
         self._current_command: str = COMMANDS[0]
+        self.notebook: ttk.Notebook
 
         self._build_layout()
         self._show_help(self._current_command)

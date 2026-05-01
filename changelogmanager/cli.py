@@ -2,12 +2,15 @@
 
 """Changelog Manager."""
 
+# pylint: disable=too-many-lines,cyclic-import
+
 from __future__ import annotations
 
 import argparse
 import json
 import os
 import re
+import shutil
 import subprocess  # nosec
 import sys
 from collections.abc import Mapping, Sequence
@@ -137,7 +140,7 @@ def _config_source_text(args: argparse.Namespace, config_path: str | None) -> st
 
 
 def _resolved_config_path(args: argparse.Namespace) -> str | None:
-    resolved = getattr(args, "_resolved_config", None)
+    resolved = getattr(args, "resolved_config_path", None)
     return resolved if isinstance(resolved, str) else None
 
 
@@ -217,7 +220,7 @@ def prompt_for_skill_export_path(path: str | None) -> Path:
     return destination
 
 
-def prompt_for_config_init(
+def prompt_for_config_init(  # pylint: disable=too-many-locals
     config: Mapping[str, Any],
     *,
     default_format: str,
@@ -871,10 +874,17 @@ CONVENTIONAL_TO_KAC = {
 }
 
 
+def _git_executable() -> str:
+    git = shutil.which("git")
+    if git is None:
+        raise FileNotFoundError("git executable not found on PATH")
+    return git
+
+
 def _git_log_since(since: str | None) -> list[str]:
     """Returns commit subjects since a ref (or all if since is None)."""
 
-    cmd = ["git", "log", "--no-merges", "--pretty=%s"]
+    cmd = [_git_executable(), "log", "--no-merges", "--pretty=%s"]
     if since:
         cmd.append(f"{since}..HEAD")
     logger.info("Running git log command with since=%s", since or "<all>")
@@ -895,7 +905,7 @@ def _last_release_tag() -> str | None:
     logger.log(VERBOSE, "Looking up last release tag with git describe")
     try:
         result = subprocess.run(  # nosec B603
-            ["git", "describe", "--tags", "--abbrev=0"],
+            [_git_executable(), "describe", "--tags", "--abbrev=0"],
             check=True,
             capture_output=True,
             text=True,
@@ -928,7 +938,9 @@ def classify_commit(subject: str) -> tuple[str, str] | None:
     )
 
 
-def command_from_commits(args: argparse.Namespace, ctx: CliContext) -> None:
+def command_from_commits(  # pylint: disable=too-many-locals,too-many-branches
+    args: argparse.Namespace, ctx: CliContext
+) -> None:
     """Seeds [Unreleased] from git commit messages."""
 
     logger.info("Running from-commits command for %s", ctx.changelog.get_file_path())
@@ -1005,7 +1017,7 @@ def _changed_files() -> set[str]:
     logger.log(VERBOSE, "Inspecting git status for changed files")
     try:
         result = subprocess.run(  # nosec B603
-            ["git", "status", "--porcelain"],
+            [_git_executable(), "status", "--porcelain"],
             check=True,
             capture_output=True,
             text=True,
@@ -1026,7 +1038,7 @@ def _changed_files() -> set[str]:
     return files
 
 
-def run_validate_all(
+def run_validate_all(  # pylint: disable=too-many-locals
     args: argparse.Namespace, ctx: CliContext, config_path: str
 ) -> int:
     """Runs `validate` against every component in the config."""
@@ -1101,7 +1113,8 @@ def run_validate_all(
 # ----------------------------------------------------------------------
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser(  # pylint: disable=too-many-locals,too-many-statements
+) -> argparse.ArgumentParser:
     """Builds the CLI argument parser."""
 
     parser = argparse.ArgumentParser(
@@ -1389,12 +1402,14 @@ def build_parser() -> argparse.ArgumentParser:
 def _command_gui(_args: argparse.Namespace, _ctx: CliContext) -> None:
     """Launch the Tkinter GUI (handler used only as a fallback path)."""
 
-    from changelogmanager.gui import run_gui
+    from changelogmanager.gui import run_gui  # pylint: disable=import-outside-toplevel
 
     raise SystemExit(run_gui())
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(  # pylint: disable=too-many-return-statements
+    argv: Sequence[str] | None = None,
+) -> int:
     """CLI entrypoint."""
 
     parser = build_parser()
@@ -1408,19 +1423,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         configure_logging(args.error_format)
         logger.info("Starting CLI command %s", getattr(args, "command", "<none>"))
         if args.command == "gui":
-            from changelogmanager.gui import run_gui
+            from changelogmanager.gui import run_gui  # pylint: disable=import-outside-toplevel
 
             return run_gui()
 
         config_arg = args.config if isinstance(args.config, str) else None
         resolved_config = resolve_config(config_arg)
-        args._resolved_config = resolved_config
+        args.resolved_config_path = resolved_config
 
         # --all branch for validate uses an aggregate flow, no single changelog load.
         if args.command == "validate" and getattr(args, "all_components", False):
             if not resolved_config:
                 raise logging.Error(
-                    message="--all requires a configuration file (use --config or place .changelogmanager.yml in cwd)",
+                    message=(
+                        "--all requires a configuration file "
+                        "(use --config or place .changelogmanager.yml in cwd)"
+                    ),
                 )
             ctx = CliContext(
                 changelog=Changelog(file_path="<all>"),

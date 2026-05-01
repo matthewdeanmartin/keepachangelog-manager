@@ -508,8 +508,12 @@ class Changelog:
             "and this project adheres to "
             f"{get_versioning_markdown(self.__versioning_scheme)}."
         )
+        semver_preamble = (
+            r"and this project adheres to "
+            r"\[Semantic Versioning\]\(https://semver\.org/spec/v2\.0\.0\.html\)\."
+        )
         return re.sub(
-            r"and this project adheres to \[Semantic Versioning\]\(https://semver\.org/spec/v2\.0\.0\.html\)\.",
+            semver_preamble,
             replacement,
             rendered,
             count=1,
