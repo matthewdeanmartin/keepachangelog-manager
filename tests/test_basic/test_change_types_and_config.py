@@ -1,14 +1,15 @@
 import pytest
 
 import changelogmanager._llvm_diagnostics as logging
-from changelogmanager.change_types import (CATEGORIES, TYPES_OF_CHANGE,
-                                           VersionCore)
-from changelogmanager.config import (get_component_from_config,
-                                     get_effective_configuration,
-                                     get_preamble_keywords,
-                                     get_versioning_scheme,
-                                     validate_configuration,
-                                     write_configuration)
+from changelogmanager.change_types import CATEGORIES, TYPES_OF_CHANGE, VersionCore
+from changelogmanager.config import (
+    get_component_from_config,
+    get_effective_configuration,
+    get_preamble_keywords,
+    get_versioning_scheme,
+    validate_configuration,
+    write_configuration,
+)
 
 
 def test_change_types_expose_expected_metadata():

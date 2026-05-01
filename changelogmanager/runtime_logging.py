@@ -18,7 +18,9 @@ def _install_verbose_level() -> None:
     if hasattr(logging.Logger, "verbose"):
         return
 
-    def verbose(self: logging.Logger, message: str, *args: object, **kwargs: object) -> None:
+    def verbose(
+        self: logging.Logger, message: str, *args: object, **kwargs: object
+    ) -> None:
         if self.isEnabledFor(VERBOSE):
             self._log(VERBOSE, message, args, **kwargs)
 

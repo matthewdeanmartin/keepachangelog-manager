@@ -1,7 +1,6 @@
 from pathlib import Path
 
-from changelogmanager.skill_bundle import (SKILL_NAME, export_skill,
-                                           resolve_export_path)
+from changelogmanager.skill_bundle import SKILL_NAME, export_skill, resolve_export_path
 
 
 def test_resolve_export_path_accepts_root_or_full_skill_path(tmp_path):

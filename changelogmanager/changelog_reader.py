@@ -13,7 +13,11 @@ import keepachangelog  # type: ignore
 from semantic_version import Version  # type: ignore
 
 import changelogmanager._llvm_diagnostics as logging
-from changelogmanager.change_types import DEFAULT_CHANGELOG_FILE, TYPES_OF_CHANGE, UNRELEASED_ENTRY
+from changelogmanager.change_types import (
+    DEFAULT_CHANGELOG_FILE,
+    TYPES_OF_CHANGE,
+    UNRELEASED_ENTRY,
+)
 from changelogmanager.runtime_logging import VERBOSE, get_logger
 
 PREAMBLE_KEYWORDS = ("keep a changelog", "semantic versioning")
@@ -48,13 +52,18 @@ class ChangelogReader:
         logger.info("Reading changelog from %s", self.__file_path)
 
         if not Path(self.__file_path).is_file():
-            logger.warning("Changelog file %s does not exist; returning empty data", self.__file_path)
+            logger.warning(
+                "Changelog file %s does not exist; returning empty data",
+                self.__file_path,
+            )
             return {}
 
         errors = self.validate_layout()
 
         if errors:
-            logger.error("Detected %d layout errors while reading %s", errors, self.__file_path)
+            logger.error(
+                "Detected %d layout errors while reading %s", errors, self.__file_path
+            )
             raise logging.Error(
                 file_path=self.__file_path,
                 message=f"{errors} errors detected in the layout",
@@ -276,7 +285,9 @@ class ChangelogReader:
         try:
             content = Path(self.__file_path).read_text(encoding="UTF-8")
         except OSError:
-            logger.warning("Unable to read %s while validating preamble", self.__file_path)
+            logger.warning(
+                "Unable to read %s while validating preamble", self.__file_path
+            )
             return []
 
         head = content.lower()[:1024]
@@ -375,7 +386,9 @@ class ChangelogReader:
 
         # Empty version (no change sections at all).
         if not change_sections:
-            logger.warning("Version %s has no change sections in %s", version, self.__file_path)
+            logger.warning(
+                "Version %s has no change sections in %s", version, self.__file_path
+            )
             logging.Warning(
                 file_path=self.__file_path,
                 message=f"Version '{version}' has no change entries",

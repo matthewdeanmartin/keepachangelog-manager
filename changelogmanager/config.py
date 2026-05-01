@@ -162,7 +162,9 @@ def auto_detect_config(start_dir: Optional[Path] = None) -> Optional[str]:
             with pyproject_path.open("rb") as file_handle:
                 data = tomllib.load(file_handle)
         except (OSError, ValueError):
-            logger.warning("Failed to inspect %s while auto-detecting config", pyproject_path)
+            logger.warning(
+                "Failed to inspect %s while auto-detecting config", pyproject_path
+            )
             return None
         if data.get("tool", {}).get("changelogmanager"):
             logger.info("Auto-detected configuration file %s", pyproject_path)

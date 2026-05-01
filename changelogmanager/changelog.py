@@ -16,7 +16,12 @@ import yaml
 from semantic_version import Version  # type: ignore
 
 import changelogmanager._llvm_diagnostics as logging
-from changelogmanager.change_types import CATEGORIES, DEFAULT_CHANGELOG_FILE, UNRELEASED_ENTRY, VersionCore
+from changelogmanager.change_types import (
+    CATEGORIES,
+    DEFAULT_CHANGELOG_FILE,
+    UNRELEASED_ENTRY,
+    VersionCore,
+)
 from changelogmanager.config import get_versioning_markdown
 from changelogmanager.runtime_logging import VERBOSE, get_logger
 
@@ -87,7 +92,9 @@ class Changelog:
     def list_unreleased(self) -> list[tuple[str, int, str]]:
         """Lists every entry in [Unreleased] as (change_type, index, message)."""
 
-        logger.log(VERBOSE, "Listing unreleased entries for %s", self.__changelog_file_path)
+        logger.log(
+            VERBOSE, "Listing unreleased entries for %s", self.__changelog_file_path
+        )
         unreleased = self.__changelog.get(UNRELEASED_ENTRY, {})
         result: list[tuple[str, int, str]] = []
         for change_type, messages in unreleased.items():
@@ -291,7 +298,9 @@ class Changelog:
 
     def version(self) -> Version:
         """Returns the last released version"""
-        logger.log(VERBOSE, "Calculating current version for %s", self.__changelog_file_path)
+        logger.log(
+            VERBOSE, "Calculating current version for %s", self.__changelog_file_path
+        )
         if len(self.__changelog) == 0:
             raise logging.Warning(
                 file_path=self.get_file_path(), message="No versions available"
@@ -312,7 +321,8 @@ class Changelog:
         """Returns the previously released version"""
         logger.log(
             VERBOSE,
-            "Calculating previous released version for %s", self.__changelog_file_path
+            "Calculating previous released version for %s",
+            self.__changelog_file_path,
         )
 
         if len(self.__changelog) <= 1:
@@ -358,7 +368,9 @@ class Changelog:
 
     def write_to_json(self, file: str, version: Optional[str] = None) -> None:
         """Stores the Changelog file in JSON format"""
-        logger.info("Writing JSON export for %s to %s", self.__changelog_file_path, file)
+        logger.info(
+            "Writing JSON export for %s to %s", self.__changelog_file_path, file
+        )
 
         with Path(file).open("w", encoding="UTF-8") as file_handle:
             file_handle.write(self.to_json(version=version))
@@ -378,7 +390,9 @@ class Changelog:
 
     def write_to_yaml(self, file: str, version: Optional[str] = None) -> None:
         """Stores the Changelog file in YAML format."""
-        logger.info("Writing YAML export for %s to %s", self.__changelog_file_path, file)
+        logger.info(
+            "Writing YAML export for %s to %s", self.__changelog_file_path, file
+        )
 
         with Path(file).open("w", encoding="UTF-8") as file_handle:
             file_handle.write(self.to_yaml(version=version))
@@ -399,7 +413,9 @@ class Changelog:
 
     def write_to_html(self, file: str, version: Optional[str] = None) -> None:
         """Stores the Changelog file in HTML format."""
-        logger.info("Writing HTML export for %s to %s", self.__changelog_file_path, file)
+        logger.info(
+            "Writing HTML export for %s to %s", self.__changelog_file_path, file
+        )
 
         with Path(file).open("w", encoding="UTF-8") as file_handle:
             file_handle.write(self.to_html(version=version))

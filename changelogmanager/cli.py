@@ -38,8 +38,18 @@ from changelogmanager.config import (
     write_configuration,
 )
 from changelogmanager.github import GitHub
-from changelogmanager.runtime_logging import VERBOSE, configure_runtime_logging, get_logger
-from changelogmanager.skill_bundle import CLAUDE_PERSONAL_SKILLS_DIR, CLAUDE_PROJECT_SKILLS_DIR, COPILOT_SKILLS_DIR, SKILL_NAME, export_skill
+from changelogmanager.runtime_logging import (
+    VERBOSE,
+    configure_runtime_logging,
+    get_logger,
+)
+from changelogmanager.skill_bundle import (
+    CLAUDE_PERSONAL_SKILLS_DIR,
+    CLAUDE_PROJECT_SKILLS_DIR,
+    COPILOT_SKILLS_DIR,
+    SKILL_NAME,
+    export_skill,
+)
 
 VERSION_REFERENCES = ["previous", "current", "future"]
 logger = get_logger(__name__)
@@ -1054,7 +1064,9 @@ def run_validate_all(
                         emit(ctx, text=f"[{name}] would fix: {entry}")
             summaries.append({"component": name, "path": path, "status": "ok"})
         except logging.Error as err:
-            logger.error("Component validation failed for %s at %s: %s", name, path, err.message)
+            logger.error(
+                "Component validation failed for %s at %s: %s", name, path, err.message
+            )
             err.report()
             failures += 1
             summaries.append(
@@ -1403,7 +1415,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             exit_code = run_validate_all(args, ctx, resolved_config)
             if args.json:
                 print(json.dumps(ctx.json_payload, indent=2))
-            logger.info("Finished CLI command %s with exit code %d", args.command, exit_code)
+            logger.info(
+                "Finished CLI command %s with exit code %d", args.command, exit_code
+            )
             return exit_code
 
         if args.command in {"config", "skill"}:
@@ -1441,7 +1455,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         logger.info("Finished CLI command %s successfully", args.command)
         return 0
     except (logging.Info, logging.Warning) as exc_info:
-        logger.info("CLI command completed with non-error diagnostic: %s", exc_info.message)
+        logger.info(
+            "CLI command completed with non-error diagnostic: %s", exc_info.message
+        )
         exc_info.report()
         return 0
     except logging.Error as exc_info:

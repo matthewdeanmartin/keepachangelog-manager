@@ -47,7 +47,9 @@ class GitHub:
         url = f"https://api.github.com/repos/{self.__repository}/{api}"
         logger.info("Calling GitHub API %s %s", method.value, url)
         if data:
-            logger.log(VERBOSE, "GitHub API payload for %s %s: %s", method.value, url, data)
+            logger.log(
+                VERBOSE, "GitHub API payload for %s %s: %s", method.value, url, data
+            )
 
         request = Request(
             method=method.value,
@@ -62,10 +64,18 @@ class GitHub:
                 response = resp.read().decode()
 
             if not response:
-                logger.warning("GitHub API %s %s returned an empty response", method.value, url)
+                logger.warning(
+                    "GitHub API %s %s returned an empty response", method.value, url
+                )
                 return None
 
-            logger.log(VERBOSE, "GitHub API %s %s returned %d bytes", method.value, url, len(response))
+            logger.log(
+                VERBOSE,
+                "GitHub API %s %s returned %d bytes",
+                method.value,
+                url,
+                len(response),
+            )
             return json.loads(response)
         except URLError as url_error:
             logger.error("GitHub API request failed for %s %s", method.value, url)
