@@ -65,6 +65,33 @@ def test_top_level_help_lists_commands():
     assert "config" in result.stdout
     assert "skill" in result.stdout
     assert "github-release" in result.stdout
+    assert "--info" in result.stdout
+    assert "--verbose" in result.stdout
+
+
+def test_info_flag_emits_runtime_logs_on_stderr(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    result = run_cli(["--info", "config"])
+
+    assert result.exit_code == 0
+    assert "Config source: built-in defaults" in result.stdout
+    assert "[INFO]" in result.stderr
+    assert "Starting CLI command config" in result.stderr
+
+
+def test_verbose_flag_emits_verbose_logs_without_breaking_json_stdout(
+    tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+
+    result = run_cli(["--verbose", "--json", "config"])
+
+    assert result.exit_code == 0
+    assert result.stdout.lstrip().startswith("{")
+    assert '"config_source": "built-in defaults"' in result.stdout
+    assert "[VERBOSE]" in result.stderr
+    assert "Auto-detecting configuration" in result.stderr
 
 
 def test_invalid_reference_returns_parser_error():
@@ -200,9 +227,7 @@ def test_skill_export_prompts_for_common_location_when_path_missing(
     mocker.patch(
         "changelogmanager.cli.inquirer.prompt",
         side_effect=[
-            {
-                "location": f"GitHub Copilot project ({tmp_path / '.github' / 'skills'})"
-            }
+            {"location": f"GitHub Copilot project ({tmp_path / '.github' / 'skills'})"}
         ],
     )
 
@@ -210,11 +235,7 @@ def test_skill_export_prompts_for_common_location_when_path_missing(
 
     assert result.exit_code == 0
     assert (
-        tmp_path
-        / ".github"
-        / "skills"
-        / "keepachangelog-manager-cli"
-        / "SKILL.md"
+        tmp_path / ".github" / "skills" / "keepachangelog-manager-cli" / "SKILL.md"
     ).exists()
 
 

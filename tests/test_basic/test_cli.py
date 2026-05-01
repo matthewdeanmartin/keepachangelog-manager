@@ -75,7 +75,9 @@ def test_load_changelog_uses_component_config_when_present(monkeypatch):
         lambda config, component: {"changelog": "docs/COMPONENT_CHANGELOG.md"},
     )
     monkeypatch.setattr(
-        cli, "get_preamble_keywords", lambda config: ("keep a changelog", "semantic versioning")
+        cli,
+        "get_preamble_keywords",
+        lambda config: ("keep a changelog", "semantic versioning"),
     )
     monkeypatch.setattr(cli, "get_versioning_scheme", lambda config: "semver")
     monkeypatch.setattr(cli, "ChangelogReader", FakeReader)
@@ -235,7 +237,13 @@ def test_build_parser_parses_commands_and_defaults():
     version_args = parser.parse_args(["version"])
     assert version_args.reference == "current"
     assert version_args.dry_run is False
+    assert version_args.info is False
+    assert version_args.verbose is False
     assert version_args.handler is cli.command_version
+
+    verbose_args = parser.parse_args(["--verbose", "config"])
+    assert verbose_args.verbose is True
+    assert verbose_args.info is False
 
     github_release_args = parser.parse_args(
         ["github-release", "-r", "owner/repo", "-t", "token", "--release"]

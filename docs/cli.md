@@ -14,11 +14,15 @@ These options apply to every command and must appear before the command name.
 | `--component TEXT` | `default` | Component name to use from the config file |
 | `-f, --error-format [llvm\|github]` | `llvm` | Format for diagnostic messages |
 | `--input-file TEXT` | `CHANGELOG.md` | Path to the changelog file |
+| `--info` | `false` | Enable runtime info/warning/error logging on stderr |
+| `--verbose` | `false` | Enable verbose runtime logging on stderr (implies `--info`) |
 | `--quiet` | `false` | Suppress non-error human-readable output |
 | `--json` | `false` | Emit one machine-readable JSON object on stdout |
 | `--help` | | Show help and exit |
 
 If `--config` is omitted, the CLI looks for `.changelogmanager.yml`, `.changelogmanager.yaml`, `changelogmanager.yml`, `changelogmanager.yaml`, or `[tool.changelogmanager]` in `pyproject.toml` in the current directory.
+
+Runtime logging is emitted on stderr so it does not interfere with `--json` output on stdout. These logs are separate from validation diagnostics: layout/content validation still uses the selected `llvm` or `github` error format for CI/editor integration.
 
 ### Error formats
 

@@ -11,6 +11,7 @@ from typing import Any, Optional
 import yaml
 
 import changelogmanager._llvm_diagnostics as logging
+from changelogmanager.runtime_logging import VERBOSE, get_logger
 
 try:
     import tomllib  # type: ignore[import-not-found]
@@ -68,9 +69,12 @@ COMMIT_STYLE_LABELS = {
     "component-is-substring": "Component is substring",
 }
 
+logger = get_logger(__name__)
+
 
 def validate_configuration(file_path: str, config: Mapping[str, Any]) -> None:
     """Verifies if the provided configuration file is accoriding to expectations"""
+    logger.log(VERBOSE, "Validating configuration structure from %s", file_path)
     if not config.get("project") or not config["project"].get("components"):
         raise logging.Error(
             file_path=file_path, message="Incorrect Project configuration format!"
@@ -86,6 +90,7 @@ def validate_configuration(file_path: str, config: Mapping[str, Any]) -> None:
 def normalize_configuration(config: Optional[Mapping[str, Any]]) -> dict[str, Any]:
     """Returns a config with defaults applied while preserving unknown keys."""
 
+    logger.log(VERBOSE, "Normalizing configuration with defaults")
     normalized = deepcopy(DEFAULT_CONFIG)
     if isinstance(config, Mapping):
         _merge_mappings(normalized, config)
@@ -96,12 +101,14 @@ def load_configuration(config_path: str) -> dict[str, Any]:
     """Loads a configuration file (YAML or pyproject.toml)."""
 
     path = Path(config_path)
+    logger.info("Loading configuration from %s", path)
     if path.name == PYPROJECT_FILE or path.suffix == ".toml":
         return _load_pyproject(path)
     return _load_yaml(path)
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
+    logger.log(VERBOSE, "Reading YAML configuration from %s", path)
     with path.open(encoding="UTF-8") as file_handle:
         data = yaml.safe_load(file_handle)
     if not isinstance(data, dict):
@@ -120,6 +127,7 @@ def _load_pyproject(path: Path) -> dict[str, Any]:
                 "(tomllib unavailable)"
             ),
         )
+    logger.log(VERBOSE, "Reading pyproject configuration from %s", path)
     with path.open("rb") as file_handle:
         data = tomllib.load(file_handle)
     tool_section = data.get("tool", {}).get("changelogmanager")
@@ -140,10 +148,12 @@ def auto_detect_config(start_dir: Optional[Path] = None) -> Optional[str]:
     """
 
     base = Path(start_dir) if start_dir else Path.cwd()
+    logger.log(VERBOSE, "Auto-detecting configuration from %s", base)
 
     for candidate in CONFIG_FILE_CANDIDATES:
         candidate_path = base / candidate
         if candidate_path.is_file():
+            logger.info("Auto-detected configuration file %s", candidate_path)
             return str(candidate_path)
 
     pyproject_path = base / PYPROJECT_FILE
@@ -152,9 +162,12 @@ def auto_detect_config(start_dir: Optional[Path] = None) -> Optional[str]:
             with pyproject_path.open("rb") as file_handle:
                 data = tomllib.load(file_handle)
         except (OSError, ValueError):
+            logger.warning("Failed to inspect %s while auto-detecting config", pyproject_path)
             return None
         if data.get("tool", {}).get("changelogmanager"):
+            logger.info("Auto-detected configuration file %s", pyproject_path)
             return str(pyproject_path)
+    logger.log(VERBOSE, "No configuration file detected in %s", base)
     return None
 
 
@@ -162,12 +175,15 @@ def get_effective_configuration(config_path: Optional[str]) -> dict[str, Any]:
     """Loads config with defaults applied; falls back to defaults when absent."""
 
     if not config_path:
+        logger.info("Using built-in default configuration")
         return normalize_configuration(None)
+    logger.log(VERBOSE, "Resolving effective configuration from %s", config_path)
     return normalize_configuration(load_configuration(config_path))
 
 
 def get_component_from_config(config: str, component: str) -> dict[str, Any]:
     """Retrieves a specific component from the configuration file"""
+    logger.info("Resolving component '%s' from %s", component, config)
     configuration = load_configuration(config)
 
     validate_configuration(config, configuration)
@@ -189,6 +205,7 @@ def get_component_from_config(config: str, component: str) -> dict[str, Any]:
 def get_components_from_config(config: str) -> list[dict[str, Any]]:
     """Retrieves all components from the configuration file"""
 
+    logger.info("Loading all configured components from %s", config)
     configuration = load_configuration(config)
     validate_configuration(config, configuration)
     components: list[dict[str, Any]] = configuration.get("project", {}).get(
@@ -205,10 +222,12 @@ def get_validation_options(config: Optional[str]) -> dict[str, Any]:
     """
 
     if not config:
+        logger.log(VERBOSE, "No configuration file provided for validation options")
         return {}
     try:
         configuration = load_configuration(config)
     except (logging.Error, OSError):
+        logger.warning("Unable to load validation options from %s", config)
         return {}
     project = configuration.get("project", {}) or {}
     validation = project.get("validation", {}) or {}
@@ -220,6 +239,7 @@ def get_validation_options(config: Optional[str]) -> dict[str, Any]:
 def get_commit_style(config: Optional[str]) -> str:
     """Returns the configured commit parsing style."""
 
+    logger.log(VERBOSE, "Resolving commit style from %s", config or "<defaults>")
     configuration = get_effective_configuration(config)
     commits = configuration.get("project", {}).get("commits", {}) or {}
     style = commits.get("style", DEFAULT_CONFIG["project"]["commits"]["style"])
@@ -231,6 +251,7 @@ def get_commit_style(config: Optional[str]) -> str:
 def get_versioning_scheme(config: Optional[str]) -> str:
     """Returns the configured versioning scheme."""
 
+    logger.log(VERBOSE, "Resolving versioning scheme from %s", config or "<defaults>")
     configuration = get_effective_configuration(config)
     versioning = configuration.get("project", {}).get("versioning", {}) or {}
     scheme = versioning.get("scheme", DEFAULT_CONFIG["project"]["versioning"]["scheme"])
@@ -256,6 +277,7 @@ def get_preamble_keywords(config: Optional[str]) -> tuple[str, ...]:
 
     scheme = get_versioning_scheme(config)
     keyword = VERSIONING_SCHEMES.get(scheme, VERSIONING_SCHEMES["semver"])["keyword"]
+    logger.log(VERBOSE, "Using preamble keywords for versioning scheme %s", scheme)
     return ("keep a changelog", keyword)
 
 
@@ -278,6 +300,7 @@ def write_configuration(config_path: str, config: Mapping[str, Any]) -> None:
     """Writes configuration to YAML or pyproject.toml."""
 
     path = Path(config_path)
+    logger.info("Writing configuration to %s", path)
     path.parent.mkdir(parents=True, exist_ok=True)
     if config_format_from_path(config_path) == "pyproject":
         _write_pyproject(path, config)
@@ -295,11 +318,13 @@ def _merge_mappings(base: dict[str, Any], updates: Mapping[str, Any]) -> dict[st
 
 
 def _write_yaml(path: Path, config: Mapping[str, Any]) -> None:
+    logger.log(VERBOSE, "Serializing YAML configuration to %s", path)
     with path.open("w", encoding="UTF-8") as file_handle:
         yaml.safe_dump(dict(config), file_handle, sort_keys=False, allow_unicode=True)
 
 
 def _write_pyproject(path: Path, config: Mapping[str, Any]) -> None:
+    logger.log(VERBOSE, "Serializing pyproject configuration to %s", path)
     content = path.read_text(encoding="UTF-8") if path.is_file() else ""
     section = _serialize_pyproject_section(config)
     updated = _replace_pyproject_section(content, section)

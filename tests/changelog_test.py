@@ -20,20 +20,13 @@ from semantic_version import Version
 
 import changelogmanager._llvm_diagnostics as logging
 from changelogmanager.change_types import CATEGORIES, VersionCore
-from changelogmanager.changelog import (
-    DEFAULT_CHANGELOG_FILE,
-    UNRELEASED_ENTRY,
-    Changelog,
-)
+from changelogmanager.changelog import (DEFAULT_CHANGELOG_FILE,
+                                        UNRELEASED_ENTRY, Changelog)
 from changelogmanager.changelog_reader import ChangelogReader
 
-from .utils import (
-    changelog_file,
-    empty_changelog_file,
-    get_changelog_expectations,
-    released_only_changelog_file,
-    unreleased_changelog_file,
-)
+from .utils import (changelog_file, empty_changelog_file,
+                    get_changelog_expectations, released_only_changelog_file,
+                    unreleased_changelog_file)
 
 
 def test_default_changelog(mocker):

@@ -9,6 +9,7 @@ import os
 import sys
 import traceback
 from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
 from typing import Any
 
 try:
@@ -27,6 +28,9 @@ except Exception as exc:  # pragma: no cover - exercised only when tk is missing
 from changelogmanager.change_types import TYPES_OF_CHANGE
 from changelogmanager.cli import VERSION_REFERENCES
 from changelogmanager.cli import main as cli_main
+from changelogmanager.runtime_logging import get_logger
+
+logger = get_logger(__name__)
 
 HELP_TEXT: dict[str, str] = {
     "create": (
@@ -108,6 +112,7 @@ def _run_cli(argv: list[str]) -> tuple[int, str]:
     Returns (exit_code, combined_output).
     """
 
+    logger.info("Running embedded CLI command: %s", " ".join(argv))
     buffer = io.StringIO()
     with redirect_stdout(buffer), redirect_stderr(buffer):
         try:
@@ -115,6 +120,7 @@ def _run_cli(argv: list[str]) -> tuple[int, str]:
         except SystemExit as exc:
             code = exc.code if isinstance(exc.code, int) else 1
         except Exception:
+            logger.exception("Embedded CLI command crashed")
             traceback.print_exc()
             code = 1
     return code, buffer.getvalue()
@@ -127,6 +133,7 @@ class ChangelogManagerGUI:
         self.root = root
         self.root.title("Changelog Manager")
         self.root.geometry("1100x720")
+        logger.info("Initialized changelogmanager GUI")
 
         # Shared (top-panel) inputs
         self.input_file_var = tk.StringVar(value="CHANGELOG.md")
@@ -382,11 +389,13 @@ class ChangelogManagerGUI:
         if self._changelog_view is None:
             return
         path = self.input_file_var.get()
+        logger.info("Reloading changelog viewer from %s", path)
         self._changelog_view.delete("1.0", tk.END)
         try:
-            with open(path, encoding="utf-8") as handle:
+            with Path(path).open(encoding="utf-8") as handle:
                 self._changelog_view.insert("1.0", handle.read())
         except OSError as exc:
+            logger.warning("Unable to reload changelog viewer from %s: %s", path, exc)
             self._changelog_view.insert("1.0", f"[unable to read {path}]\n{exc}\n")
 
     def _clear_output(self, command: str) -> None:
@@ -454,6 +463,7 @@ class ChangelogManagerGUI:
         if argv is None:
             return
 
+        logger.info("Executing GUI command %s", command)
         widget = self._output_widgets[command]
         widget.insert(tk.END, f"$ changelogmanager {' '.join(argv)}\n")
         widget.see(tk.END)
@@ -473,6 +483,7 @@ def run_gui() -> int:
     """Launch the Tkinter GUI. Returns a process exit code."""
 
     if _TK_IMPORT_ERROR is not None or tk is None:
+        logger.error("Tkinter is unavailable: %s", _TK_IMPORT_ERROR)
         sys.stderr.write(
             "Error: tkinter is not available in this Python installation.\n"
             f"Details: {_TK_IMPORT_ERROR}\n"
@@ -486,6 +497,7 @@ def run_gui() -> int:
     try:
         root = tk.Tk()
     except tk.TclError as exc:
+        logger.error("Failed to initialize Tk display: %s", exc)
         sys.stderr.write(
             "Error: failed to initialize a Tk display.\n"
             f"Details: {exc}\n"
@@ -494,6 +506,7 @@ def run_gui() -> int:
         )
         return 1
 
+    logger.info("Starting Tkinter main loop")
     ChangelogManagerGUI(root)
     root.mainloop()
     return 0

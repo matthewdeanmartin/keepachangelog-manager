@@ -1,13 +1,13 @@
 from io import StringIO
 
-from changelogmanager._llvm_diagnostics import Error, Info, Range, Warning, formatters
+from changelogmanager._llvm_diagnostics import (Error, Info, Range, Warning,
+                                                formatters)
 from changelogmanager._llvm_diagnostics import messages as diagnostics_messages
-from changelogmanager._llvm_diagnostics.parser import diagnostics_messages_from_file
-from changelogmanager._llvm_diagnostics.utils import (
-    TextFormat,
-    format_string,
-    strip_ansi_escape_chars,
-)
+from changelogmanager._llvm_diagnostics.parser import \
+    diagnostics_messages_from_file
+from changelogmanager._llvm_diagnostics.utils import (TextFormat,
+                                                      format_string,
+                                                      strip_ansi_escape_chars)
 
 
 def test_range_end_and_hash_are_stable():

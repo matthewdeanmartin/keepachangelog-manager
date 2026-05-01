@@ -13,13 +13,11 @@ import keepachangelog  # type: ignore
 from semantic_version import Version  # type: ignore
 
 import changelogmanager._llvm_diagnostics as logging
-from changelogmanager.change_types import (
-    DEFAULT_CHANGELOG_FILE,
-    TYPES_OF_CHANGE,
-    UNRELEASED_ENTRY,
-)
+from changelogmanager.change_types import DEFAULT_CHANGELOG_FILE, TYPES_OF_CHANGE, UNRELEASED_ENTRY
+from changelogmanager.runtime_logging import VERBOSE, get_logger
 
 PREAMBLE_KEYWORDS = ("keep a changelog", "semantic versioning")
+logger = get_logger(__name__)
 
 
 class ChangelogReader:
@@ -38,16 +36,25 @@ class ChangelogReader:
         self.__preamble_keywords = tuple(
             keyword.lower() for keyword in (preamble_keywords or PREAMBLE_KEYWORDS)
         )
+        logger.log(
+            VERBOSE,
+            "Initialized changelog reader for %s (enforce_preamble=%s)",
+            self.__file_path,
+            self.__enforce_preamble,
+        )
 
     def read(self) -> dict[str, Any]:
         """Reads the CHANGELOG.md file and checks for validity"""
+        logger.info("Reading changelog from %s", self.__file_path)
 
         if not Path(self.__file_path).is_file():
+            logger.warning("Changelog file %s does not exist; returning empty data", self.__file_path)
             return {}
 
         errors = self.validate_layout()
 
         if errors:
+            logger.error("Detected %d layout errors while reading %s", errors, self.__file_path)
             raise logging.Error(
                 file_path=self.__file_path,
                 message=f"{errors} errors detected in the layout",
@@ -58,6 +65,11 @@ class ChangelogReader:
         )
 
         self.validate_contents(changelog)
+        logger.info(
+            "Loaded changelog %s with %d version entries",
+            self.__file_path,
+            len(changelog),
+        )
 
         return changelog
 
@@ -258,17 +270,25 @@ class ChangelogReader:
         """Optional check that the first non-blank lines mention KaC + SemVer."""
 
         if not self.__enforce_preamble:
+            logger.log(VERBOSE, "Skipping preamble validation for %s", self.__file_path)
             return []
 
         try:
             content = Path(self.__file_path).read_text(encoding="UTF-8")
         except OSError:
+            logger.warning("Unable to read %s while validating preamble", self.__file_path)
             return []
 
         head = content.lower()[:1024]
         missing = [kw for kw in self.__preamble_keywords if kw not in head]
         if not missing:
+            logger.log(VERBOSE, "Preamble validation passed for %s", self.__file_path)
             return []
+        logger.warning(
+            "Preamble validation failed for %s; missing %s",
+            self.__file_path,
+            ", ".join(missing),
+        )
         return [
             logging.Error(
                 file_path=self.__file_path,
@@ -282,6 +302,7 @@ class ChangelogReader:
     def validate_layout(self) -> int:
         """Validates the changelog file according to KeepAChangelog conventions"""
 
+        logger.info("Validating changelog layout for %s", self.__file_path)
         line_number = 1
         errors: list[logging.Error] = []
         with Path(self.__file_path).open(encoding="UTF-8") as file_handle:
@@ -295,10 +316,16 @@ class ChangelogReader:
         for error in errors:
             error.report()
 
+        logger.info(
+            "Finished layout validation for %s with %d error(s)",
+            self.__file_path,
+            len(errors),
+        )
         return len(errors)
 
     def validate_contents(self, changelog: Mapping[str, Any]) -> None:
         """Validates the contents of the CHANGELOG.md file"""
+        logger.info("Validating changelog contents for %s", self.__file_path)
 
         is_first_entry = True
         prev_version: Optional[Version] = None
@@ -333,6 +360,11 @@ class ChangelogReader:
         """Validates per-release content: empty sections + duplicate entries."""
 
         if not isinstance(release, Mapping):
+            logger.warning(
+                "Skipping non-mapping release payload for version %s in %s",
+                version,
+                self.__file_path,
+            )
             return
 
         change_sections = [
@@ -343,6 +375,7 @@ class ChangelogReader:
 
         # Empty version (no change sections at all).
         if not change_sections:
+            logger.warning("Version %s has no change sections in %s", version, self.__file_path)
             logging.Warning(
                 file_path=self.__file_path,
                 message=f"Version '{version}' has no change entries",
@@ -351,6 +384,12 @@ class ChangelogReader:
 
         for change_type, entries in change_sections:
             if not isinstance(entries, list) or len(entries) == 0:
+                logger.warning(
+                    "Version %s has an empty '%s' section in %s",
+                    version,
+                    change_type,
+                    self.__file_path,
+                )
                 logging.Warning(
                     file_path=self.__file_path,
                     message=(f"Version '{version}' has empty '{change_type}' section"),
@@ -363,6 +402,12 @@ class ChangelogReader:
                 seen[key] = seen.get(key, 0) + 1
             for key, count in seen.items():
                 if count > 1:
+                    logger.warning(
+                        "Version %s has duplicate '%s' entries in %s",
+                        version,
+                        change_type,
+                        self.__file_path,
+                    )
                     logging.Warning(
                         file_path=self.__file_path,
                         message=(
@@ -382,6 +427,7 @@ class ChangelogReader:
           * De-duplicates identical entries within a section.
         """
 
+        logger.info("Autofixing changelog data for %s", self.__file_path)
         applied: list[str] = []
         fixed: OrderedDict[str, Any] = OrderedDict()
 
@@ -457,4 +503,9 @@ class ChangelogReader:
         for key, value in sorted_releases:
             result[key] = value
 
+        logger.info(
+            "Autofix for %s produced %d change(s)",
+            self.__file_path,
+            len(applied),
+        )
         return dict(result), applied

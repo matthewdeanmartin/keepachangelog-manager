@@ -3,7 +3,8 @@
 from hypothesis import given
 from hypothesis import strategies as st
 
-from changelogmanager.change_types import CATEGORIES, TYPES_OF_CHANGE, VersionCore
+from changelogmanager.change_types import (CATEGORIES, TYPES_OF_CHANGE,
+                                           VersionCore)
 
 
 class TestCategoriesConsistency:

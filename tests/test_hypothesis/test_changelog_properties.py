@@ -11,7 +11,8 @@ from hypothesis import strategies as st
 from semantic_version import Version
 
 import changelogmanager._llvm_diagnostics as logging
-from changelogmanager.change_types import CATEGORIES, TYPES_OF_CHANGE, UNRELEASED_ENTRY
+from changelogmanager.change_types import (CATEGORIES, TYPES_OF_CHANGE,
+                                           UNRELEASED_ENTRY)
 from changelogmanager.changelog import INITIAL_VERSION, Changelog
 
 # ---------------------------------------------------------------------------

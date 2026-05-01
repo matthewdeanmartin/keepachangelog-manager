@@ -14,8 +14,10 @@ from urllib.request import Request, urlopen
 import changelogmanager._llvm_diagnostics as logging
 from changelogmanager.change_types import CATEGORIES, UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
+from changelogmanager.runtime_logging import VERBOSE, get_logger
 
 RELEASES_CHUNK_SIZE = 100
+logger = get_logger(__name__)
 
 
 class HttpMethods(Enum):
@@ -37,11 +39,15 @@ class GitHub:
             "Accept": "application/vnd.github.v3+json",
             "Authorization": f"token {token}",
         }
+        logger.info("Initialized GitHub client for repository %s", repository)
 
     def __github_request(
         self, api: str, method: HttpMethods, data: Optional[Mapping[str, Any]] = None
     ) -> Optional[Any]:
         url = f"https://api.github.com/repos/{self.__repository}/{api}"
+        logger.info("Calling GitHub API %s %s", method.value, url)
+        if data:
+            logger.log(VERBOSE, "GitHub API payload for %s %s: %s", method.value, url, data)
 
         request = Request(
             method=method.value,
@@ -56,10 +62,13 @@ class GitHub:
                 response = resp.read().decode()
 
             if not response:
+                logger.warning("GitHub API %s %s returned an empty response", method.value, url)
                 return None
 
+            logger.log(VERBOSE, "GitHub API %s %s returned %d bytes", method.value, url, len(response))
             return json.loads(response)
         except URLError as url_error:
+            logger.error("GitHub API request failed for %s %s", method.value, url)
             raise logging.Error(message=dedent(f"""
                 Failure during GitHub request:
                   URL:    {url}
@@ -68,6 +77,7 @@ class GitHub:
 
     def get_releases(self) -> Sequence[dict[str, Any]]:
         """Retrieves available releases"""
+        logger.info("Fetching releases for %s", self.__repository)
         releases: list[dict[str, Any]] = []
         index = 1
 
@@ -95,6 +105,7 @@ class GitHub:
 
     def delete_draft_releases(self) -> None:
         """Deletes all releases marked as 'Draft'"""
+        logger.info("Deleting draft releases for %s", self.__repository)
 
         releases = self.get_releases()
 
@@ -104,6 +115,11 @@ class GitHub:
 
     def delete_release(self, release: Mapping[str, Any]) -> None:
         """Deletes a release"""
+        logger.warning(
+            "Deleting draft release %s from %s",
+            release.get("id"),
+            self.__repository,
+        )
 
         self.__github_request(
             method=HttpMethods.DELETE, api=f"releases/{release.get('id')}"
@@ -111,6 +127,11 @@ class GitHub:
 
     def create_release(self, changelog: Changelog, draft: bool) -> None:
         """Creates a new release on GitHub"""
+        logger.info(
+            "Creating %s GitHub release for %s",
+            "draft" if draft else "published",
+            self.__repository,
+        )
 
         def generate_release_notes(release: Mapping[str, Any]) -> str:
             body = "## What's changed" + os.linesep + os.linesep
@@ -128,6 +149,7 @@ class GitHub:
             return body
 
         version = f"v{changelog.suggest_future_version()}"
+        logger.info("Preparing GitHub release payload for version %s", version)
         self.__github_request(
             method=HttpMethods.POST,
             api="releases",

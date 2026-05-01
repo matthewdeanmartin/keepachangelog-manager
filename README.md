@@ -27,7 +27,7 @@ The package name on PyPI is `keepachangelog-manager-fork`. The installed command
 - export a bundled CLI skill for Copilot or Claude
 - create or update GitHub releases
 - work with multi-component repositories via config files
-- script the CLI with `--dry-run`, `--quiet`, and `--json`
+- script the CLI with `--dry-run`, `--quiet`, `--json`, `--info`, and `--verbose`
 - use an optional Tkinter GUI for common workflows
 
 ## Commands
@@ -102,7 +102,11 @@ Machine-readable mode for scripts:
 ```sh
 changelogmanager --json version --reference future
 changelogmanager --quiet validate
+changelogmanager --info validate
+changelogmanager --verbose from-commits --dry-run
 ```
+
+`--info` and `--verbose` enable stdlib runtime logging on stderr for diagnostics. `--verbose` is the more detailed level and implies `--info`. Existing validation diagnostics still use the configured LLVM or GitHub Actions annotation format.
 
 ## Configuration
 

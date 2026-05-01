@@ -1,15 +1,14 @@
 import pytest
 
 import changelogmanager._llvm_diagnostics as logging
-from changelogmanager.change_types import CATEGORIES, TYPES_OF_CHANGE, VersionCore
-from changelogmanager.config import (
-    get_component_from_config,
-    get_effective_configuration,
-    get_preamble_keywords,
-    get_versioning_scheme,
-    validate_configuration,
-    write_configuration,
-)
+from changelogmanager.change_types import (CATEGORIES, TYPES_OF_CHANGE,
+                                           VersionCore)
+from changelogmanager.config import (get_component_from_config,
+                                     get_effective_configuration,
+                                     get_preamble_keywords,
+                                     get_versioning_scheme,
+                                     validate_configuration,
+                                     write_configuration)
 
 
 def test_change_types_expose_expected_metadata():
@@ -98,8 +97,16 @@ def test_write_configuration_round_trips_yaml_and_pyproject(tmp_path):
     write_configuration(str(yaml_path), config)
     write_configuration(str(pyproject_path), config)
 
-    assert get_effective_configuration(str(yaml_path))["project"]["commits"]["style"] == "gitmoji"
-    assert get_effective_configuration(str(pyproject_path))["project"]["versioning"]["scheme"] == "pep440"
+    assert (
+        get_effective_configuration(str(yaml_path))["project"]["commits"]["style"]
+        == "gitmoji"
+    )
+    assert (
+        get_effective_configuration(str(pyproject_path))["project"]["versioning"][
+            "scheme"
+        ]
+        == "pep440"
+    )
 
 
 def test_preamble_keywords_follow_configured_versioning(tmp_path):

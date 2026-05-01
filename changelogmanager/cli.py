@@ -14,7 +14,7 @@ from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import inquirer  # type: ignore
 import yaml
@@ -38,15 +38,11 @@ from changelogmanager.config import (
     write_configuration,
 )
 from changelogmanager.github import GitHub
-from changelogmanager.skill_bundle import (
-    CLAUDE_PERSONAL_SKILLS_DIR,
-    CLAUDE_PROJECT_SKILLS_DIR,
-    COPILOT_SKILLS_DIR,
-    SKILL_NAME,
-    export_skill,
-)
+from changelogmanager.runtime_logging import VERBOSE, configure_runtime_logging, get_logger
+from changelogmanager.skill_bundle import CLAUDE_PERSONAL_SKILLS_DIR, CLAUDE_PROJECT_SKILLS_DIR, COPILOT_SKILLS_DIR, SKILL_NAME, export_skill
 
 VERSION_REFERENCES = ["previous", "current", "future"]
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -62,8 +58,8 @@ class CliContext:
 def emit(
     ctx: CliContext,
     *,
-    text: Optional[str] = None,
-    json_key: Optional[str] = None,
+    text: str | None = None,
+    json_key: str | None = None,
     json_value: Any = None,
 ) -> None:
     """Prints text unless --quiet, and accumulates JSON payload."""
@@ -71,6 +67,8 @@ def emit(
     if json_key is not None:
         ctx.json_payload[json_key] = json_value
     if ctx.quiet or ctx.json_output:
+        if text is not None:
+            logger.log(VERBOSE, "Suppressing human-readable output: %s", text)
         return
     if text is not None:
         print(text)
@@ -79,6 +77,7 @@ def emit(
 def print_dry_run(ctx: CliContext, message: str) -> None:
     """Reports that a command ran in dry-run mode."""
 
+    logger.info("Dry-run: %s", message)
     emit(ctx, text=f"Dry run: {message}", json_key="dry_run", json_value=message)
 
 
@@ -96,6 +95,7 @@ def add_dry_run_argument(parser: argparse.ArgumentParser) -> None:
 def configure_logging(error_format: str) -> None:
     """Configures diagnostic formatting."""
 
+    logger.log(VERBOSE, "Configuring diagnostic formatter: %s", error_format)
     logging.config(
         logging.formatters.Llvm()
         if error_format == "llvm"
@@ -103,15 +103,21 @@ def configure_logging(error_format: str) -> None:
     )
 
 
-def resolve_config(config: Optional[str]) -> Optional[str]:
+def resolve_config(config: str | None) -> str | None:
     """Returns ``config`` if provided, otherwise auto-detects in cwd."""
 
     if config:
+        logger.info("Using explicit configuration path %s", config)
         return config
-    return auto_detect_config()
+    detected = auto_detect_config()
+    if detected:
+        logger.info("Using auto-detected configuration path %s", detected)
+    else:
+        logger.info("No configuration file found; using built-in defaults")
+    return detected
 
 
-def _config_source_text(args: argparse.Namespace, config_path: Optional[str]) -> str:
+def _config_source_text(args: argparse.Namespace, config_path: str | None) -> str:
     if args.config:
         return f"explicit --config ({config_path})"
     if config_path:
@@ -119,7 +125,9 @@ def _config_source_text(args: argparse.Namespace, config_path: Optional[str]) ->
     return "built-in defaults"
 
 
-def _config_prompt_choices(options: Mapping[str, str]) -> tuple[list[str], dict[str, str]]:
+def _config_prompt_choices(
+    options: Mapping[str, str],
+) -> tuple[list[str], dict[str, str]]:
     reverse = {label: value for value, label in options.items()}
     return list(options.values()), reverse
 
@@ -135,7 +143,8 @@ def _component_defaults(config: Mapping[str, Any]) -> tuple[str, str]:
 def _skill_location_choices() -> tuple[list[str], dict[str, Path]]:
     cwd = Path.cwd()
     mapping = {
-        f"GitHub Copilot project ({cwd / COPILOT_SKILLS_DIR})": cwd / COPILOT_SKILLS_DIR,
+        f"GitHub Copilot project ({cwd / COPILOT_SKILLS_DIR})": cwd
+        / COPILOT_SKILLS_DIR,
         f"Claude project ({cwd / CLAUDE_PROJECT_SKILLS_DIR})": cwd
         / CLAUDE_PROJECT_SKILLS_DIR,
         f"Claude personal ({CLAUDE_PERSONAL_SKILLS_DIR})": CLAUDE_PERSONAL_SKILLS_DIR,
@@ -145,10 +154,11 @@ def _skill_location_choices() -> tuple[list[str], dict[str, Path]]:
     return list(mapping.keys()), mapping
 
 
-def prompt_for_skill_export_path(path: Optional[str]) -> Path:
+def prompt_for_skill_export_path(path: str | None) -> Path:
     """Returns the destination root for a bundled skill export."""
 
     if path:
+        logger.info("Using explicit skill export path %s", path)
         return Path(path).expanduser()
     if not sys.stdin.isatty():
         raise logging.Error(
@@ -172,6 +182,7 @@ def prompt_for_skill_export_path(path: Optional[str]) -> Path:
     selected = str(answers["location"])
     destination = choice_map[selected]
     if selected != "Other path":
+        logger.info("Selected interactive skill export destination %s", destination)
         return destination
 
     custom = inquirer.prompt(
@@ -185,7 +196,9 @@ def prompt_for_skill_export_path(path: Optional[str]) -> Path:
     )
     if not custom or not str(custom.get("path", "")).strip():
         raise logging.Info(message="Skill export cancelled by user")
-    return Path(str(custom["path"]).strip()).expanduser()
+    destination = Path(str(custom["path"]).strip()).expanduser()
+    logger.info("Selected custom skill export destination %s", destination)
+    return destination
 
 
 def prompt_for_config_init(
@@ -196,6 +209,7 @@ def prompt_for_config_init(
 ) -> dict[str, Any]:
     """Prompts for config values using the existing inquirer library."""
 
+    logger.info("Prompting for configuration initialization values")
     prompts: list[inquirer.questions.Question] = []
     version_choices, version_reverse = _config_prompt_choices(
         {scheme: data["label"] for scheme, data in VERSIONING_SCHEMES.items()}
@@ -295,6 +309,7 @@ def prompt_for_config_init(
 def _build_updated_config(
     base_config: Mapping[str, Any], answers: Mapping[str, Any]
 ) -> dict[str, Any]:
+    logger.log(VERBOSE, "Building updated configuration from prompt answers")
     updated = deepcopy(dict(base_config))
     project = dict(updated.get("project", {}) or {})
     validation = dict(project.get("validation", {}) or {})
@@ -324,11 +339,16 @@ def _build_updated_config(
 def command_config(args: argparse.Namespace, ctx: CliContext) -> None:
     """Shows the effective configuration and its origin."""
 
+    logger.info("Running config command")
     resolved_config = getattr(args, "_resolved_config", None)
     if args.config and not Path(args.config).is_file():
-        raise logging.Error(file_path=args.config, message="Configuration file not found")
+        raise logging.Error(
+            file_path=args.config, message="Configuration file not found"
+        )
 
-    active_path = resolved_config if resolved_config and Path(resolved_config).is_file() else None
+    active_path = (
+        resolved_config if resolved_config and Path(resolved_config).is_file() else None
+    )
     config = get_effective_configuration(active_path)
     source = _config_source_text(args, active_path)
     emit(ctx, text=f"Config source: {source}")
@@ -346,6 +366,7 @@ def command_config(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_config_init(args: argparse.Namespace, ctx: CliContext) -> None:
     """Creates or updates configuration interactively."""
 
+    logger.info("Running config init command")
     resolved_config = getattr(args, "_resolved_config", None)
     existing_path = (
         resolved_config if resolved_config and Path(resolved_config).is_file() else None
@@ -374,7 +395,9 @@ def command_config_init(args: argparse.Namespace, ctx: CliContext) -> None:
     updated = _build_updated_config(existing_config, answers)
     write_configuration(str(target_path), updated)
 
-    action = "Updated" if existing_path and str(target_path) == existing_path else "Wrote"
+    action = (
+        "Updated" if existing_path and str(target_path) == existing_path else "Wrote"
+    )
     emit(
         ctx,
         text=f"{action} config: {target_path}",
@@ -387,6 +410,7 @@ def command_config_init(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_skill_export(args: argparse.Namespace, ctx: CliContext) -> None:
     """Exports the bundled changelogmanager skill."""
 
+    logger.info("Running skill export command")
     destination_root = prompt_for_skill_export_path(args.path)
     final_path = destination_root / SKILL_NAME
 
@@ -413,9 +437,15 @@ def command_skill_export(args: argparse.Namespace, ctx: CliContext) -> None:
     ctx.json_payload["skill_name"] = SKILL_NAME
 
 
-def load_changelog(config: Optional[str], component: str, input_file: str) -> Changelog:
+def load_changelog(config: str | None, component: str, input_file: str) -> Changelog:
     """Loads the changelog configured for this invocation."""
 
+    logger.info(
+        "Loading changelog with config=%s component=%s input_file=%s",
+        config or "<none>",
+        component,
+        input_file,
+    )
     if config:
         component_config = get_component_from_config(config=config, component=component)
         file_path = component_config.get("changelog", input_file)
@@ -433,6 +463,7 @@ def load_changelog(config: Optional[str], component: str, input_file: str) -> Ch
         enforce_preamble=enforce_preamble,
         preamble_keywords=preamble_keywords,
     ).read()
+    logger.info("Loaded changelog file %s", file_path)
     return Changelog(
         file_path=file_path,
         changelog=changelog_dict,
@@ -443,6 +474,7 @@ def load_changelog(config: Optional[str], component: str, input_file: str) -> Ch
 def command_create(args: argparse.Namespace, ctx: CliContext) -> None:
     """Command to create a new (empty) CHANGELOG.md."""
 
+    logger.info("Running create command for %s", ctx.changelog.get_file_path())
     changelog = ctx.changelog
 
     if changelog.exists():
@@ -460,6 +492,11 @@ def command_create(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_version(args: argparse.Namespace, ctx: CliContext) -> None:
     """Command to retrieve versions from a CHANGELOG.md."""
 
+    logger.info(
+        "Running version command for %s with reference %s",
+        ctx.changelog.get_file_path(),
+        args.reference,
+    )
     changelog = ctx.changelog
 
     if args.reference == "current":
@@ -476,6 +513,11 @@ def command_version(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
     """Command to validate the CHANGELOG.md for inconsistencies."""
 
+    logger.info(
+        "Running validate command for %s (fix=%s)",
+        ctx.changelog.get_file_path(),
+        getattr(args, "fix", False),
+    )
     if not getattr(args, "fix", False):
         # Reading already validated; nothing further to do.
         return
@@ -494,6 +536,7 @@ def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
     fixed_data, applied = reader.autofix(dict(ctx.changelog.get()))
 
     if not applied:
+        logger.info("No autofixes were required for %s", ctx.changelog.get_file_path())
         emit(ctx, text="No fixes required", json_key="fixed", json_value=[])
         return
 
@@ -517,6 +560,7 @@ def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
     """Release changes added to [Unreleased] block."""
 
+    logger.info("Running release command for %s", ctx.changelog.get_file_path())
     changelog = ctx.changelog
     changelog.release(args.override_version)
     new_version = str(next(iter(changelog.get())))
@@ -563,6 +607,7 @@ def _export_target(args: argparse.Namespace, default_name: str) -> str:
 def command_to_json(args: argparse.Namespace, ctx: CliContext) -> None:
     """Exports the contents of the CHANGELOG.md to a JSON file."""
 
+    logger.info("Running to-json command for %s", ctx.changelog.get_file_path())
     changelog = ctx.changelog
     output = _export_target(args, "CHANGELOG.json")
 
@@ -579,6 +624,7 @@ def command_to_json(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_to_yaml(args: argparse.Namespace, ctx: CliContext) -> None:
     """Exports the contents of the CHANGELOG.md to a YAML file."""
 
+    logger.info("Running to-yaml command for %s", ctx.changelog.get_file_path())
     changelog = ctx.changelog
     output = _export_target(args, "CHANGELOG.yaml")
 
@@ -595,6 +641,7 @@ def command_to_yaml(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_to_html(args: argparse.Namespace, ctx: CliContext) -> None:
     """Exports the contents of the CHANGELOG.md to an HTML file."""
 
+    logger.info("Running to-html command for %s", ctx.changelog.get_file_path())
     changelog = ctx.changelog
     output = _export_target(args, "CHANGELOG.html")
 
@@ -609,10 +656,16 @@ def command_to_html(args: argparse.Namespace, ctx: CliContext) -> None:
 
 
 def prompt_for_missing_add_arguments(
-    change_type: Optional[str], message: Optional[str]
+    change_type: str | None, message: str | None
 ) -> dict[str, str]:
     """Prompts for any missing add arguments."""
 
+    logger.log(
+        VERBOSE,
+        "Resolving add arguments change_type=%s message_provided=%s",
+        change_type,
+        message is not None,
+    )
     changelog_entry: dict[str, str] = {}
     prompts: list[inquirer.questions.Question] = []
 
@@ -652,6 +705,7 @@ def prompt_for_missing_add_arguments(
 def command_add(args: argparse.Namespace, ctx: CliContext) -> None:
     """Command to add a new message to the CHANGELOG.md."""
 
+    logger.info("Running add command for %s", ctx.changelog.get_file_path())
     changelog_entry = prompt_for_missing_add_arguments(
         change_type=args.change_type, message=args.message
     )
@@ -672,6 +726,7 @@ def command_add(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_remove(args: argparse.Namespace, ctx: CliContext) -> None:
     """Removes an entry from [Unreleased]."""
 
+    logger.info("Running remove command for %s", ctx.changelog.get_file_path())
     changelog = ctx.changelog
     if args.list:
         entries = changelog.list_unreleased()
@@ -706,6 +761,7 @@ def command_remove(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_edit(args: argparse.Namespace, ctx: CliContext) -> None:
     """Edits an existing [Unreleased] entry."""
 
+    logger.info("Running edit command for %s", ctx.changelog.get_file_path())
     changelog = ctx.changelog
     if args.index is None or not args.change_type:
         raise logging.Error(
@@ -737,6 +793,11 @@ def command_edit(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_github_release(args: argparse.Namespace, ctx: CliContext) -> None:
     """Creates or updates a GitHub release from the changelog."""
 
+    logger.info(
+        "Running github-release command for %s against %s",
+        ctx.changelog.get_file_path(),
+        args.repository,
+    )
     changelog = ctx.changelog
     token = args.github_token or os.environ.get("GITHUB_TOKEN", "").strip()
     if not token:
@@ -791,24 +852,28 @@ CONVENTIONAL_TO_KAC = {
 }
 
 
-def _git_log_since(since: Optional[str]) -> list[str]:
+def _git_log_since(since: str | None) -> list[str]:
     """Returns commit subjects since a ref (or all if since is None)."""
 
     cmd = ["git", "log", "--no-merges", "--pretty=%s"]
     if since:
         cmd.append(f"{since}..HEAD")
+    logger.info("Running git log command with since=%s", since or "<all>")
     try:
         result = subprocess.run(  # nosec B603
             cmd, check=True, capture_output=True, text=True
         )
     except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        logger.error("git log failed: %s", exc)
         raise logging.Error(
             message=f"git log failed: {exc}",
         ) from exc
+    logger.info("Collected %d git commit subject(s)", len(result.stdout.splitlines()))
     return [line for line in result.stdout.splitlines() if line.strip()]
 
 
-def _last_release_tag() -> Optional[str]:
+def _last_release_tag() -> str | None:
+    logger.log(VERBOSE, "Looking up last release tag with git describe")
     try:
         result = subprocess.run(  # nosec B603
             ["git", "describe", "--tags", "--abbrev=0"],
@@ -816,14 +881,18 @@ def _last_release_tag() -> Optional[str]:
             capture_output=True,
             text=True,
         )
-        return result.stdout.strip() or None
+        tag = result.stdout.strip() or None
+        logger.info("Resolved last release tag: %s", tag or "<none>")
+        return tag
     except (subprocess.CalledProcessError, FileNotFoundError):
+        logger.warning("Unable to determine the last release tag")
         return None
 
 
-def classify_commit(subject: str) -> Optional[tuple[str, str]]:
+def classify_commit(subject: str) -> tuple[str, str] | None:
     """Maps a commit subject onto (change_type, message). Returns None to skip."""
 
+    logger.log(VERBOSE, "Classifying commit subject: %s", subject)
     match = CONVENTIONAL_RE.match(subject)
     if not match:
         return None
@@ -843,6 +912,7 @@ def classify_commit(subject: str) -> Optional[tuple[str, str]]:
 def command_from_commits(args: argparse.Namespace, ctx: CliContext) -> None:
     """Seeds [Unreleased] from git commit messages."""
 
+    logger.info("Running from-commits command for %s", ctx.changelog.get_file_path())
     since = args.since
     if since is None and not args.all_history:
         since = _last_release_tag()
@@ -913,6 +983,7 @@ def command_from_commits(args: argparse.Namespace, ctx: CliContext) -> None:
 def _changed_files() -> set[str]:
     """Returns paths changed vs HEAD (staged+unstaged+untracked)."""
 
+    logger.log(VERBOSE, "Inspecting git status for changed files")
     try:
         result = subprocess.run(  # nosec B603
             ["git", "status", "--porcelain"],
@@ -921,6 +992,7 @@ def _changed_files() -> set[str]:
             text=True,
         )
     except (subprocess.CalledProcessError, FileNotFoundError):
+        logger.warning("Unable to determine changed files from git status")
         return set()
     files: set[str] = set()
     for line in result.stdout.splitlines():
@@ -931,6 +1003,7 @@ def _changed_files() -> set[str]:
         if " -> " in path:
             path = path.split(" -> ", 1)[1]
         files.add(str(Path(path).as_posix()))
+    logger.info("Detected %d changed file(s) from git status", len(files))
     return files
 
 
@@ -939,6 +1012,7 @@ def run_validate_all(
 ) -> int:
     """Runs `validate` against every component in the config."""
 
+    logger.info("Running validate --all using %s", config_path)
     components = get_components_from_config(config_path)
     changed = _changed_files() if getattr(args, "changed_only", False) else None
 
@@ -954,6 +1028,7 @@ def run_validate_all(
         path = component.get("changelog")
         name = component.get("name")
         if changed is not None and Path(path).as_posix() not in changed:
+            logger.info("Skipping unchanged component %s at %s", name, path)
             summaries.append({"component": name, "path": path, "status": "skipped"})
             continue
         try:
@@ -979,6 +1054,7 @@ def run_validate_all(
                         emit(ctx, text=f"[{name}] would fix: {entry}")
             summaries.append({"component": name, "path": path, "status": "ok"})
         except logging.Error as err:
+            logger.error("Component validation failed for %s at %s: %s", name, path, err.message)
             err.report()
             failures += 1
             summaries.append(
@@ -1021,6 +1097,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--input-file", default="CHANGELOG.md", help="Changelog file to work with"
     )
     parser.add_argument(
+        "--info",
+        action="store_true",
+        default=False,
+        help="Enable runtime info/warning/error logging on stderr",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        default=False,
+        help="Enable verbose runtime logging on stderr (implies --info)",
+    )
+    parser.add_argument(
         "--quiet",
         action="store_true",
         default=False,
@@ -1051,9 +1139,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     config_init_parser.set_defaults(handler=command_config_init)
 
-    skill_parser = subparsers.add_parser(
-        "skill", help="Export bundled AI skill files"
-    )
+    skill_parser = subparsers.add_parser("skill", help="Export bundled AI skill files")
     skill_subparsers = skill_parser.add_subparsers(dest="skill_command", required=True)
     skill_export_parser = skill_subparsers.add_parser(
         "export", help="Export the bundled changelogmanager skill"
@@ -1282,14 +1368,19 @@ def _command_gui(_args: argparse.Namespace, _ctx: CliContext) -> None:
     raise SystemExit(run_gui())
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     """CLI entrypoint."""
 
     parser = build_parser()
 
     try:
         args = parser.parse_args(argv)
+        configure_runtime_logging(
+            info=bool(getattr(args, "info", False) or getattr(args, "verbose", False)),
+            verbose=bool(getattr(args, "verbose", False)),
+        )
         configure_logging(args.error_format)
+        logger.info("Starting CLI command %s", getattr(args, "command", "<none>"))
         if args.command == "gui":
             from changelogmanager.gui import run_gui
 
@@ -1312,6 +1403,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             exit_code = run_validate_all(args, ctx, resolved_config)
             if args.json:
                 print(json.dumps(ctx.json_payload, indent=2))
+            logger.info("Finished CLI command %s with exit code %d", args.command, exit_code)
             return exit_code
 
         if args.command in {"config", "skill"}:
@@ -1331,6 +1423,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             args.handler(args, context)
             if args.json:
                 print(json.dumps(context.json_payload, indent=2))
+            logger.info("Finished CLI command %s successfully", args.command)
             return 0
 
         context = CliContext(
@@ -1345,12 +1438,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         args.handler(args, context)
         if args.json:
             print(json.dumps(context.json_payload, indent=2))
+        logger.info("Finished CLI command %s successfully", args.command)
         return 0
     except (logging.Info, logging.Warning) as exc_info:
+        logger.info("CLI command completed with non-error diagnostic: %s", exc_info.message)
         exc_info.report()
         return 0
     except logging.Error as exc_info:
+        logger.error("CLI command failed: %s", exc_info.message)
         exc_info.report()
         return 1
     except SystemExit as exc_info:
+        logger.error("CLI exited via SystemExit: %s", exc_info)
         return exc_info.code if isinstance(exc_info.code, int) else 1
