@@ -265,11 +265,12 @@ changelogmanager github-release \
 ```yaml
 - name: Create GitHub release
   run: |
-    changelogmanager release --yes
     changelogmanager github-release \
       --repository "${{ github.repository }}" \
       --release
 ```
+
+Run `github-release` while `[Unreleased]` still exists. If you also want to rewrite `CHANGELOG.md`, do that in a later step or workflow with `changelogmanager release --override-version "$TAG"` after the GitHub release tag is known.
 
 ---
 

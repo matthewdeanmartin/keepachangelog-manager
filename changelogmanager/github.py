@@ -135,7 +135,7 @@ class GitHub:
             method=HttpMethods.DELETE, api=f"releases/{release.get('id')}"
         )
 
-    def create_release(self, changelog: Changelog, draft: bool) -> None:
+    def create_release(self, changelog: Changelog, draft: bool) -> Mapping[str, Any]:
         """Creates a new release on GitHub"""
         logger.info(
             "Creating %s GitHub release for %s",
@@ -160,7 +160,7 @@ class GitHub:
 
         version = f"v{changelog.suggest_future_version()}"
         logger.info("Preparing GitHub release payload for version %s", version)
-        self.__github_request(
+        response = self.__github_request(
             method=HttpMethods.POST,
             api="releases",
             data={
@@ -170,3 +170,8 @@ class GitHub:
                 "body": generate_release_notes(changelog.get(UNRELEASED_ENTRY)),
             },
         )
+        if not isinstance(response, Mapping):
+            raise logging.Error(
+                message=f"GitHub did not return release details for {version}"
+            )
+        return response

@@ -69,12 +69,20 @@ def test_create_release_posts_expected_payload(monkeypatch):
     monkeypatch.setattr(
         GitHub,
         "_GitHub__github_request",
-        lambda self, api, method, data=None: captured.update(
-            {"api": api, "method": method, "data": data}
+        lambda self, api, method, data=None: (
+            captured.update({"api": api, "method": method, "data": data})
+            or {
+                "id": 42,
+                "tag_name": "v1.1.0",
+                "html_url": "https://github.com/owner/repo/releases/tag/v1.1.0",
+                "draft": False,
+            }
         ),
     )
 
-    GitHub("owner/repo", "token").create_release(changelog=changelog, draft=False)
+    release = GitHub("owner/repo", "token").create_release(
+        changelog=changelog, draft=False
+    )
 
     assert captured["api"] == "releases"
     assert captured["method"] is HttpMethods.POST
@@ -86,6 +94,7 @@ def test_create_release_posts_expected_payload(monkeypatch):
     assert "* Feature" in captured["data"]["body"]
     assert "### :bug: Bug Fixes" in captured["data"]["body"]
     assert "* Bug" in captured["data"]["body"]
+    assert release["html_url"] == "https://github.com/owner/repo/releases/tag/v1.1.0"
 
 
 def test_github_request_wraps_url_errors(monkeypatch):

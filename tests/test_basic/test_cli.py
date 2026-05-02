@@ -191,6 +191,12 @@ def test_command_github_release_supports_dry_run_and_real_execution(
 
         def create_release(self, changelog, draft):
             calls.append(("create_release", changelog, draft))
+            return {
+                "id": 99,
+                "tag_name": "v1.2.3",
+                "html_url": "https://github.com/owner/repo/releases/tag/v1.2.3",
+                "draft": draft,
+            }
 
     cli.command_github_release(
         make_args(
@@ -216,12 +222,18 @@ def test_command_github_release_supports_dry_run_and_real_execution(
         ),
         cli.CliContext(changelog=changelog),
     )
+    create_output = capsys.readouterr().out
 
     assert calls == [
         ("init", "owner/repo", "token"),
         ("delete_draft_releases",),
         ("create_release", changelog, True),
     ]
+    assert (
+        "Created draft GitHub release v1.2.3 in owner/repo: "
+        "https://github.com/owner/repo/releases/tag/v1.2.3"
+        in create_output
+    )
 
 
 def test_build_parser_parses_commands_and_defaults():

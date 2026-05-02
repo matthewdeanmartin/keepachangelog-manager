@@ -18,6 +18,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - CI and GitHub Actions: CI.md
   - Quick start: quickstart.md
   - Installation: installation.md
   - Key Workflows: workflows.md

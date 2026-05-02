@@ -148,6 +148,7 @@ The GUI currently wraps the common commands `create`, `version`, `validate`, `re
 
 ## Documentation
 
+- [CI and GitHub Actions](docs/CI.md)
 - [Quick start](docs/quickstart.md)
 - [Installation](docs/installation.md)
 - [Key workflows](docs/workflows.md)

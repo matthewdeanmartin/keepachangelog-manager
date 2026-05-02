@@ -842,7 +842,24 @@ def command_github_release(args: argparse.Namespace, ctx: CliContext) -> None:
 
     github = GitHub(repository=args.repository, token=token)
     github.delete_draft_releases()
-    github.create_release(changelog=changelog, draft=args.draft)
+    release = github.create_release(changelog=changelog, draft=args.draft)
+    release_state = "draft" if bool(release.get("draft", args.draft)) else "published"
+    tag_name = str(release.get("tag_name", ""))
+    html_url = str(release.get("html_url", "")).strip()
+    release_id = release.get("id")
+    message = f"Created {release_state} GitHub release {tag_name} in {args.repository}"
+    if html_url:
+        message += f": {html_url}"
+    emit(ctx, text=message)
+    ctx.json_payload.update(
+        {
+            "release_state": release_state,
+            "tag_name": tag_name,
+            "repository": args.repository,
+            "html_url": html_url or None,
+            "release_id": release_id,
+        }
+    )
 
 
 # ----------------------------------------------------------------------

@@ -33,6 +33,7 @@ On top of what the `keepachangelog` library provides, this tool gives you:
 
 ## Next steps
 
+- [CI and GitHub Actions](CI.md) — quality gates, draft releases, and release automation
 - [Quick start](quickstart.md) — up and running in two minutes
 - [Installation](installation.md) — all installation methods
 - [Key Workflows](workflows.md) — day-to-day usage patterns
