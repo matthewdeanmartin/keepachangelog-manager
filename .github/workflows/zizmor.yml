@@ -12,7 +12,7 @@ permissions:
   contents: read
 jobs:
   zizmor:
-    name: Zizmor latest via PyPI
+    name: Zizmor via PyPI
     runs-on: ubuntu-latest
     permissions:
       security-events: write

@@ -1,7 +1,6 @@
----
-name: keepachangelog-manager-cli
-description: Use changelogmanager CLI commands correctly for changelog, config, export, release, and skill workflows.
----
+______________________________________________________________________
+
+## name: keepachangelog-manager-cli description: Use changelogmanager CLI commands correctly for changelog, config, export, release, and skill workflows.
 
 # keepachangelog-manager CLI
 

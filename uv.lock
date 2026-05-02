@@ -10,6 +10,10 @@ resolution-markers = [
     "python_full_version < '3.9.2'",
 ]
 
+[options]
+exclude-newer = "2026-04-25T02:00:39.146533Z"
+exclude-newer-span = "P7D"
+
 [[package]]
 name = "ansicon"
 version = "1.89.0"
@@ -611,37 +615,14 @@ wheels = [
 name = "hypothesis"
 version = "6.141.1"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.9.2' and python_full_version < '3.10'",
-    "python_full_version < '3.9.2'",
-]
 dependencies = [
-    { name = "attrs", marker = "python_full_version < '3.10'" },
-    { name = "exceptiongroup", marker = "python_full_version < '3.10'" },
-    { name = "sortedcontainers", marker = "python_full_version < '3.10'" },
+    { name = "attrs" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+    { name = "sortedcontainers" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/85/20/8aa62b3e69fea68bb30d35d50be5395c98979013acd8152d64dc927e4cdb/hypothesis-6.141.1.tar.gz", hash = "sha256:8ef356e1e18fbeaa8015aab3c805303b7fe4b868e5b506e87ad83c0bf951f46f", size = 467389, upload-time = "2025-10-15T19:12:25.262Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bc/9a/f901858f139694dd669776983781b08a7c1717911025da6720e526bd8ce3/hypothesis-6.141.1-py3-none-any.whl", hash = "sha256:a5b3c39c16d98b7b4c3c5c8d4262e511e3b2255e6814ced8023af49087ad60b3", size = 535000, upload-time = "2025-10-15T19:12:21.659Z" },
-]
-
-[[package]]
-name = "hypothesis"
-version = "6.152.4"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.15'",
-    "python_full_version >= '3.12' and python_full_version < '3.15'",
-    "python_full_version == '3.11.*'",
-    "python_full_version == '3.10.*'",
-]
-dependencies = [
-    { name = "exceptiongroup", marker = "python_full_version == '3.10.*'" },
-    { name = "sortedcontainers", marker = "python_full_version >= '3.10'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/fa/c7/3147bd903d6b18324a016d43a259cf5b4bb4545e1ead6773dc8a0374e70a/hypothesis-6.152.4.tar.gz", hash = "sha256:31c8f9ce619716f543e2710b489b1633c833586641d9e6c94cee03f109a5afc4", size = 466444, upload-time = "2026-04-27T20:18:37.594Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/19/89/0f50dd0d92e8a7dffc24f69ab910ff81db89b2f082ba42682bd57695e4d2/hypothesis-6.152.4-py3-none-any.whl", hash = "sha256:e730fd93c7578182efadc7f90b3c5437ee4d55edf738930eb5043c81ac1d97e8", size = 532145, upload-time = "2026-04-27T20:18:35.043Z" },
 ]
 
 [[package]]
@@ -811,8 +792,7 @@ dev = [
     { name = "flake8-formatter-junit-xml" },
     { name = "flake8-pyproject" },
     { name = "freezegun" },
-    { name = "hypothesis", version = "6.141.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "hypothesis", version = "6.152.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "hypothesis" },
     { name = "mypy", version = "1.19.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "mypy", version = "1.20.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pylint", version = "3.3.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -845,8 +825,7 @@ security = [
 ]
 test = [
     { name = "freezegun" },
-    { name = "hypothesis", version = "6.141.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "hypothesis", version = "6.152.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "hypothesis" },
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pytest", version = "9.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pytest-cov" },
@@ -855,46 +834,46 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "inquirer", specifier = ">=3.2.2" },
-    { name = "keepachangelog", specifier = ">=2.0.0" },
+    { name = "inquirer", specifier = ">=3.4.0,<4" },
+    { name = "keepachangelog", specifier = ">=2.0.0,<3" },
     { name = "pyyaml", specifier = ">=6.0.2,<7" },
     { name = "semantic-version", specifier = ">=2.10.0,<3" },
-    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.1" },
-    { name = "urllib3", specifier = ">=2.6.3" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.4.1" },
+    { name = "urllib3", specifier = ">=2.6.3,<3" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "bandit" },
-    { name = "black" },
-    { name = "flake8" },
-    { name = "flake8-formatter-junit-xml" },
-    { name = "flake8-pyproject" },
+    { name = "bandit", specifier = ">1.0.0" },
+    { name = "black", specifier = ">=25.0.0" },
+    { name = "flake8", specifier = ">1.0.0" },
+    { name = "flake8-formatter-junit-xml", specifier = ">=0.0.6" },
+    { name = "flake8-pyproject", specifier = ">1.0.0" },
     { name = "freezegun" },
     { name = "hypothesis" },
-    { name = "mypy" },
-    { name = "pylint" },
-    { name = "pytest" },
+    { name = "mypy", specifier = ">=1.0.0" },
+    { name = "pylint", specifier = ">1.0.0" },
+    { name = "pytest", specifier = ">7.0.0" },
     { name = "pytest-cov" },
     { name = "pytest-mock" },
     { name = "ruff", specifier = ">=0.15.12" },
     { name = "types-pyyaml" },
 ]
 lint = [
-    { name = "black" },
-    { name = "flake8" },
-    { name = "flake8-formatter-junit-xml" },
-    { name = "flake8-pyproject" },
-    { name = "mypy" },
-    { name = "pylint" },
+    { name = "black", specifier = ">=25.0.0" },
+    { name = "flake8", specifier = ">1.0.0" },
+    { name = "flake8-formatter-junit-xml", specifier = ">=0.0.6" },
+    { name = "flake8-pyproject", specifier = ">1.0.0" },
+    { name = "mypy", specifier = ">=1.0.0" },
+    { name = "pylint", specifier = ">1.0.0" },
     { name = "ruff", specifier = ">=0.15.12" },
     { name = "types-pyyaml" },
 ]
-security = [{ name = "bandit" }]
+security = [{ name = "bandit", specifier = ">1.0.0" }]
 test = [
     { name = "freezegun" },
     { name = "hypothesis" },
-    { name = "pytest" },
+    { name = "pytest", specifier = ">7.0.0" },
     { name = "pytest-cov" },
     { name = "pytest-mock" },
 ]
@@ -1188,11 +1167,11 @@ wheels = [
 
 [[package]]
 name = "pathspec"
-version = "1.1.1"
+version = "1.1.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5a/82/42f767fc1c1143d6fd36efb827202a2d997a375e160a71eb2888a925aac1/pathspec-1.1.1.tar.gz", hash = "sha256:17db5ecd524104a120e173814c90367a96a98d07c45b2e10c2f3919fff91bf5a", size = 135180, upload-time = "2026-04-27T01:46:08.907Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2e/17/9c3094b822982b9f1ea666d8580ce59000f61f87c1663556fb72031ad9ec/pathspec-1.1.0.tar.gz", hash = "sha256:f5d7c555da02fd8dde3e4a2354b6aba817a89112fa8f333f7917a2a4834dd080", size = 133918, upload-time = "2026-04-23T01:46:22.298Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f1/d9/7fb5aa316bc299258e68c73ba3bddbc499654a07f151cba08f6153988714/pathspec-1.1.1-py3-none-any.whl", hash = "sha256:a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189", size = 57328, upload-time = "2026-04-27T01:46:07.06Z" },
+    { url = "https://files.pythonhosted.org/packages/fa/c9/8eed0486f074e9f1ca7f8ce5ad663e65f12fdab344028d658fa1b03d35e0/pathspec-1.1.0-py3-none-any.whl", hash = "sha256:574b128f7456bd899045ccd142dd446af7e6cfd0072d63ad73fbc55fbb4aaa42", size = 56264, upload-time = "2026-04-23T01:46:20.606Z" },
 ]
 
 [[package]]

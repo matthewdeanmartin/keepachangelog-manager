@@ -48,4 +48,6 @@ jobs:
         run: uv sync --frozen
 
       - name: Creating Draft release
-        run: uv run changelogmanager github-release --github-token ${{ github.token }} --repository ${{ github.repository }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: uv run changelogmanager github-release --repository ${{ github.repository }}

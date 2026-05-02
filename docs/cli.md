@@ -2,7 +2,7 @@
 
 All commands are invoked as `changelogmanager [GLOBAL OPTIONS] COMMAND [COMMAND OPTIONS]`.
 
----
+______________________________________________________________________
 
 ## Global options
 
@@ -38,7 +38,7 @@ CHANGELOG.md:5:3: error: Incompatible change type provided, MUST be one of: Adde
 ::error file=CHANGELOG.md,line=5,col=3::Incompatible change type provided ...
 ```
 
----
+______________________________________________________________________
 
 ## create
 
@@ -52,7 +52,7 @@ Exits with an info message (exit code 0) if the file already exists.
 
 If config declares `project.versioning.scheme`, the generated Keep a Changelog preamble mentions that scheme (`semver`, `pep440`, or `calver`) instead of always saying Semantic Versioning.
 
----
+______________________________________________________________________
 
 ## config
 
@@ -74,7 +74,7 @@ changelogmanager config init
 
 The prompt flow asks where config should live (`pyproject.toml` or YAML), which commit style to configure, which versioning scheme to mention in the preamble, whether to enforce the preamble during validation, and the default component/changelog path when the config only tracks one component. The defaults are `pyproject.toml`, `Conventional Commits`, and `semver`. Running it again updates the existing config instead of only creating a new one.
 
----
+______________________________________________________________________
 
 ## skill export
 
@@ -86,7 +86,7 @@ changelogmanager skill export [--path PATH] [--dry-run]
 
 If `--path` is omitted, the command prompts for a common target such as the current project's Copilot skills directory, the current project's Claude skills directory, or the personal Claude skills directory. The chosen directory receives a `keepachangelog-manager-cli` folder containing `SKILL.md`.
 
----
+______________________________________________________________________
 
 ## add
 
@@ -104,7 +104,7 @@ changelogmanager add [OPTIONS]
 
 Omitting `--change-type` or `--message` triggers an interactive prompt.
 
----
+______________________________________________________________________
 
 ## validate
 
@@ -137,7 +137,7 @@ Warnings are also emitted for empty version sections, empty change-type sections
 
 When `project.validation.enforce_preamble: true` is configured, the validator also requires the canonical Keep a Changelog preamble to mention both Keep a Changelog and the configured versioning scheme.
 
----
+______________________________________________________________________
 
 ## version
 
@@ -163,7 +163,7 @@ The `future` version is calculated using these SemVer bump rules:
 - `added` or `security` present -> minor bump
 - Otherwise -> patch bump
 
----
+______________________________________________________________________
 
 ## release
 
@@ -190,7 +190,7 @@ Fails with exit code 1 if:
 - The version already exists in the changelog
 - The version would be older than the current latest release
 
----
+______________________________________________________________________
 
 ## to-json
 
@@ -207,7 +207,7 @@ changelogmanager to-json [OPTIONS]
 
 The output is a JSON array. Each element corresponds to one release (including `unreleased` if present) and contains a `metadata` object plus arrays for each change type.
 
----
+______________________________________________________________________
 
 ## to-yaml
 
@@ -224,7 +224,7 @@ changelogmanager to-yaml [OPTIONS]
 
 The output is a YAML array mirroring the JSON export structure.
 
----
+______________________________________________________________________
 
 ## to-html
 
@@ -241,7 +241,7 @@ changelogmanager to-html [OPTIONS]
 
 The generated HTML is a simple standalone document that escapes changelog content before rendering it.
 
----
+______________________________________________________________________
 
 ## remove
 
@@ -260,7 +260,7 @@ changelogmanager remove [OPTIONS]
 
 Use `--list` first to discover the `change-type` and `index` pair you want.
 
----
+______________________________________________________________________
 
 ## edit
 
@@ -280,7 +280,7 @@ changelogmanager edit [OPTIONS]
 
 At least one of `--message` or `--new-change-type` is required.
 
----
+______________________________________________________________________
 
 ## github-release
 
@@ -300,7 +300,7 @@ changelogmanager github-release [OPTIONS]
 
 The command first deletes all existing draft releases for the repository, then creates a new one tagged with the auto-calculated future version. The release body is generated from the `[Unreleased]` entries, grouped by change type with emoji headers.
 
----
+______________________________________________________________________
 
 ## from-commits
 
@@ -330,7 +330,7 @@ Commit type mapping:
 
 Breaking-change subjects like `feat!:` are treated as `removed`.
 
----
+______________________________________________________________________
 
 ## gui
 

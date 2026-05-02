@@ -31,7 +31,7 @@ changelogmanager add --change-type added --message "New feature" --dry-run
 changelogmanager release --dry-run
 ```
 
----
+______________________________________________________________________
 
 ## Maintaining `[Unreleased]`
 
@@ -96,7 +96,7 @@ changelogmanager from-commits --strict
 
 `--strict` skips non-Conventional Commit subjects. Without it, unmatched subjects are added as `changed`.
 
----
+______________________________________________________________________
 
 ## Releasing
 
@@ -132,7 +132,7 @@ changelogmanager release --yes
 
 Without `--yes`, non-interactive release runs are refused. Pair it with `--dry-run` first if you want a preview.
 
----
+______________________________________________________________________
 
 ## Querying versions
 
@@ -147,7 +147,7 @@ changelogmanager version --reference previous
 changelogmanager version --reference future
 ```
 
----
+______________________________________________________________________
 
 ## Validation
 
@@ -236,7 +236,7 @@ changelogmanager --error-format github validate
 
 Errors are printed in GitHub Actions annotation format (`::error file=...`), making them appear inline in pull request diffs.
 
----
+______________________________________________________________________
 
 ## GitHub releases
 
@@ -272,7 +272,7 @@ changelogmanager github-release \
 
 Run `github-release` while `[Unreleased]` still exists. If you also want to rewrite `CHANGELOG.md`, do that in a later step or workflow with `changelogmanager release --override-version "$TAG"` after the GitHub release tag is known.
 
----
+______________________________________________________________________
 
 ## Exports
 
@@ -324,7 +324,7 @@ changelogmanager to-yaml --file-name changelog-export.yaml
 changelogmanager to-html --file-name changelog-export.html
 ```
 
----
+______________________________________________________________________
 
 ## Multi-component repositories
 
@@ -352,7 +352,7 @@ changelogmanager --config config.yml --component "Service Component" release
 
 If `--config` is omitted, the CLI auto-detects `.changelogmanager.yml`, `.changelogmanager.yaml`, `changelogmanager.yml`, `changelogmanager.yaml`, or `[tool.changelogmanager]` in `pyproject.toml` from the current directory.
 
----
+______________________________________________________________________
 
 ## Specifying a changelog file directly
 
@@ -362,7 +362,7 @@ If you do not use a config file, you can point at any file with `--input-file`:
 changelogmanager --input-file packages/api/CHANGELOG.md validate
 ```
 
----
+______________________________________________________________________
 
 ## Automation-friendly output
 

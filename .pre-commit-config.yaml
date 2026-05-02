@@ -1,0 +1,12 @@
+---
+ci:
+  autoupdate_schedule: quarterly
+repos:
+  - repo: local
+    hooks:
+      - id: check
+        name: make validate
+        language: system
+        entry: uv run make validate
+        pass_filenames: false
+        always_run: true

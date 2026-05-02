@@ -1,9 +1,3 @@
-[build-system]
-requires = [
-    "hatchling>=1.27",
-]
-build-backend = "hatchling.build"
-
 [project]
 name = "keepachangelog-manager-fork"
 description = "Python package allowing you to manage your CHANGELOG.md files"
@@ -15,11 +9,16 @@ license-files = ["LICENSE.md"]
 dependencies = [
     "pyyaml>=6.0.2,<7",
     "semantic_version>=2.10.0,<3",
-    "keepachangelog>=2.0.0",
-    "urllib3>=2.6.3",
-    "inquirer>=3.2.2",
-    "tomli>=2.0.1; python_version < '3.11'",
+    "keepachangelog>=2.0.0,<3",
+    "urllib3>=2.6.3,<3",
+    "inquirer>=3.4.0,<4",
+    "tomli>=2.4.1; python_version < '3.11'",
 ]
+authors = [
+    { name = "KevinDeJong-TomTom" },
+    { name = "Matthew Martin", email = "matthewdeanmartin@gmail.com" },
+]
+
 [project.urls]
 Homepage = "https://github.com/matthewdeanmartin/keepachangelog-manager"
 Issues = "https://github.com/matthewdeanmartin/keepachangelog-manager/issues"
@@ -33,28 +32,35 @@ keepachangelog-manager = "changelogmanager.__main__:main"
 test = [
     "freezegun",
     "hypothesis",
-    "pytest",
+    "pytest>7.0.0",
     "pytest-cov",
     "pytest-mock",
 ]
 lint = [
-    "black",
-    "flake8",
-    "flake8-pyproject",
-    "flake8_formatter_junit_xml",
-    "mypy",
-    "pylint",
+    "black>=25.0.0",
+    "flake8>1.0.0",
+    "flake8-pyproject>1.0.0",
+    "flake8_formatter_junit_xml>=0.0.6",
+    "mypy>=1.0.0",
+    "pylint>1.0.0",
     "ruff>=0.15.12",
     "types-PyYAML",
 ]
 security = [
-    "bandit",
+    "bandit>1.0.0",
 ]
 dev = [
     { include-group = "test" },
     { include-group = "lint" },
     { include-group = "security" },
 ]
+
+[build-system]
+requires = [
+    "hatchling>=1.27",
+]
+build-backend = "hatchling.build"
+
 
 [tool.mypy]
 python_version = "3.9"
@@ -73,6 +79,8 @@ show_error_codes = true
 
 [tool.uv]
 default-groups = ["dev"]
+exclude-newer = "7 days"
+
 
 [tool.ruff]
 line-length = 160

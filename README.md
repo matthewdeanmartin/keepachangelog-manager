@@ -2,7 +2,7 @@
 
 CLI and Python library for managing `CHANGELOG.md` files that follow the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
-Fork of `keepachangelog-manager-fork`.
+Fork of `keepachangelog-manager`, originally mostly written by KevinDeJong at TomTom International.
 
 ![gif](https://raw.githubusercontent.com/matthewdeanmartin/keepachangelog-manager/main/resources/usage.gif)
 
@@ -12,7 +12,10 @@ Fork of `keepachangelog-manager-fork`.
 uv tool install keepachangelog-manager-fork
 ```
 
-The package name on PyPI is `keepachangelog-manager-fork`. The installed commands are `changelogmanager` and `keepachangelog-manager`.
+The package name on PyPI is `keepachangelog-manager-fork`. The installed commands is `changelogmanager` with legacy alias of `keepachangelog-manager`.
+
+Supports precommit, cli, and GitHub actions workflows.
+
 
 ## What it does
 

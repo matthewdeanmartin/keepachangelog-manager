@@ -15,10 +15,10 @@ uv run changelogmanager github-release \
 Because `github-release` defaults to `--draft`, the workflow:
 
 1. Deletes any existing draft releases in the repository.
-2. Reads the current `[Unreleased]` section from `CHANGELOG.md`.
-3. Infers the next SemVer version from the unreleased change types.
-4. Creates a fresh draft GitHub release tagged like `v1.2.3`.
-5. Uses the `[Unreleased]` entries as the release notes body, grouped by change type.
+1. Reads the current `[Unreleased]` section from `CHANGELOG.md`.
+1. Infers the next SemVer version from the unreleased change types.
+1. Creates a fresh draft GitHub release tagged like `v1.2.3`.
+1. Uses the `[Unreleased]` entries as the release notes body, grouped by change type.
 
 This workflow does **not** rewrite `CHANGELOG.md`. It only updates the GitHub draft release.
 
@@ -35,10 +35,10 @@ By default it creates a **draft** release. With `--release`, it publishes the re
 Behavior summary:
 
 1. Reads the GitHub token from `--github-token` or `GITHUB_TOKEN`.
-2. Validates that `[Unreleased]` exists and can produce a future version.
-3. Deletes all existing draft releases for the target repository.
-4. Creates a new GitHub release named `Release vX.Y.Z`.
-5. Generates release notes from `[Unreleased]` using the changelog categories and emoji headings.
+1. Validates that `[Unreleased]` exists and can produce a future version.
+1. Deletes all existing draft releases for the target repository.
+1. Creates a new GitHub release named `Release vX.Y.Z`.
+1. Generates release notes from `[Unreleased]` using the changelog categories and emoji headings.
 
 Use `release` when you want to promote `[Unreleased]` inside `CHANGELOG.md`. Use `github-release` when you want to create or publish the corresponding GitHub release entry.
 
@@ -108,12 +108,12 @@ If you only want to gate files that changed in the current checkout:
 This repository currently uses an **opinionated** release workflow.
 
 1. Merge unreleased changelog entries to `main`.
-2. Let `.github/workflows/create_draft_release.yml` keep the GitHub draft release in sync from `[Unreleased]`.
-3. Open the repository's **Releases** page in GitHub.
-4. Open the draft release that was generated from `[Unreleased]`.
-5. Review the title, notes, and target branch, then click **Publish release**.
-6. Publishing the GitHub Release fires `.github/workflows/release.yml`.
-7. That workflow builds from the published release tag, publishes to PyPI with GitHub OIDC, and opens a PR that updates `CHANGELOG.md` on the release target branch.
+1. Let `.github/workflows/create_draft_release.yml` keep the GitHub draft release in sync from `[Unreleased]`.
+1. Open the repository's **Releases** page in GitHub.
+1. Open the draft release that was generated from `[Unreleased]`.
+1. Review the title, notes, and target branch, then click **Publish release**.
+1. Publishing the GitHub Release fires `.github/workflows/release.yml`.
+1. That workflow builds from the published release tag, publishes to PyPI with GitHub OIDC, and opens a PR that updates `CHANGELOG.md` on the release target branch.
 
 ### Why this workflow is opinionated
 
@@ -125,9 +125,9 @@ This repository currently uses an **opinionated** release workflow.
 ### Release workflow example
 
 1. Push changelog updates to `main`.
-2. Wait for `Create Draft Release` to refresh the draft release.
-3. In GitHub, go to **Releases** and open the draft.
-4. Click **Publish release**.
+1. Wait for `Create Draft Release` to refresh the draft release.
+1. In GitHub, go to **Releases** and open the draft.
+1. Click **Publish release**.
 
 GitHub then emits the `release` event with type `released`, which starts the `Release` workflow automatically. The workflow publishes the package using OIDC and opens a changelog PR titled like `docs: update CHANGELOG.md for release v1.2.3`.
 

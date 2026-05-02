@@ -44,6 +44,6 @@ Error, warning, and info messages are raised as exceptions from `changelogmanage
 ## Submitting changes
 
 1. Open an issue to discuss larger changes before writing code.
-2. Keep pull requests focused; one logical change per PR.
-3. Add or update tests for any changed behaviour.
-4. Run the full test and lint suite before opening a PR.
+1. Keep pull requests focused; one logical change per PR.
+1. Add or update tests for any changed behaviour.
+1. Run the full test and lint suite before opening a PR.
