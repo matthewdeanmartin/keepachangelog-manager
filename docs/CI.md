@@ -105,12 +105,32 @@ If you only want to gate files that changed in the current checkout:
 
 ## Typical release automation
 
-`github-release` needs `[Unreleased]` as its source material, so it should run **before** `release`, not after it.
+This repository currently uses an **opinionated** release workflow.
 
-A common pattern is:
+1. Merge unreleased changelog entries to `main`.
+2. Let `.github/workflows/create_draft_release.yml` keep the GitHub draft release in sync from `[Unreleased]`.
+3. Open the repository's **Releases** page in GitHub.
+4. Open the draft release that was generated from `[Unreleased]`.
+5. Review the title, notes, and target branch, then click **Publish release**.
+6. Publishing the GitHub Release fires `.github/workflows/release.yml`.
+7. That workflow builds from the published release tag, publishes to PyPI with GitHub OIDC, and opens a PR that updates `CHANGELOG.md` on the release target branch.
 
-1. Use `github-release` on `main` to keep a draft release in sync with `[Unreleased]`.
-2. Publish that release from GitHub when you are ready.
-3. In a follow-up workflow triggered by the published release, run `release --override-version "$TAG"` to rewrite `CHANGELOG.md` with the final version and date.
+### Why this workflow is opinionated
 
-That is the same split used by this repository's workflows: `.github/workflows/create_draft_release.yml` creates the draft, and `.github/workflows/release.yml` updates `CHANGELOG.md` after a GitHub release is published.
+- It separates **draft release generation** from **package publishing**.
+- It uses GitHub's release UI as the approval step instead of requiring developers to push tags from a laptop.
+- It uses the PyPI OIDC pattern via `pypa/gh-action-pypi-publish` with `id-token: write`, not a Twine upload step and not a long-lived PyPI API token stored in the repository.
+- It updates `CHANGELOG.md` through a pull request instead of pushing directly to the branch.
+
+### Release workflow example
+
+1. Push changelog updates to `main`.
+2. Wait for `Create Draft Release` to refresh the draft release.
+3. In GitHub, go to **Releases** and open the draft.
+4. Click **Publish release**.
+
+GitHub then emits the `release` event with type `released`, which starts the `Release` workflow automatically. The workflow publishes the package using OIDC and opens a changelog PR titled like `docs: update CHANGELOG.md for release v1.2.3`.
+
+### Roadmap
+
+This GitHub-release-driven workflow is the current supported path. Other release strategies, such as publish-on-tag, fully manual package publishing, or different changelog synchronization flows, are possible but are not the documented default yet and are better treated as roadmap items.
