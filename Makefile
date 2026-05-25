@@ -92,3 +92,26 @@ raise SystemExit(subprocess.run(['uv', 'tool', 'run', '--from', 'gha-update', 'g
 
 gha-upgrade: gha-pin gha-validate
 	@echo GitHub Actions upgrade complete
+
+# ── Dogfooding targets (independent, not wired into check) ───────────────────
+
+.PHONY: version-check
+version-check:
+	@$(UV) jiggle_version check
+
+.PHONY: dev-status
+dev-status:
+	@$(UV) troml-dev-status validate .
+
+.PHONY: prerelease-check
+prerelease-check: version-check dev-status
+	@echo "Pre-release checks passed."
+
+.PHONY: dont-be-lazy
+dont-be-lazy:
+	@$(UV) dont_be_lazy --root . --no-color summary
+	@$(UV) dont_be_lazy --root . --no-color scan keepachangelog --no-config-suppressions || true
+
+.PHONY: pydoc-docs
+pydoc-docs:
+	@$(UV) pydoc_fork keepachangelog -o ./pydoc/
