@@ -175,6 +175,54 @@ This repository currently uses an **opinionated** release workflow.
 
 GitHub then emits the `release` event with type `released`, which starts the `Release` workflow automatically. The workflow publishes the package using OIDC and opens a changelog PR titled like `docs: update CHANGELOG.md for release v1.2.3`.
 
-### Roadmap
+### Version string synchronisation in automated workflows
 
-This GitHub-release-driven workflow is the current supported path. Other release strategies, such as publish-on-tag, fully manual package publishing, or different changelog synchronization flows, are possible but are not the documented default yet and are better treated as roadmap items.
+The workflow above relies on `CHANGELOG.md` being the **only** place the version number
+appears at build time. As long as that is true, no extra step is required — `uv build`
+reads the version from `pyproject.toml`, and the release workflow updates `pyproject.toml`
+via the changelog PR after publishing.
+
+If your project stores the version in `pyproject.toml` at the time of the build (the
+common case for most Python packages), you must keep `pyproject.toml` in sync **before**
+running `uv build`. There are two viable approaches in CI:
+
+**Approach 1 — run `release --bump-versions` inside the release workflow.**
+
+Add the `jiggle` extra to the install step and call `release --bump-versions` before
+building:
+
+```yaml
+- name: Sync dependencies (with jiggle)
+  run: uv sync --frozen --extra jiggle
+
+- name: Release changelog and sync version files
+  run: |
+    uv run changelogmanager release --bump-versions --yes
+    git config user.name "github-actions[bot]"
+    git config user.email "github-actions[bot]@users.noreply.github.com"
+    git add CHANGELOG.md pyproject.toml
+    git commit -m "chore: release $(uv run changelogmanager version)"
+    git push
+
+- name: Build
+  run: uv build
+
+- name: Publish
+  uses: pypa/gh-action-pypi-publish@release/v1
+  with:
+    id-token: write
+```
+
+This keeps `CHANGELOG.md` and `pyproject.toml` in perfect lockstep — the same process
+that determines the version also writes it everywhere.
+
+**Approach 2 — keep `pyproject.toml` out of the build's version resolution.**
+
+Configure your build backend (hatchling, flit, setuptools-scm, etc.) to derive the version
+dynamically from git tags or the installed package metadata rather than a static string.
+Then `pyproject.toml` never needs to be touched on release, and the simple workflow above
+is sufficient.
+
+Until one of these approaches is in place, CI may build and publish the package with the
+*previous* version still set in `pyproject.toml`, which is how versions like 5.1.0 and
+5.2.0 can end up either absent from PyPI or published under the wrong version number.

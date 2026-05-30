@@ -2,7 +2,7 @@
 name = "keepachangelog-manager-fork"
 description = "Python package allowing you to manage your CHANGELOG.md files"
 readme = "README.md"
-version = "5.0.1"
+version = "5.2.0"
 requires-python = ">=3.9"
 license = "Apache-2.0"
 license-files = ["LICENSE.md"]
@@ -27,6 +27,11 @@ Source = "https://github.com/matthewdeanmartin/keepachangelog-manager"
 [project.scripts]
 changelogmanager = "changelogmanager.__main__:main"
 keepachangelog-manager = "changelogmanager.__main__:main"
+
+[project.optional-dependencies]
+jiggle = [
+    "jiggle-version>=2.1.0,<3",
+]
 
 [dependency-groups]
 test = [

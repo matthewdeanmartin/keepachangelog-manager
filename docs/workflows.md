@@ -100,6 +100,32 @@ ______________________________________________________________________
 
 ## Releasing
 
+### Where your version number lives — an important design choice
+
+Before using `release`, decide where your project's authoritative version number lives.
+This choice changes which release workflow you need.
+
+**Option A — changelog is the single source of truth.**
+`pyproject.toml` (and any `__version__` string in your source) is never checked by your
+build tool, or your build tool is told to read the version dynamically from the installed
+package metadata. In this case the `release` command alone is sufficient: it promotes
+`[Unreleased]` to a version entry, and nothing else needs to change before you build.
+
+**Option B — version appears in multiple places.**
+Your `pyproject.toml` has `version = "x.y.z"` and/or your source has `__version__ = "x.y.z"`.
+These must match the released version before you run `uv build` or the package will carry
+the wrong version number. You have two sub-options:
+
+- **Guess the version first:** compute the next version yourself (e.g. from
+  `changelogmanager version --reference future`), set it in `pyproject.toml` manually,
+  push that change, then trigger the release job. This is error-prone — if your guess is
+  wrong, or a new commit changes the bump level between your edit and the job running,
+  the versions drift.
+- **Use `--bump-versions`:** let the `release` command bump `pyproject.toml` (and Python
+  source `__version__` strings) to the released version atomically, in the same step.
+  This is the recommended approach when you need version strings in multiple places.
+  See [Syncing version strings with `--bump-versions`](#syncing-version-strings-with---bump-versions) below.
+
 ### Automatic version bump
 
 `release` inspects the change types in `[Unreleased]` and bumps the version according to SemVer:
@@ -131,6 +157,70 @@ changelogmanager release --yes
 ```
 
 Without `--yes`, non-interactive release runs are refused. Pair it with `--dry-run` first if you want a preview.
+
+### Syncing version strings with `--bump-versions`
+
+If your project stores a version number outside the changelog — in `pyproject.toml`,
+in a `__version__` variable, or both — use `--bump-versions` to keep them in sync.
+
+**Prerequisite:** install the `jiggle` optional extra:
+
+```sh
+# uv project dependency
+uv add "keepachangelog-manager-fork[jiggle]"
+
+# or standalone tool install
+uv tool install "keepachangelog-manager-fork[jiggle]"
+
+# or pip
+pip install "keepachangelog-manager-fork[jiggle]"
+```
+
+**Release and sync in one step:**
+
+```sh
+changelogmanager release --bump-versions --yes
+```
+
+This does, in order:
+
+1. Promotes `[Unreleased]` to the inferred next version in `CHANGELOG.md`.
+2. Writes that same version string into `[project] version` in `pyproject.toml`.
+3. Updates any `__version__ = "..."` variables found in your Python source tree.
+
+**Limit to `pyproject.toml` only** (skip Python source files):
+
+```sh
+changelogmanager release --bump-versions --pyproject-only --yes
+```
+
+**Preview without writing anything:**
+
+```sh
+changelogmanager release --bump-versions --dry-run
+```
+
+**JSON output** includes the list of modified files:
+
+```sh
+changelogmanager --json release --bump-versions --yes
+```
+
+```json
+{
+  "released": "1.3.0",
+  "bumped_version": "1.3.0",
+  "bumped_files": ["pyproject.toml", "mypackage/__about__.py"]
+}
+```
+
+The typical build sequence after running `--bump-versions` is:
+
+```sh
+changelogmanager release --bump-versions --yes
+uv build
+uv publish
+```
 
 ______________________________________________________________________
 

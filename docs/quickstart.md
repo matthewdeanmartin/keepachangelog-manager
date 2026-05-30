@@ -62,6 +62,19 @@ The `[Unreleased]` section is renamed to the inferred next version with today's 
 - Initial release
 ```
 
+> **If your `pyproject.toml` also contains a `version = "..."` line**, that string must
+> match the released version before you build and publish. Use `--bump-versions` to update
+> it in the same step:
+>
+> ```sh
+> changelogmanager release --bump-versions --yes
+> ```
+>
+> Without this, the changelog and `pyproject.toml` (and any `__version__` in your source)
+> will drift, and your package will be published under the wrong version number.
+> See [Syncing version strings](workflows.md#syncing-version-strings-with---bump-versions)
+> for the full details and the `[jiggle]` extra required to enable this flag.
+
 ## 5. Validate at any time
 
 ```sh

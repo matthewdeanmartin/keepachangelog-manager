@@ -34,6 +34,29 @@ changelogmanager --help
 
 You should see the top-level help text listing all available commands.
 
+## Optional extras
+
+### `jiggle` — version string synchronisation
+
+The `jiggle` extra adds support for the `release --bump-versions` flag, which updates
+`pyproject.toml` and Python source `__version__` strings to match the changelog release
+version.  It is not installed by default because it pulls in
+[jiggle-version](https://github.com/matthewdeanmartin/jiggle_version) and its dependencies.
+
+```sh
+# uv tool install (global CLI)
+uv tool install "keepachangelog-manager-fork[jiggle]"
+
+# uv project dependency
+uv add "keepachangelog-manager-fork[jiggle]"
+
+# pip
+pip install "keepachangelog-manager-fork[jiggle]"
+```
+
+See [Syncing version strings with --bump-versions](workflows.md#syncing-version-strings-with---bump-versions)
+for usage details.
+
 ## Package name vs command name
 
 The PyPI package is named `keepachangelog-manager-fork`. The command you run is `changelogmanager` (or the alias `keepachangelog-manager`). Both entry points call the same code.

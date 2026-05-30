@@ -47,6 +47,7 @@ from changelogmanager.runtime_logging import (
     configure_runtime_logging,
     get_logger,
 )
+from changelogmanager.version_bumper import bump_version_files, jiggle_available
 from changelogmanager.skill_bundle import (
     CLAUDE_PERSONAL_SKILLS_DIR,
     CLAUDE_PROJECT_SKILLS_DIR,
@@ -585,12 +586,30 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
 
     logger.info("Running release command for %s", ctx.changelog.get_file_path())
     changelog = ctx.changelog
+    bump_versions: bool = bool(getattr(args, "bump_versions", False))
+    pyproject_only: bool = bool(getattr(args, "pyproject_only", False))
+
+    if bump_versions and not jiggle_available():
+        raise logging.Error(
+            message=(
+                "--bump-versions requires jiggle-version. "
+                "Install it with: pip install 'keepachangelog-manager-fork[jiggle]'"
+            )
+        )
+
     changelog.release(args.override_version)
     new_version = str(next(iter(changelog.get())))
 
     if args.dry_run:
         print_dry_run(ctx, f"would release {changelog.get_file_path()}")
         ctx.json_payload["released"] = new_version
+        if bump_versions:
+            print_dry_run(
+                ctx,
+                f"would bump version to {new_version} in pyproject.toml"
+                + ("" if pyproject_only else " and Python source files"),
+            )
+            ctx.json_payload["bumped_version"] = new_version
         return
 
     if not args.yes:
@@ -620,6 +639,17 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
         json_key="released",
         json_value=new_version,
     )
+
+    if bump_versions:
+        bumped = bump_version_files(
+            new_version,
+            pyproject_only=pyproject_only,
+        )
+        bumped_strs = [str(p) for p in bumped]
+        for path in bumped_strs:
+            emit(ctx, text=f"Bumped version in {path}")
+        ctx.json_payload["bumped_files"] = bumped_strs
+        ctx.json_payload["bumped_version"] = new_version
 
 
 def _export_target(args: argparse.Namespace, default_name: str) -> str:
@@ -1400,6 +1430,26 @@ def build_parser(  # pylint: disable=too-many-locals,too-many-statements
         action="store_true",
         default=False,
         help="Skip the interactive confirmation prompt",
+    )
+    release_parser.add_argument(
+        "--bump-versions",
+        dest="bump_versions",
+        action="store_true",
+        default=False,
+        help=(
+            "Bump the version in pyproject.toml (and Python source __version__ vars) "
+            "to match the released version. Requires jiggle-version."
+        ),
+    )
+    release_parser.add_argument(
+        "--pyproject-only",
+        dest="pyproject_only",
+        action="store_true",
+        default=False,
+        help=(
+            "When --bump-versions is set, only update pyproject.toml; "
+            "skip Python source files containing __version__."
+        ),
     )
     add_dry_run_argument(release_parser)
     release_parser.set_defaults(handler=command_release)
