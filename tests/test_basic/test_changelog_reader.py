@@ -98,12 +98,8 @@ def test_change_section_with_two_hashes_gets_friendly_message(tmp_path, monkeypa
     assert error_count == 2
     # The old, confusing "Missing version tag" must NOT appear here.
     assert all("Missing version tag" not in msg for msg, _ in reported)
-    assert any(
-        "change section but is at heading level 2" in msg for msg, _ in reported
-    )
-    assert ("Use '### Changed' instead of '## Changed'") in [
-        exp for _, exp in reported
-    ]
+    assert any("change section but is at heading level 2" in msg for msg, _ in reported)
+    assert ("Use '### Changed' instead of '## Changed'") in [exp for _, exp in reported]
     assert ("Use '### Added' instead of '## Added'") in [exp for _, exp in reported]
 
 
@@ -143,7 +139,9 @@ def test_genuinely_missing_version_tag_still_reported(tmp_path, monkeypatch):
 
     assert error_count == 1
     assert reported[0][0] == "Missing version tag"
-    assert reported[0][1] == "Use the form '## [1.2.3] - 2022-12-31' or '## [Unreleased]'"
+    assert (
+        reported[0][1] == "Use the form '## [1.2.3] - 2022-12-31' or '## [Unreleased]'"
+    )
 
 
 def test_validate_contents_reports_ordering_warnings(monkeypatch):

@@ -32,6 +32,9 @@ keepachangelog-manager = "changelogmanager.__main__:main"
 jiggle = [
     "jiggle-version>=2.1.0,<3",
 ]
+format = [
+    "mdformat>=0.7",
+]
 
 [dependency-groups]
 test = [

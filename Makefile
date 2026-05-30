@@ -27,7 +27,7 @@ help:
 	@echo   clean         Remove local build artifacts
 
 sync:
-	$(UV) sync
+	$(UV) sync --all-extras
 
 clean:
 	$(UV) run python -c "from pathlib import Path; import shutil; [shutil.rmtree(path, ignore_errors=True) for path in ['$(BUILD_DIR)', 'dist', '.pytest_cache', '.ruff_cache'] if Path(path).exists()]; [Path(path).unlink() for path in ['coverage.xml'] if Path(path).exists()]"

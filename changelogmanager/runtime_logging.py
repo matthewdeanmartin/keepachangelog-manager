@@ -21,7 +21,10 @@ def _coerce_log_kwargs(
         raise TypeError(f"Unexpected logging keyword arguments: {sorted(unknown)!r}")
 
     exc_info_value = kwargs.get("exc_info")
-    if isinstance(exc_info_value, (tuple, BaseException, bool)) or exc_info_value is None:
+    if (
+        isinstance(exc_info_value, (tuple, BaseException, bool))
+        or exc_info_value is None
+    ):
         exc_info: Any = exc_info_value
     else:
         raise TypeError("exc_info must be a bool, exception, or exc_info tuple")

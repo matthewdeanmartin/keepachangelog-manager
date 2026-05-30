@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `github-pr` command to open or update a GitHub pull request for a changelog branch, using only stdlib `urllib` (no
   third-party action dependency).
+- Optional `mdformat` formatting pass in `validate --fix`: discovers `mdformat` via in-process import or
+  `shutil.which`, runs after structural fixes, and is controlled by `--format` / `--no-format` flags and the
+  `project.validation.format` config key (`auto` / `true` / `false`). Requires the new `[format]` optional extra
+  (`pip install 'keepachangelog-manager-fork[format]'`).
+- `Changelog.render(formatter, format_options)` method returns the serialized Markdown string with an optional format
+  pass, keeping `write_to_file` composable without coupling discovery logic to the `Changelog` class.
+- `project.validation.mdformat_options` config key passes through `wrap` and `number` options to mdformat.
 
 ### Changed
 

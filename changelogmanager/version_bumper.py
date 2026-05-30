@@ -55,17 +55,17 @@ def bump_version_files(
     pyproject = root / "pyproject.toml"
     if pyproject.is_file():
         logger.info("Bumping version in %s to %s", pyproject, new_version)
-        update_pyproject_toml(pyproject, new_version)  # type: ignore[name-defined]
+        update_pyproject_toml(pyproject, new_version)
         bumped.append(pyproject)
 
     if not pyproject_only:
-        source_files = find_source_files(root)  # type: ignore[name-defined]
+        source_files = find_source_files(root)
         for path in source_files:
             if path == pyproject:
                 continue
             if path.suffix == ".py":
                 logger.info("Bumping version in %s to %s", path, new_version)
-                update_python_file(path, new_version)  # type: ignore[name-defined]
+                update_python_file(path, new_version)
                 bumped.append(path)
 
     logger.info("Version bumped to %s in %d file(s)", new_version, len(bumped))

@@ -88,7 +88,7 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
-          enable-cache: true
+          enable-cache: false
 
       - name: Sync dependencies (with jiggle extra)
         run: uv sync --frozen --extra jiggle
@@ -114,6 +114,7 @@ jobs:
           RELEASE_ID: ${{ github.event.release.id }}
           BASE_BRANCH: ${{ github.event.release.target_commitish }}
           REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
           BRANCH="release/bump-${RELEASE_ID}"
           git config user.name "github-actions[bot]"
@@ -126,7 +127,7 @@ jobs:
             echo "::warning::No files changed after release --bump-versions; is the version already bumped?"
             exit 1
           fi
-          git commit -m "chore: release ${{ steps.release.outputs.version }}"
+          git commit -m "chore: release ${RELEASE_VERSION}"
           git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git"
           git push origin "${BRANCH}"
           echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
@@ -137,19 +138,20 @@ jobs:
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
           BASE_BRANCH: ${{ github.event.release.target_commitish }}
           REPO: ${{ github.repository }}
+          BUMP_BRANCH: ${{ steps.push.outputs.branch }}
         run: |
           uv run changelogmanager github-pr \
             --repository "${REPO}" \
-            --head "${{ steps.push.outputs.branch }}" \
+            --head "${BUMP_BRANCH}" \
             --base "${BASE_BRANCH}" \
             --title "chore: release ${RELEASE_VERSION}" \
-            --body "$(cat <<'EOF'
-          Automated release PR for **${{ steps.release.outputs.version }}**.
+            --body "$(cat <<EOF
+          Automated release PR for **${RELEASE_VERSION}**.
 
           Changes:
-          - `CHANGELOG.md`: promoted `[Unreleased]` to `${{ steps.release.outputs.version }}`
-          - `pyproject.toml`: version bumped to `${{ steps.release.outputs.version }}`
-          - Any `__version__` strings in the source tree updated to `${{ steps.release.outputs.version }}`
+          - \`CHANGELOG.md\`: promoted \`[Unreleased]\` to \`${RELEASE_VERSION}\`
+          - \`pyproject.toml\`: version bumped to \`${RELEASE_VERSION}\`
+          - Any \`__version__\` strings in the source tree updated to \`${RELEASE_VERSION}\`
 
           This PR was opened automatically by the Release workflow.
           Merge it once the PyPI publish below succeeds.
@@ -181,7 +183,7 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
-          enable-cache: true
+          enable-cache: false
 
       - name: Sync dependencies
         run: uv sync --frozen

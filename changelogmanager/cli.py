@@ -35,11 +35,13 @@ from changelogmanager.config import (
     get_component_from_config,
     get_components_from_config,
     get_effective_configuration,
+    get_format_options,
     get_preamble_keywords,
     get_validation_options,
     get_versioning_scheme,
     write_configuration,
 )
+from changelogmanager.formatting import Formatter, discover_formatter
 from changelogmanager.github import GitHub
 from changelogmanager.gitlab import DEFAULT_GITLAB_URL, GitLab
 from changelogmanager.runtime_logging import (
@@ -47,7 +49,6 @@ from changelogmanager.runtime_logging import (
     configure_runtime_logging,
     get_logger,
 )
-from changelogmanager.version_bumper import bump_version_files, jiggle_available
 from changelogmanager.skill_bundle import (
     CLAUDE_PERSONAL_SKILLS_DIR,
     CLAUDE_PROJECT_SKILLS_DIR,
@@ -55,6 +56,7 @@ from changelogmanager.skill_bundle import (
     SKILL_NAME,
     export_skill,
 )
+from changelogmanager.version_bumper import bump_version_files, jiggle_available
 
 VERSION_REFERENCES = ["previous", "current", "future"]
 logger = get_logger(__name__)
@@ -534,6 +536,38 @@ def command_version(args: argparse.Namespace, ctx: CliContext) -> None:
     ctx.json_payload["reference"] = args.reference
 
 
+def _resolve_formatter(
+    args: argparse.Namespace, config: Any
+) -> tuple[Any, dict[str, Any]]:
+    """Returns (formatter_or_None, mdformat_options) honouring CLI flags and config."""
+
+    format_opts = get_format_options(config)
+    mdformat_options: dict[str, Any] = format_opts.get("mdformat_options") or {}
+
+    no_format: bool = getattr(args, "no_format", False)
+    force_format: bool = getattr(args, "format", False)
+    config_format = format_opts.get("format", "auto")
+
+    if no_format or config_format is False or config_format == "false":
+        logger.log(VERBOSE, "Format pass disabled by --no-format or config")
+        return None, mdformat_options
+
+    formatter: Formatter | None = discover_formatter()
+
+    if (
+        force_format or config_format is True or config_format == "true"
+    ) and formatter is None:
+        raise logging.Error(
+            message=(
+                "Markdown format pass requested (--format or format: true) "
+                "but no formatter is available. "
+                "Install mdformat: pip install 'keepachangelog-manager-fork[format]'"
+            )
+        )
+
+    return formatter, mdformat_options
+
+
 def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
     """Command to validate the CHANGELOG.md for inconsistencies."""
 
@@ -559,26 +593,49 @@ def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
     )
     fixed_data, applied = reader.autofix(dict(ctx.changelog.get()))
 
-    if not applied:
+    formatter, fmt_options = _resolve_formatter(args, config)
+
+    # Check whether the format pass would change anything (needed for dry-run and
+    # the "no fixes required" early-exit check).
+    format_entry: str = ""
+    if formatter is not None:
+        ctx.changelog.set_data(fixed_data)
+        pre_format = ctx.changelog.render()
+        post_format = ctx.changelog.render(
+            formatter=formatter, format_options=fmt_options
+        )
+        if post_format != pre_format:
+            format_entry = f"formatted {ctx.changelog.get_file_path()} with mdformat"
+        else:
+            logger.log(VERBOSE, "mdformat produced no changes; skipping format entry")
+        ctx.json_payload["formatted"] = bool(format_entry)
+
+    all_applied = applied + ([format_entry] if format_entry else [])
+
+    if not all_applied:
         logger.info("No autofixes were required for %s", ctx.changelog.get_file_path())
         emit(ctx, text="No fixes required", json_key="fixed", json_value=[])
+        ctx.json_payload["formatted"] = False
         return
 
     if args.dry_run:
-        for entry in applied:
+        for entry in all_applied:
             emit(ctx, text=f"would fix: {entry}")
-        ctx.json_payload["fixed"] = applied
+        ctx.json_payload["fixed"] = all_applied
         print_dry_run(
             ctx,
-            f"would write {len(applied)} fix(es) to {ctx.changelog.get_file_path()}",
+            f"would write {len(all_applied)} fix(es) to {ctx.changelog.get_file_path()}",
         )
         return
 
     ctx.changelog.set_data(fixed_data)
-    ctx.changelog.write_to_file()
-    for entry in applied:
+    ctx.changelog.write_to_file(
+        formatter=formatter if format_entry else None,
+        format_options=fmt_options if format_entry else None,
+    )
+    for entry in all_applied:
         emit(ctx, text=f"fixed: {entry}")
-    ctx.json_payload["fixed"] = applied
+    ctx.json_payload["fixed"] = all_applied
 
 
 def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
@@ -1008,9 +1065,7 @@ def command_gitlab_release(args: argparse.Namespace, ctx: CliContext) -> None:
         ctx.json_payload["project"] = args.project
         return
 
-    gitlab = GitLab(
-        project=args.project, token=token, gitlab_url=args.gitlab_url
-    )
+    gitlab = GitLab(project=args.project, token=token, gitlab_url=args.gitlab_url)
     release = gitlab.create_release(changelog=changelog, ref=args.ref)
     tag_name = str(release.get("tag_name", ""))
     web_url = str(
@@ -1240,6 +1295,7 @@ def run_validate_all(  # pylint: disable=too-many-locals
     )
     preamble_keywords = get_preamble_keywords(config_path)
     versioning_scheme = get_versioning_scheme(config_path)
+    formatter, fmt_options = _resolve_formatter(args, config_path)
 
     for component in components:
         path = component.get("changelog")
@@ -1262,17 +1318,27 @@ def run_validate_all(  # pylint: disable=too-many-locals
             data = reader.read()
             if getattr(args, "fix", False):
                 fixed, applied = reader.autofix(data)
-                if applied and not args.dry_run:
-                    cl = Changelog(
-                        file_path=path,
-                        changelog=fixed,
-                        versioning_scheme=versioning_scheme,
+                cl = Changelog(
+                    file_path=path,
+                    changelog=fixed,
+                    versioning_scheme=versioning_scheme,
+                )
+                format_entry = ""
+                if formatter is not None:
+                    pre = cl.render()
+                    post = cl.render(formatter=formatter, format_options=fmt_options)
+                    if post != pre:
+                        format_entry = f"formatted {path} with mdformat"
+                all_applied = applied + ([format_entry] if format_entry else [])
+                if all_applied and not args.dry_run:
+                    cl.write_to_file(
+                        formatter=formatter if format_entry else None,
+                        format_options=fmt_options if format_entry else None,
                     )
-                    cl.write_to_file()
-                    for entry in applied:
+                    for entry in all_applied:
                         emit(ctx, text=f"[{name}] fixed: {entry}")
-                elif applied:
-                    for entry in applied:
+                elif all_applied:
+                    for entry in all_applied:
                         emit(ctx, text=f"[{name}] would fix: {entry}")
             summaries.append({"component": name, "path": path, "status": "ok"})
         except logging.Error as err:
@@ -1299,8 +1365,9 @@ def run_validate_all(  # pylint: disable=too-many-locals
 # ----------------------------------------------------------------------
 
 
-def build_parser(  # pylint: disable=too-many-locals,too-many-statements
-) -> argparse.ArgumentParser:
+def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
+    argparse.ArgumentParser
+):
     """Builds the CLI argument parser."""
 
     parser = argparse.ArgumentParser(
@@ -1412,6 +1479,21 @@ def build_parser(  # pylint: disable=too-many-locals,too-many-statements
         action="store_true",
         default=False,
         help="When combined with --all, only validate components changed in git",
+    )
+    _fmt_group = validate_parser.add_mutually_exclusive_group()
+    _fmt_group.add_argument(
+        "--format",
+        dest="format",
+        action="store_true",
+        default=False,
+        help="Run mdformat after structural fixes (error if mdformat not found)",
+    )
+    _fmt_group.add_argument(
+        "--no-format",
+        dest="no_format",
+        action="store_true",
+        default=False,
+        help="Skip the mdformat pass even when mdformat is installed",
     )
     add_dry_run_argument(validate_parser)
     validate_parser.set_defaults(handler=command_validate)
@@ -1682,7 +1764,9 @@ def main(  # pylint: disable=too-many-return-statements
         configure_logging(args.error_format)
         logger.info("Starting CLI command %s", getattr(args, "command", "<none>"))
         if args.command == "gui":
-            from changelogmanager.gui import run_gui  # pylint: disable=import-outside-toplevel
+            from changelogmanager.gui import (
+                run_gui,
+            )  # pylint: disable=import-outside-toplevel
 
             return run_gui()
 

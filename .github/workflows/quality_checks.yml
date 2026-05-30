@@ -55,7 +55,7 @@ jobs:
           enable-cache: true
 
       - name: Sync dependencies
-        run: uv sync --frozen
+        run: uv sync --frozen --all-extras
 
       - name: Creating Draft release
         run: make validate

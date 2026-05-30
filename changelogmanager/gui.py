@@ -20,7 +20,9 @@ try:
     from tkinter import filedialog, messagebox, scrolledtext, ttk
 
     _TK_IMPORT_ERROR: Exception | None = None
-except Exception as exc:  # pylint: disable=broad-exception-caught  # pragma: no cover - exercised only when tk is missing
+except (
+    Exception
+) as exc:  # pylint: disable=broad-exception-caught  # pragma: no cover - exercised only when tk is missing
     tk = None  # type: ignore[assignment]  # pylint: disable=invalid-name
     ttk = None  # type: ignore[assignment]  # pylint: disable=invalid-name
     filedialog = None  # type: ignore[assignment]  # pylint: disable=invalid-name

@@ -139,7 +139,10 @@ class GitHub:
     def get_pull_requests(self, head: str, base: str) -> Sequence[dict[str, Any]]:
         """Returns open PRs matching head branch and base branch."""
         logger.info(
-            "Checking for existing PRs head=%s base=%s in %s", head, base, self.__repository
+            "Checking for existing PRs head=%s base=%s in %s",
+            head,
+            base,
+            self.__repository,
         )
         data = self.__github_request(
             method=HttpMethods.GET,
@@ -159,7 +162,10 @@ class GitHub:
     ) -> Mapping[str, Any]:
         """Creates a PR, or updates the title/body if one already exists for that branch."""
         logger.info(
-            "Creating or updating PR head=%s base=%s in %s", head, base, self.__repository
+            "Creating or updating PR head=%s base=%s in %s",
+            head,
+            base,
+            self.__repository,
         )
         existing = self.get_pull_requests(head=head, base=base)
         if existing:

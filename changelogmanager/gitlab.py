@@ -103,7 +103,9 @@ class GitLab:
         except HTTPError as http_error:
             # 404 on a release lookup simply means "does not exist yet".
             if http_error.code == 404 and method is HttpMethods.GET:
-                logger.info("GitLab API %s %s returned 404 (not found)", method.value, url)
+                logger.info(
+                    "GitLab API %s %s returned 404 (not found)", method.value, url
+                )
                 return None
             logger.error(
                 "GitLab API request failed for %s %s (HTTP %s)",

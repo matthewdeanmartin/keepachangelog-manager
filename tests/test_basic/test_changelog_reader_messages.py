@@ -165,7 +165,9 @@ def test_non_date_metadata_suggests_iso_date(tmp_path, monkeypatch):
 
     assert count == 1
     assert "Incompatible release date" in _messages(reported)[0]
-    assert _expectations(reported)[0] == "Use an ISO date, e.g. '## [1.2.3] - 2022-12-31'"
+    assert (
+        _expectations(reported)[0] == "Use an ISO date, e.g. '## [1.2.3] - 2022-12-31'"
+    )
 
 
 def test_impossible_calendar_date_explains_why(tmp_path, monkeypatch):

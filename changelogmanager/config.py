@@ -218,6 +218,22 @@ def get_components_from_config(config: str) -> list[dict[str, Any]]:
     return components
 
 
+def get_format_options(config: Optional[str]) -> dict[str, Any]:
+    """Returns the format-pass settings from the configuration file.
+
+    Recognised keys (under ``project.validation``):
+      format: true | false | "auto"  (default "auto")
+      formatter: str                 (reserved; only "mdformat" supported)
+      mdformat_options: dict         (passed through to mdformat)
+    """
+    validation = get_validation_options(config)
+    return {
+        "format": validation.get("format", "auto"),
+        "formatter": validation.get("formatter", "mdformat"),
+        "mdformat_options": validation.get("mdformat_options") or {},
+    }
+
+
 def get_validation_options(config: Optional[str]) -> dict[str, Any]:
     """Returns optional validation knobs from the configuration file.
 

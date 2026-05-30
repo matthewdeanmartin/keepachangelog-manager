@@ -32,7 +32,9 @@ logger = get_logger(__name__)
 def _require_string_entries(
     entries: object, *, file_path: str, change_type: str
 ) -> list[str]:
-    if not isinstance(entries, list) or not all(isinstance(entry, str) for entry in entries):
+    if not isinstance(entries, list) or not all(
+        isinstance(entry, str) for entry in entries
+    ):
         raise logging.Error(
             file_path=file_path,
             message=f"Invalid '{change_type}' entries in [Unreleased]",
@@ -490,14 +492,33 @@ class Changelog:
         parts.append("</body></html>")
         return "\n".join(parts) + "\n"
 
-    def write_to_file(self) -> None:
-        """Updates CHANGELOG.md based on the Keep a Changelog standard"""
+    def render(
+        self,
+        formatter: "Optional[Any]" = None,
+        format_options: "Optional[dict[str, Any]]" = None,
+    ) -> str:
+        """Returns the changelog as a Markdown string, with an optional format pass."""
+        text = str(self)
+        if formatter is not None:
+            from changelogmanager.formatting import format_markdown
+
+            text = format_markdown(text, formatter, format_options)
+        return text
+
+    def write_to_file(
+        self,
+        formatter: "Optional[Any]" = None,
+        format_options: "Optional[dict[str, Any]]" = None,
+    ) -> None:
+        """Updates CHANGELOG.md based on the Keep a Changelog standard."""
         logger.info("Writing changelog file %s", self.__changelog_file_path)
 
         with Path(self.__changelog_file_path).open(
             "w", encoding="UTF-8"
         ) as file_handle:
-            file_handle.write(str(self))
+            file_handle.write(
+                self.render(formatter=formatter, format_options=format_options)
+            )
 
     def __has_only_unreleased_version(self) -> bool:
         """Returns True when the changelog only contains an Unreleased version"""
