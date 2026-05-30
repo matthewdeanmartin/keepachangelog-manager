@@ -203,6 +203,12 @@ This promotes `[Unreleased]` in `CHANGELOG.md` and writes the same version into
 changed files are committed to a new branch named `release/bump-<release-id>`, pushed,
 and a pull request is opened targeting `target_commitish`.
 
+If the same GitHub Release workflow is rerun after the branch was already pushed, the
+workflow updates the generated `release/bump-<release-id>` branch with
+`--force-with-lease` and then opens or updates the pull request. This keeps recovery from
+partial `bump` failures idempotent while still protecting against unexpected remote
+branch movement.
+
 The branch name is passed to the `build` job as an output.
 
 **`build`** (runs after `bump`)

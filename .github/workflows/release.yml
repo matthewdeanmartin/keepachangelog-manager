@@ -129,7 +129,16 @@ jobs:
           fi
           git commit -m "chore: release ${RELEASE_VERSION}"
           git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git"
-          git push origin "${BRANCH}"
+          REMOTE_SHA="$(git ls-remote --heads origin "${BRANCH}" | awk '{print $1}')"
+          if [ -n "${REMOTE_SHA}" ]; then
+            echo "Updating existing release bump branch ${BRANCH}"
+            git push \
+              --force-with-lease="refs/heads/${BRANCH}:${REMOTE_SHA}" \
+              origin \
+              "HEAD:refs/heads/${BRANCH}"
+          else
+            git push origin "HEAD:refs/heads/${BRANCH}"
+          fi
           echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
 
       - name: Open pull request
