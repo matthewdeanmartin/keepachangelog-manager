@@ -170,6 +170,20 @@ every subsequent step sees the correct version.
 Publishing fires the `release` event, which starts `.github/workflows/release.yml`
 automatically.
 
+### GitHub Actions permission prerequisite
+
+The release workflow opens a pull request with the repository's `GITHUB_TOKEN`.
+The workflow grants `contents: write` and `pull-requests: write` to the `bump`
+job, but GitHub also has a repository-level Actions setting that can block this
+even when the YAML is correct. In **Settings → Actions → General → Workflow
+permissions**, enable GitHub's **Allow GitHub Actions to create and approve pull
+requests** setting. The workflow only needs to create the pull request; GitHub
+uses one repository setting for both creation and approval.
+
+If this setting is disabled, the branch push can succeed while the pull request
+API call fails with a `403` response such as `Resource not accessible by
+integration`.
+
 ### What the three jobs do
 
 **`bump`** (runs first)

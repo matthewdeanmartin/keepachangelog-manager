@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `release.yml` workflow no longer uses `peter-evans/create-pull-request`; the changelog PR is now created via the
   vendored `github-pr` command with inline git push, satisfying zizmor's `template-injection` and `artipacked` rules.
 
+### Fixed
+
+- GitHub API failures now report HTTP status and response body details, making workflow permission errors diagnosable.
+
 ## [5.1.0] - 2026-05-30
 
 ### Added

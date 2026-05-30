@@ -1,5 +1,6 @@
 from collections import OrderedDict
-from urllib.error import URLError
+from io import BytesIO
+from urllib.error import HTTPError, URLError
 
 import pytest
 
@@ -113,3 +114,31 @@ def test_github_request_wraps_url_errors(monkeypatch):
     assert "Failure during GitHub request:" in exc_info.value.message
     assert "https://api.github.com/repos/owner/repo/releases" in exc_info.value.message
     assert "Method: GET" in exc_info.value.message
+
+
+def test_github_request_reports_http_error_status_and_body(monkeypatch):
+    github = GitHub("owner/repo", "secret")
+
+    def fake_urlopen(request):
+        raise HTTPError(
+            request.full_url,
+            403,
+            "Forbidden",
+            hdrs=None,
+            fp=BytesIO(b'{"message":"Resource not accessible by integration"}'),
+        )
+
+    monkeypatch.setattr("changelogmanager.github.urlopen", fake_urlopen)
+
+    with pytest.raises(logging.Error) as exc_info:
+        github._GitHub__github_request(
+            api="pulls",
+            method=HttpMethods.POST,
+            data={"head": "release/bump-1", "base": "main"},
+        )
+
+    assert "Failure during GitHub request:" in exc_info.value.message
+    assert "https://api.github.com/repos/owner/repo/pulls" in exc_info.value.message
+    assert "Method: POST" in exc_info.value.message
+    assert "Status: 403 Forbidden" in exc_info.value.message
+    assert "Resource not accessible by integration" in exc_info.value.message

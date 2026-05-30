@@ -8,7 +8,8 @@ from collections.abc import Mapping, Sequence
 from enum import Enum
 from textwrap import dedent
 from typing import Any, Optional
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 import changelogmanager._llvm_diagnostics as logging
@@ -17,6 +18,7 @@ from changelogmanager.changelog import Changelog
 from changelogmanager.runtime_logging import VERBOSE, get_logger
 
 RELEASES_CHUNK_SIZE = 100
+GITHUB_API_VERSION = "2026-03-10"
 logger = get_logger(__name__)
 
 
@@ -37,8 +39,9 @@ class GitHub:
 
         self.__repository = repository
         self.__headers = {
-            "Accept": "application/vnd.github.v3+json",
-            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+            "X-GitHub-Api-Version": GITHUB_API_VERSION,
         }
         logger.info("Initialized GitHub client for repository %s", repository)
 
@@ -46,6 +49,15 @@ class GitHub:
         self, api: str, method: HttpMethods, data: Optional[Mapping[str, Any]] = None
     ) -> Optional[Any]:
         url = f"https://api.github.com/repos/{self.__repository}/{api}"
+        request_data: Optional[bytes] = None
+        headers = dict(self.__headers)
+        if method is HttpMethods.GET and data:
+            separator = "&" if "?" in url else "?"
+            url = f"{url}{separator}{urlencode(data)}"
+        elif data:
+            request_data = json.dumps(data).encode()
+            headers["Content-Type"] = "application/json"
+
         logger.info("Calling GitHub API %s %s", method.value, url)
         if data:
             logger.log(
@@ -55,8 +67,8 @@ class GitHub:
         request = Request(
             method=method.value,
             url=url,
-            data=json.dumps(data).encode() if data else None,
-            headers=self.__headers,
+            data=request_data,
+            headers=headers,
         )
 
         response = ""
@@ -78,6 +90,21 @@ class GitHub:
                 len(response),
             )
             return json.loads(response)
+        except HTTPError as http_error:
+            response_body = http_error.read().decode(errors="replace").strip()
+            logger.error(
+                "GitHub API request failed for %s %s (HTTP %s)",
+                method.value,
+                url,
+                http_error.code,
+            )
+            raise logging.Error(message=dedent(f"""
+                Failure during GitHub request:
+                  URL:    {url}
+                  Method: {method.value}
+                  Status: {http_error.code} {http_error.reason}
+                  Data:   {data}
+                  Body:   {response_body or '<empty>'}""")) from http_error
         except URLError as url_error:
             logger.error("GitHub API request failed for %s %s", method.value, url)
             raise logging.Error(message=dedent(f"""
@@ -146,7 +173,14 @@ class GitHub:
         )
         data = self.__github_request(
             method=HttpMethods.GET,
-            api=f"pulls?state=open&head={self.__repository.split('/')[0]}:{head}&base={base}",
+            api="pulls?"
+            + urlencode(
+                {
+                    "state": "open",
+                    "head": f"{self.__repository.split('/')[0]}:{head}",
+                    "base": base,
+                }
+            ),
         )
         if not isinstance(data, list):
             return []
