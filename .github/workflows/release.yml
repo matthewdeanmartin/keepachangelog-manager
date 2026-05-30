@@ -109,16 +109,35 @@ jobs:
           RELEASE_VERSION: ${{ github.event.release.tag_name }}
         run: uv run changelogmanager release --yes --override-version "$RELEASE_VERSION"
 
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
-        with:
-          add-paths: ./CHANGELOG.md
-          delete-branch: true
-          branch: docs/changelog-release-${{ github.event.release.id }}
-          base: ${{ github.event.release.target_commitish }}
-#          commit-message: "docs: update CHANGELOG.md for release ${{ github.event.release.tag_name }}"
-#          title: "docs: update CHANGELOG.md for release ${{ github.event.release.tag_name }}"
-#          body: "Update `CHANGELOG.md` for the `${{ github.event.release.tag_name }}` release."
-          commit-message: "docs: update CHANGELOG.md for release ${{ github.event.release.id }}"
-          title: "docs: update CHANGELOG.md for release ${{ github.event.release.id }}"
-          body: "Update `CHANGELOG.md` for the release ${{ github.event.release.id }}."
+      - name: Commit and push changelog branch
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ github.event.release.id }}
+          BASE_BRANCH: ${{ github.event.release.target_commitish }}
+          REPO: ${{ github.repository }}
+        run: |
+          BRANCH="docs/changelog-release-${RELEASE_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${BRANCH}"
+          git add CHANGELOG.md
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "docs: update CHANGELOG.md for release ${RELEASE_ID}"
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git"
+          git push origin "${BRANCH}"
+
+      - name: Open pull request
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ github.event.release.id }}
+          RELEASE_VERSION: ${{ github.event.release.tag_name }}
+          BASE_BRANCH: ${{ github.event.release.target_commitish }}
+          REPO: ${{ github.repository }}
+        run: |
+          BRANCH="docs/changelog-release-${RELEASE_ID}"
+          uv run changelogmanager github-pr \
+            --repository "${REPO}" \
+            --head "${BRANCH}" \
+            --base "${BASE_BRANCH}" \
+            --title "docs: update CHANGELOG.md for release ${RELEASE_VERSION}" \
+            --body "Update \`CHANGELOG.md\` for the \`${RELEASE_VERSION}\` release."

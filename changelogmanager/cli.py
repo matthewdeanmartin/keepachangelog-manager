@@ -878,6 +878,60 @@ def command_github_release(args: argparse.Namespace, ctx: CliContext) -> None:
     )
 
 
+def command_github_pr(args: argparse.Namespace, ctx: CliContext) -> None:
+    """Opens (or updates) a GitHub pull request for the changelog update."""
+
+    logger.info(
+        "Running github-pr command repository=%s head=%s base=%s",
+        args.repository,
+        args.head,
+        args.base,
+    )
+
+    token = args.github_token or os.environ.get("GITHUB_TOKEN", "").strip()
+    if not token:
+        raise logging.Error(
+            message="GitHub token required: pass --github-token or set GITHUB_TOKEN",
+        )
+
+    title = args.title or f"docs: update CHANGELOG.md for release on {args.head}"
+    body = args.body or f"Update `CHANGELOG.md` on branch `{args.head}`."
+
+    if args.dry_run:
+        print_dry_run(
+            ctx,
+            f"would open or update PR head={args.head} base={args.base} "
+            f"in {args.repository}",
+        )
+        ctx.json_payload.update(
+            {"repository": args.repository, "head": args.head, "base": args.base}
+        )
+        return
+
+    github = GitHub(repository=args.repository, token=token)
+    pr = github.create_pull_request(
+        head=args.head,
+        base=args.base,
+        title=title,
+        body=body,
+    )
+    pr_number = pr.get("number")
+    html_url = str(pr.get("html_url", "")).strip()
+    message = f"Pull request #{pr_number} in {args.repository}"
+    if html_url:
+        message += f": {html_url}"
+    emit(ctx, text=message)
+    ctx.json_payload.update(
+        {
+            "pr_number": pr_number,
+            "repository": args.repository,
+            "head": args.head,
+            "base": args.base,
+            "html_url": html_url or None,
+        }
+    )
+
+
 def command_gitlab_release(args: argparse.Namespace, ctx: CliContext) -> None:
     """Creates or updates a GitLab release from the changelog."""
 
@@ -1470,6 +1524,30 @@ def build_parser(  # pylint: disable=too-many-locals,too-many-statements
     )
     add_dry_run_argument(github_release_parser)
     github_release_parser.set_defaults(handler=command_github_release)
+
+    github_pr_parser = subparsers.add_parser(
+        "github-pr",
+        help="Opens or updates a GitHub pull request for a changelog branch",
+    )
+    github_pr_parser.add_argument(
+        "-r", "--repository", required=True, help="Repository (owner/repo)"
+    )
+    github_pr_parser.add_argument(
+        "--head", required=True, help="Head branch (the PR source branch)"
+    )
+    github_pr_parser.add_argument(
+        "--base", required=True, help="Base branch (the PR target branch)"
+    )
+    github_pr_parser.add_argument("--title", default=None, help="PR title")
+    github_pr_parser.add_argument("--body", default=None, help="PR body")
+    github_pr_parser.add_argument(
+        "-t",
+        "--github-token",
+        default=None,
+        help="GitHub token (falls back to GITHUB_TOKEN env var)",
+    )
+    add_dry_run_argument(github_pr_parser)
+    github_pr_parser.set_defaults(handler=command_github_pr)
 
     gitlab_release_parser = subparsers.add_parser(
         "gitlab-release",

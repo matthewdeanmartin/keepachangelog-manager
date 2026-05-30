@@ -25,6 +25,7 @@ class HttpMethods(Enum):
 
     GET = "GET"
     POST = "POST"
+    PATCH = "PATCH"
     DELETE = "DELETE"
 
 
@@ -134,6 +135,52 @@ class GitHub:
         self.__github_request(
             method=HttpMethods.DELETE, api=f"releases/{release.get('id')}"
         )
+
+    def get_pull_requests(self, head: str, base: str) -> Sequence[dict[str, Any]]:
+        """Returns open PRs matching head branch and base branch."""
+        logger.info(
+            "Checking for existing PRs head=%s base=%s in %s", head, base, self.__repository
+        )
+        data = self.__github_request(
+            method=HttpMethods.GET,
+            api=f"pulls?state=open&head={self.__repository.split('/')[0]}:{head}&base={base}",
+        )
+        if not isinstance(data, list):
+            return []
+        return data
+
+    def create_pull_request(
+        self,
+        *,
+        head: str,
+        base: str,
+        title: str,
+        body: str,
+    ) -> Mapping[str, Any]:
+        """Creates a PR, or updates the title/body if one already exists for that branch."""
+        logger.info(
+            "Creating or updating PR head=%s base=%s in %s", head, base, self.__repository
+        )
+        existing = self.get_pull_requests(head=head, base=base)
+        if existing:
+            pr = existing[0]
+            pr_number = pr["number"]
+            logger.info("Updating existing PR #%d", pr_number)
+            response = self.__github_request(
+                method=HttpMethods.PATCH,
+                api=f"pulls/{pr_number}",
+                data={"title": title, "body": body},
+            )
+        else:
+            response = self.__github_request(
+                method=HttpMethods.POST,
+                api="pulls",
+                data={"head": head, "base": base, "title": title, "body": body},
+            )
+
+        if not isinstance(response, Mapping):
+            raise logging.Error(message="GitHub did not return PR details")
+        return response
 
     def create_release(self, changelog: Changelog, draft: bool) -> Mapping[str, Any]:
         """Creates a new release on GitHub"""
