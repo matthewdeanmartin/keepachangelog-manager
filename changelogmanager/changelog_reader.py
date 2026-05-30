@@ -409,6 +409,167 @@ class ChangelogReader:
         )
         return len(errors)
 
+    def autofix_text(self) -> tuple[str, list[str]]:
+        """Returns raw Markdown with safe layout fixes applied.
+
+        These fixes run before parsing, so they only handle line-local changes
+        that preserve the intended changelog structure.
+        """
+
+        path = Path(self.__file_path)
+        text = path.read_text(encoding="UTF-8")
+        fixed_lines: list[str] = []
+        applied: list[str] = []
+
+        for line_number, line in enumerate(text.splitlines(keepends=True), start=1):
+            fixed, line_applied = self.__autofix_line(line)
+            fixed_lines.append(fixed)
+            for message in line_applied:
+                applied.append(f"Line {line_number}: {message}")
+
+        fixed_text = "".join(fixed_lines)
+        if self.__enforce_preamble:
+            fixed_text, preamble_applied = self.__autofix_preamble(fixed_text)
+            applied.extend(preamble_applied)
+
+        logger.info(
+            "Raw-text autofix for %s produced %d change(s)",
+            self.__file_path,
+            len(applied),
+        )
+        return fixed_text, applied
+
+    def __autofix_line(self, line: str) -> tuple[str, list[str]]:
+        newline = "\n" if line.endswith("\n") else ""
+        body = line[:-1] if newline else line
+        applied: list[str] = []
+
+        heading = re.compile(r"^(#{1,6}) (.*)$").match(body)
+        if heading:
+            hashes = heading.group(1)
+            content = heading.group(2)
+            depth = len(hashes)
+
+            if depth == 2:
+                change_type = self.__closest_change_type(content)
+                if change_type:
+                    return f"### {change_type}{newline}", [
+                        f"Changed '## {content}' to '### {change_type}'"
+                    ]
+
+                fixed_content, version_applied = self.__autofix_version_content(
+                    content
+                )
+                if version_applied:
+                    return f"## {fixed_content}{newline}", version_applied
+
+            if depth == 3:
+                change_type = self.__closest_change_type(content)
+                if change_type and content != change_type:
+                    return f"### {change_type}{newline}", [
+                        f"Changed '### {content}' to '### {change_type}'"
+                    ]
+
+            return line, []
+
+        entry = re.compile(r"^(\s*)[-+*] (.*)$").match(body)
+        if not entry:
+            return line, []
+
+        indent = entry.group(1)
+        entry_text = entry.group(2)
+        if indent:
+            applied.append("Removed leading indentation from changelog entry")
+
+        fixed_entry = entry_text
+        for pattern, message in (
+            (r"^#{1,6}\s+(.*)$", "Removed heading marker from changelog entry"),
+            (r"^[0-9]+\.\s+(.*)$", "Removed numbered-list marker from changelog entry"),
+            (r"^[-+*]\s+(.*)$", "Removed nested-list marker from changelog entry"),
+            (r"^>+\s+(.*)$", "Removed block-quote marker from changelog entry"),
+        ):
+            marker = re.compile(pattern).match(fixed_entry)
+            if marker:
+                fixed_entry = marker.group(1)
+                applied.append(message)
+                break
+
+        if not applied:
+            return line, []
+        return f"- {fixed_entry}{newline}", applied
+
+    def __autofix_version_content(self, content: str) -> tuple[str, list[str]]:
+        fixed = content.strip()
+        applied: list[str] = []
+
+        unreleased_match = re.compile(r"^unreleased$", re.IGNORECASE).match(fixed)
+        if unreleased_match:
+            return f"[{UNRELEASED_ENTRY.title()}]", [
+                "Added brackets around Unreleased heading"
+            ]
+
+        bare_version = re.compile(
+            r"^(v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)(.*)$"
+        ).match(fixed)
+        if bare_version:
+            fixed = f"[{bare_version.group(1)}]{bare_version.group(2)}"
+            applied.append("Added brackets around release version")
+
+        bracketed = re.compile(r"^\[(v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)\](.*)$").match(
+            fixed
+        )
+        if not bracketed:
+            return content, []
+
+        version = bracketed.group(1)
+        suffix = bracketed.group(2).strip()
+        if version.startswith("v"):
+            version = version[1:]
+            applied.append("Removed leading 'v' from release version")
+
+        if suffix and not suffix.startswith("- "):
+            suffix = f"- {suffix.lstrip('-').strip()}"
+            applied.append("Added metadata '-' separator to release heading")
+
+        date_match = re.compile(r"^- (\d{4})[/.](\d{2})[/.](\d{2})$").match(suffix)
+        if date_match:
+            candidate = "- " + "-".join(date_match.groups())
+            try:
+                datetime.datetime.strptime(candidate[2:], "%Y-%m-%d")
+            except ValueError:
+                pass
+            else:
+                suffix = candidate
+                applied.append("Normalized release date separators")
+
+        fixed = f"[{version}]"
+        if suffix:
+            fixed = f"{fixed} {suffix}"
+
+        if not applied:
+            return content, []
+        return fixed, applied
+
+    def __autofix_preamble(self, text: str) -> tuple[str, list[str]]:
+        head = text.lower()[:1024]
+        missing = [kw for kw in self.__preamble_keywords if kw not in head]
+        if not missing:
+            return text, []
+
+        keywords = " and ".join(keyword.title() for keyword in self.__preamble_keywords)
+        preamble = f"All notable changes follow {keywords}.\n"
+        lines = text.splitlines(keepends=True)
+        for index, line in enumerate(lines):
+            if line.strip().lower() == "# changelog":
+                insert_at = index + 1
+                if insert_at < len(lines) and lines[insert_at].strip():
+                    lines.insert(insert_at, "\n")
+                    insert_at += 1
+                lines.insert(insert_at, preamble)
+                return "".join(lines), ["Inserted canonical changelog preamble"]
+
+        return preamble + "\n" + text, ["Inserted canonical changelog preamble"]
+
     def validate_contents(self, changelog: Mapping[str, Any]) -> None:
         """Validates the contents of the CHANGELOG.md file"""
         logger.info("Validating changelog contents for %s", self.__file_path)

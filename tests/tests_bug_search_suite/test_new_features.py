@@ -189,6 +189,46 @@ class TestValidateFix:
         assert rc == 0
         assert p.read_text(encoding="utf-8") == original
 
+    def test_fix_repairs_safe_layout_errors_before_parsing(self, tmp_path):
+        p = tmp_path / "CHANGELOG.md"
+        p.write_text(
+            "# Changelog\n\n"
+            "## Unreleased\n"
+            "## ADDED\n"
+            "  - > quoted thing\n"
+            "- 1. numbered thing\n\n"
+            "## v1.0.0 - 2024/01/01\n"
+            "### Chnaged\n"
+            "- - nested fix\n",
+            encoding="utf-8",
+        )
+
+        rc = main(["--input-file", str(p), "validate", "--fix", "--no-format"])
+
+        assert rc == 0
+        text = p.read_text(encoding="utf-8")
+        assert "## [Unreleased]" in text
+        assert "### Added" in text
+        assert "- quoted thing" in text
+        assert "- numbered thing" in text
+        assert "## [1.0.0] - 2024-01-01" in text
+        assert "### Changed" in text
+        assert "- nested fix" in text
+        assert main(["--input-file", str(p), "validate"]) == 0
+
+    def test_fix_dry_run_does_not_write_raw_layout_repairs(self, tmp_path):
+        p = tmp_path / "CHANGELOG.md"
+        p.write_text(
+            "# Changelog\n\n## Unreleased\n## ADDED\n  - > quoted thing\n",
+            encoding="utf-8",
+        )
+        original = p.read_text(encoding="utf-8")
+
+        rc = main(["--input-file", str(p), "validate", "--fix", "--dry-run"])
+
+        assert rc == 0
+        assert p.read_text(encoding="utf-8") == original
+
 
 # ---------------------------------------------------------------------------
 # --quiet / --json

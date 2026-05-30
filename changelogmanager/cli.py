@@ -13,6 +13,7 @@ import re
 import shutil
 import subprocess  # nosec
 import sys
+import tempfile
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -472,11 +473,7 @@ def load_changelog(config: str | None, component: str, input_file: str) -> Chang
         component,
         input_file,
     )
-    if config:
-        component_config = get_component_from_config(config=config, component=component)
-        file_path = component_config.get("changelog", input_file)
-    else:
-        file_path = input_file
+    file_path = resolve_changelog_file(config, component, input_file)
 
     enforce_preamble = bool(
         get_validation_options(config).get("enforce_preamble", False)
@@ -490,6 +487,71 @@ def load_changelog(config: str | None, component: str, input_file: str) -> Chang
         preamble_keywords=preamble_keywords,
     ).read()
     logger.info("Loaded changelog file %s", file_path)
+    return Changelog(
+        file_path=file_path,
+        changelog=changelog_dict,
+        versioning_scheme=versioning_scheme,
+    )
+
+
+def resolve_changelog_file(
+    config: str | None, component: str, input_file: str
+) -> str:
+    """Returns the changelog path for the current config/component selection."""
+
+    if config:
+        component_config = get_component_from_config(config=config, component=component)
+        return str(component_config.get("changelog", input_file))
+    return input_file
+
+
+def load_changelog_for_validate_fix(
+    args: argparse.Namespace, config: str | None
+) -> Changelog:
+    """Loads a changelog after applying raw-text validate --fix repairs."""
+
+    file_path = resolve_changelog_file(config, args.component, args.input_file)
+    enforce_preamble = bool(
+        get_validation_options(config).get("enforce_preamble", False)
+    )
+    preamble_keywords = get_preamble_keywords(config)
+    versioning_scheme = get_versioning_scheme(config)
+
+    reader = ChangelogReader(
+        file_path=file_path,
+        enforce_preamble=enforce_preamble,
+        preamble_keywords=preamble_keywords,
+    )
+    fixed_text, raw_applied = reader.autofix_text()
+    args.raw_autofixes = raw_applied
+
+    read_path = file_path
+    temp_path: str | None = None
+    if raw_applied:
+        if getattr(args, "dry_run", False):
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="UTF-8",
+                suffix=".md",
+                dir=str(Path(file_path).resolve().parent),
+                delete=False,
+            ) as temp_handle:
+                temp_handle.write(fixed_text)
+                temp_path = temp_handle.name
+            read_path = temp_path
+        else:
+            Path(file_path).write_text(fixed_text, encoding="UTF-8")
+
+    try:
+        changelog_dict = ChangelogReader(
+            file_path=read_path,
+            enforce_preamble=enforce_preamble,
+            preamble_keywords=preamble_keywords,
+        ).read()
+    finally:
+        if temp_path:
+            Path(temp_path).unlink(missing_ok=True)
+
     return Changelog(
         file_path=file_path,
         changelog=changelog_dict,
@@ -610,7 +672,8 @@ def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
             logger.log(VERBOSE, "mdformat produced no changes; skipping format entry")
         ctx.json_payload["formatted"] = bool(format_entry)
 
-    all_applied = applied + ([format_entry] if format_entry else [])
+    raw_applied: list[str] = list(getattr(args, "raw_autofixes", []) or [])
+    all_applied = raw_applied + applied + ([format_entry] if format_entry else [])
 
     if not all_applied:
         logger.info("No autofixes were required for %s", ctx.changelog.get_file_path())
@@ -1310,12 +1373,41 @@ def run_validate_all(  # pylint: disable=too-many-locals
             summaries.append({"component": name, "path": path, "status": "skipped"})
             continue
         try:
+            raw_applied: list[str] = []
+            read_path = path
+            temp_path: str | None = None
+            if getattr(args, "fix", False):
+                raw_reader = ChangelogReader(
+                    file_path=path,
+                    enforce_preamble=enforce_preamble,
+                    preamble_keywords=preamble_keywords,
+                )
+                fixed_text, raw_applied = raw_reader.autofix_text()
+                if raw_applied:
+                    if args.dry_run:
+                        with tempfile.NamedTemporaryFile(
+                            mode="w",
+                            encoding="UTF-8",
+                            suffix=".md",
+                            dir=str(Path(path).resolve().parent),
+                            delete=False,
+                        ) as temp_handle:
+                            temp_handle.write(fixed_text)
+                            temp_path = temp_handle.name
+                        read_path = temp_path
+                    else:
+                        Path(path).write_text(fixed_text, encoding="UTF-8")
+
             reader = ChangelogReader(
-                file_path=path,
+                file_path=read_path,
                 enforce_preamble=enforce_preamble,
                 preamble_keywords=preamble_keywords,
             )
-            data = reader.read()
+            try:
+                data = reader.read()
+            finally:
+                if temp_path:
+                    Path(temp_path).unlink(missing_ok=True)
             if getattr(args, "fix", False):
                 fixed, applied = reader.autofix(data)
                 cl = Changelog(
@@ -1329,7 +1421,9 @@ def run_validate_all(  # pylint: disable=too-many-locals
                     post = cl.render(formatter=formatter, format_options=fmt_options)
                     if post != pre:
                         format_entry = f"formatted {path} with mdformat"
-                all_applied = applied + ([format_entry] if format_entry else [])
+                all_applied = raw_applied + applied + (
+                    [format_entry] if format_entry else []
+                )
                 if all_applied and not args.dry_run:
                     cl.write_to_file(
                         formatter=formatter if format_entry else None,
@@ -1816,12 +1910,17 @@ def main(  # pylint: disable=too-many-return-statements
             logger.info("Finished CLI command %s successfully", args.command)
             return 0
 
-        context = CliContext(
-            changelog=load_changelog(
+        changelog = (
+            load_changelog_for_validate_fix(args, resolved_config)
+            if args.command == "validate" and getattr(args, "fix", False)
+            else load_changelog(
                 config=resolved_config,
                 component=args.component,
                 input_file=args.input_file,
-            ),
+            )
+        )
+        context = CliContext(
+            changelog=changelog,
             quiet=args.quiet,
             json_output=args.json,
         )
