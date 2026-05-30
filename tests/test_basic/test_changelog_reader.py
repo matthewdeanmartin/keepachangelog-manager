@@ -78,6 +78,74 @@ def test_validate_layout_reports_heading_and_entry_errors(tmp_path, monkeypatch)
     assert "Numbered lists are not permitted in changelog entries" in messages
 
 
+def test_change_section_with_two_hashes_gets_friendly_message(tmp_path, monkeypatch):
+    changelog_file = tmp_path / "CHANGELOG.md"
+    changelog_file.write_text(
+        "## [Unreleased]\n## Changed\n- a change\n## Added\n- a feature\n",
+        encoding="utf-8",
+    )
+    reader = ChangelogReader(file_path=str(changelog_file))
+    reported = []
+
+    monkeypatch.setattr(
+        logging.Error,
+        "report",
+        lambda self: reported.append((self.message, self.expectations)),
+    )
+
+    error_count = reader.validate_layout()
+
+    assert error_count == 2
+    # The old, confusing "Missing version tag" must NOT appear here.
+    assert all("Missing version tag" not in msg for msg, _ in reported)
+    assert any(
+        "change section but is at heading level 2" in msg for msg, _ in reported
+    )
+    assert ("Use '### Changed' instead of '## Changed'") in [
+        exp for _, exp in reported
+    ]
+    assert ("Use '### Added' instead of '## Added'") in [exp for _, exp in reported]
+
+
+def test_misspelled_change_type_suggests_correction(tmp_path, monkeypatch):
+    changelog_file = tmp_path / "CHANGELOG.md"
+    # Three hashes, so this is a change heading, but "Chnaged" is a typo.
+    changelog_file.write_text("### Chnaged\n- a change\n", encoding="utf-8")
+    reader = ChangelogReader(file_path=str(changelog_file))
+    reported = []
+
+    monkeypatch.setattr(
+        logging.Error,
+        "report",
+        lambda self: reported.append((self.message, self.expectations)),
+    )
+
+    error_count = reader.validate_layout()
+
+    assert error_count == 1
+    assert reported[0][1] == "Did you mean '### Changed'?"
+
+
+def test_genuinely_missing_version_tag_still_reported(tmp_path, monkeypatch):
+    changelog_file = tmp_path / "CHANGELOG.md"
+    # Not a change-type word, so this remains a malformed version heading.
+    changelog_file.write_text("## 1.0.0 - 2024-01-01\n", encoding="utf-8")
+    reader = ChangelogReader(file_path=str(changelog_file))
+    reported = []
+
+    monkeypatch.setattr(
+        logging.Error,
+        "report",
+        lambda self: reported.append((self.message, self.expectations)),
+    )
+
+    error_count = reader.validate_layout()
+
+    assert error_count == 1
+    assert reported[0][0] == "Missing version tag"
+    assert reported[0][1] == "Use the form '## [1.2.3] - 2022-12-31' or '## [Unreleased]'"
+
+
 def test_validate_contents_reports_ordering_warnings(monkeypatch):
     reader = ChangelogReader(file_path="CHANGELOG.md")
     warnings = []

@@ -3,6 +3,7 @@
 """Changelog Reader"""
 
 import datetime
+import difflib
 import re
 from collections import OrderedDict
 from collections.abc import Generator, Mapping, Sequence
@@ -92,6 +93,14 @@ class ChangelogReader:
         if content not in accepted_types:
             friendly_types = ", ".join(accepted_types)
 
+            # Offer a "did you mean" suggestion for near-miss spellings/casing.
+            suggestion = self.__closest_change_type(content)
+            expectations = (
+                f"Did you mean '### {suggestion}'?"
+                if suggestion
+                else f"Use one of: {friendly_types}"
+            )
+
             yield logging.Error(
                 file_path=self.__file_path,
                 line=line,
@@ -100,7 +109,34 @@ class ChangelogReader:
                 message=(
                     f"Incompatible change type provided, MUST be one of: {friendly_types}"
                 ),
+                expectations=expectations,
             )
+
+    @staticmethod
+    def __closest_change_type(content: str) -> Optional[str]:
+        """Return the canonical change type that ``content`` most likely meant.
+
+        Catches casing mistakes (``ADDED``) and minor typos (``Chnaged``) so we
+        can show a "Did you mean ...?" hint. Returns ``None`` when nothing is
+        close enough to confidently suggest.
+        """
+
+        accepted_types = [change_type.title() for change_type in TYPES_OF_CHANGE]
+
+        # Exact match on lower-case handles casing-only mistakes.
+        for candidate in accepted_types:
+            if candidate.lower() == content.strip().lower():
+                return candidate
+
+        matches = difflib.get_close_matches(
+            content.strip().lower(),
+            [candidate.lower() for candidate in accepted_types],
+            n=1,
+            cutoff=0.7,
+        )
+        if matches:
+            return matches[0].title()
+        return None
 
     def __validate_version_heading(
         self, line_number: int, line: str, depth: int, content: str
@@ -109,12 +145,31 @@ class ChangelogReader:
         match = re.compile(r"\[(.*)\](.*)").match(content)
 
         if not match:
+            # A very common mistake: writing a change section ("## Changed")
+            # with two hashes instead of three. Detect that and point the user
+            # at the real fix instead of the confusing "Missing version tag".
+            change_type = self.__closest_change_type(content)
+            if change_type:
+                yield logging.Error(
+                    file_path=self.__file_path,
+                    line=line,
+                    line_number=logging.Range(start=line_number),
+                    column_number=logging.Range(start=1, range=depth),
+                    message=(
+                        f"'{content}' is a change section but is at heading "
+                        f"level {depth} (##); change sections MUST be level 3 (###)"
+                    ),
+                    expectations=f"Use '### {change_type}' instead of '## {content}'",
+                )
+                return
+
             yield logging.Error(
                 file_path=self.__file_path,
                 line=line,
                 line_number=logging.Range(start=line_number),
                 column_number=logging.Range(start=depth + 2, range=len(content)),
                 message="Missing version tag",
+                expectations="Use the form '## [1.2.3] - 2022-12-31' or '## [Unreleased]'",
             )
             return
 
@@ -135,6 +190,7 @@ class ChangelogReader:
                     start=line.find("[") + 2, range=len(version_str)
                 ),
                 message=f"Incompatible version '{version_str}' specified, MUST be SemVer compliant",
+                expectations="Use MAJOR.MINOR.PATCH, e.g. '1.2.3' (see https://semver.org)",
             )
             return
 
@@ -150,6 +206,7 @@ class ChangelogReader:
                     start=line.find("]") + 3,
                 ),
                 message=f"Missing metadata ('-') for release version '{version}'",
+                expectations=f"Add a release date, e.g. '## [{version}] - 2022-12-31'",
             )
             return
 
@@ -169,6 +226,7 @@ class ChangelogReader:
                 message=(
                     f"Incompatible release date for release version '{version}', MUST be 'yyyy-mm-dd'"  # pylint: disable=C0301
                 ),
+                expectations=f"Use an ISO date, e.g. '## [{version}] - 2022-12-31'",
             )
             return
 
@@ -185,6 +243,10 @@ class ChangelogReader:
                 ),
                 message=(
                     f"Incompatible release date for release version '{version}', MUST be 'yyyy-mm-dd'"  # pylint: disable=C0301
+                ),
+                expectations=(
+                    f"'{release_date}' is not a real calendar date; "
+                    "use a valid ISO date like '2022-12-31'"
                 ),
             )
 
@@ -208,6 +270,10 @@ class ChangelogReader:
                 line_number=logging.Range(start=line_number),
                 column_number=logging.Range(start=line.find("#") + 4, range=depth - 3),
                 message="Heading depth is too high, MUST be less or equal to 3",
+                expectations=(
+                    "Keep a Changelog uses '# Changelog', "
+                    "'## [version] - date', and '### Change type' only"
+                ),
             )
             return
 
@@ -242,6 +308,10 @@ class ChangelogReader:
                 line_number=logging.Range(start=line_number),
                 column_number=logging.Range(start=1, range=len(indent)),
                 message="Sub-lists are not permitted in changelog entries",
+                expectations=(
+                    "Remove the leading indentation so the entry is a "
+                    "top-level '- ' bullet"
+                ),
             )
             return
 
@@ -249,18 +319,22 @@ class ChangelogReader:
             {
                 "pattern": r"^(#{1,6}) .*",
                 "error": "Block quotes are not permitted in changelog entries",
+                "hint": "Remove the heading marker; entries are plain '- ' bullets",
             },
             {
                 "pattern": r"^([0-9]+\.) .*",
                 "error": "Numbered lists are not permitted in changelog entries",
+                "hint": "Use a '- ' bullet instead of a numbered '1.' list",
             },
             {
                 "pattern": r"^([+*-]) .*",
                 "error": "Sub-lists are not permitted in changelog entries",
+                "hint": "Use a single '- ' bullet per entry; no nested bullets",
             },
             {
                 "pattern": r"^([>]+) .*",
                 "error": "Block quotes are not permitted in changelog entries",
+                "hint": "Remove the '>' block-quote marker; entries are plain text",
             },
         ]
 
@@ -273,6 +347,7 @@ class ChangelogReader:
                     line_number=logging.Range(start=line_number),
                     column_number=logging.Range(start=3, range=len(match.group(1))),
                     message=rule["error"],
+                    expectations=rule["hint"],
                 )
 
     def __validate_preamble(self) -> list[logging.Error]:
