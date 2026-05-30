@@ -149,80 +149,79 @@ If you only want to gate files that changed in the current checkout:
 
 ## Typical release automation
 
-This repository currently uses an **opinionated** release workflow.
+This repository uses an **opinionated** release workflow built around three jobs that run
+in strict sequence: **bump → build → publish**.
+
+### Why this order matters
+
+`pyproject.toml` contains a static `version = "x.y.z"` string that `uv build` reads
+directly. If a build runs before that string is updated, the wheel ends up carrying the
+*previous* version number and PyPI gets the wrong release. The bump job runs first so
+every subsequent step sees the correct version.
+
+### Triggering a release
 
 1. Merge unreleased changelog entries to `main`.
-1. Let `.github/workflows/create_draft_release.yml` keep the GitHub draft release in sync from `[Unreleased]`.
-1. Open the repository's **Releases** page in GitHub.
-1. Open the draft release that was generated from `[Unreleased]`.
+1. Let `.github/workflows/create_draft_release.yml` keep the GitHub draft release in sync
+   from `[Unreleased]`.
+1. Open the repository's **Releases** page in GitHub and open the current draft.
 1. Review the title, notes, and target branch, then click **Publish release**.
-1. Publishing the GitHub Release fires `.github/workflows/release.yml`.
-1. That workflow builds from the published release tag, publishes to PyPI with GitHub OIDC, and opens a PR that updates `CHANGELOG.md` on the release target branch.
+
+Publishing fires the `release` event, which starts `.github/workflows/release.yml`
+automatically.
+
+### What the three jobs do
+
+**`bump`** (runs first)
+
+Checks out the release's target branch (not the tag), installs the `[jiggle]` extra, and
+calls:
+
+```sh
+uv run changelogmanager release \
+  --override-version "$VERSION" \
+  --bump-versions \
+  --yes
+```
+
+This promotes `[Unreleased]` in `CHANGELOG.md` and writes the same version into
+`pyproject.toml` (and any `__version__` strings in the source tree) atomically. The
+changed files are committed to a new branch named `release/bump-<release-id>`, pushed,
+and a pull request is opened targeting `target_commitish`.
+
+The branch name is passed to the `build` job as an output.
+
+**`build`** (runs after `bump`)
+
+Checks out the **bump branch** — not the tag — so `pyproject.toml` already carries the
+correct version. Runs `uv build --no-sources` and verifies the wheel filename contains
+the expected version string before uploading the dist artifact.
+
+**`publish`** (runs after `build`)
+
+Downloads the dist artifact and pushes to PyPI using OIDC (`id-token: write`). No API
+tokens are stored in the repository.
+
+### Failure recovery
+
+| Job that fails | State of the world | Recovery |
+|---|---|---|
+| `bump` | Nothing built, nothing published, no PR. | Fix the issue and re-publish the GitHub Release. |
+| `build` | PR branch exists. Nothing published. | Close the PR, delete the GitHub Release, fix the build, re-publish. |
+| `publish` | PR branch + dist artifact exist. Nothing on PyPI. | **Option A:** re-run just the `publish` job from the GitHub Actions UI. **Option B:** close the PR, delete the release, fix the issue, re-publish. |
+
+A publish failure is the trickiest case because the PR branch is already open with the
+correct committed version. If you choose Option B (full restart), also reset `pyproject.toml`
+back to its pre-bump version on `main` before re-publishing, or the bump step will find
+nothing to commit.
 
 ### Why this workflow is opinionated
 
-- It separates **draft release generation** from **package publishing**.
-- It uses GitHub's release UI as the approval step instead of requiring developers to push tags from a laptop.
-- It uses the PyPI OIDC pattern via `pypa/gh-action-pypi-publish` with `id-token: write`, not a Twine upload step and not a long-lived PyPI API token stored in the repository.
-- It updates `CHANGELOG.md` through a pull request instead of pushing directly to the branch.
-
-### Release workflow example
-
-1. Push changelog updates to `main`.
-1. Wait for `Create Draft Release` to refresh the draft release.
-1. In GitHub, go to **Releases** and open the draft.
-1. Click **Publish release**.
-
-GitHub then emits the `release` event with type `released`, which starts the `Release` workflow automatically. The workflow publishes the package using OIDC and opens a changelog PR titled like `docs: update CHANGELOG.md for release v1.2.3`.
-
-### Version string synchronisation in automated workflows
-
-The workflow above relies on `CHANGELOG.md` being the **only** place the version number
-appears at build time. As long as that is true, no extra step is required — `uv build`
-reads the version from `pyproject.toml`, and the release workflow updates `pyproject.toml`
-via the changelog PR after publishing.
-
-If your project stores the version in `pyproject.toml` at the time of the build (the
-common case for most Python packages), you must keep `pyproject.toml` in sync **before**
-running `uv build`. There are two viable approaches in CI:
-
-**Approach 1 — run `release --bump-versions` inside the release workflow.**
-
-Add the `jiggle` extra to the install step and call `release --bump-versions` before
-building:
-
-```yaml
-- name: Sync dependencies (with jiggle)
-  run: uv sync --frozen --extra jiggle
-
-- name: Release changelog and sync version files
-  run: |
-    uv run changelogmanager release --bump-versions --yes
-    git config user.name "github-actions[bot]"
-    git config user.email "github-actions[bot]@users.noreply.github.com"
-    git add CHANGELOG.md pyproject.toml
-    git commit -m "chore: release $(uv run changelogmanager version)"
-    git push
-
-- name: Build
-  run: uv build
-
-- name: Publish
-  uses: pypa/gh-action-pypi-publish@release/v1
-  with:
-    id-token: write
-```
-
-This keeps `CHANGELOG.md` and `pyproject.toml` in perfect lockstep — the same process
-that determines the version also writes it everywhere.
-
-**Approach 2 — keep `pyproject.toml` out of the build's version resolution.**
-
-Configure your build backend (hatchling, flit, setuptools-scm, etc.) to derive the version
-dynamically from git tags or the installed package metadata rather than a static string.
-Then `pyproject.toml` never needs to be touched on release, and the simple workflow above
-is sufficient.
-
-Until one of these approaches is in place, CI may build and publish the package with the
-*previous* version still set in `pyproject.toml`, which is how versions like 5.1.0 and
-5.2.0 can end up either absent from PyPI or published under the wrong version number.
+- It separates **draft release generation** (continuous, on every push to `main`) from
+  **package publishing** (one-shot, triggered by a human clicking Publish).
+- It uses GitHub's release UI as the approval step instead of requiring developers to push
+  tags from a laptop.
+- The PR is the audit trail: you can see exactly what CHANGELOG.md and pyproject.toml
+  looked like at publish time, and merging it keeps `main` up to date.
+- It uses the PyPI OIDC pattern via `pypa/gh-action-pypi-publish` with `id-token: write`,
+  not a Twine upload step or a long-lived PyPI API token stored in the repository.
