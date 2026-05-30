@@ -4,9 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.0.0] - 2026-05-30
+## [Unreleased]
+### Added
+- `gitlab-release` command to create or update a GitLab release from `[Unreleased]`.
+
 ### Changed
 - Better validation messages.
+- `github-release` now skips cleanly (warning, exit 0) when there are no `[Unreleased]` entries, instead of a confusing silent success.
 
 ## [5.0.0] - 2026-05-01
 ### Removed

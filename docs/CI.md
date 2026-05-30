@@ -42,6 +42,50 @@ Behavior summary:
 
 Use `release` when you want to promote `[Unreleased]` inside `CHANGELOG.md`. Use `github-release` when you want to create or publish the corresponding GitHub release entry.
 
+If `[Unreleased]` has no entries (for example, the first push after a release landed), `github-release` prints a clear skip notice and exits `0`. The CI step shows as a clean success that did nothing, instead of either a confusing silent success or a red failure.
+
+## GitLab: create a release
+
+`changelogmanager gitlab-release` turns the current `[Unreleased]` section into a GitLab release. GitLab has no "draft release" concept, so the command is idempotent: it **updates** the release if one already exists for the computed tag (`PUT`), otherwise it **creates** it (`POST`), letting GitLab create the tag from `--ref` when needed.
+
+```sh
+changelogmanager gitlab-release --project group/repo
+```
+
+`--project` accepts a numeric project ID or a URL path like `group/subgroup/project`. For self-hosted instances pass `--gitlab-url` (defaults to `https://gitlab.com`). Like `github-release`, it skips cleanly with exit `0` when there are no `[Unreleased]` entries.
+
+### Authentication and the `CI_JOB_TOKEN` caveat
+
+The token is read from `--gitlab-token`, then `GITLAB_TOKEN`, then `CI_JOB_TOKEN`.
+
+**Heads up:** the default `CI_JOB_TOKEN` is intentionally restricted and typically **cannot** create releases — the Releases API answers with `401 Unauthorized` or `403 Forbidden`. If you hit that, supply a token with the `api` scope instead:
+
+- a [Project access token](https://docs.gitlab.com/ee/user/project/settings/project_access_tokens.html), or
+- a [Group access token](https://docs.gitlab.com/ee/user/group/settings/group_access_tokens.html), or
+- a [Personal access token](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html).
+
+Expose it as a masked CI/CD variable named `GITLAB_TOKEN`. See GitLab's [CI/CD job token docs](https://docs.gitlab.com/ee/ci/jobs/ci_job_token.html) for why `CI_JOB_TOKEN` differs.
+
+### Example `.gitlab-ci.yml`
+
+```yaml
+release:
+  image: python:3.13
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  before_script:
+    - pip install uv && uv sync --frozen
+  script:
+    - >
+      uv run changelogmanager gitlab-release
+      --project "$CI_PROJECT_ID"
+      --gitlab-url "$CI_SERVER_URL"
+      --ref "$CI_COMMIT_SHA"
+  variables:
+    # CI_JOB_TOKEN usually cannot create releases; use a project/group token.
+    GITLAB_TOKEN: $RELEASE_TOKEN
+```
+
 ## Using the tool as a quality gate in GitHub Actions
 
 The simplest quality gate is to fail CI when the changelog is malformed:

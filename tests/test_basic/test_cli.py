@@ -9,8 +9,9 @@ from changelogmanager.change_types import UNRELEASED_ENTRY
 
 
 class DummyChangelog:
-    def __init__(self, exists=False):
+    def __init__(self, exists=False, has_unreleased=True):
         self.exists_value = exists
+        self.has_unreleased_value = has_unreleased
         self.calls = []
         self.file_path = "CHANGELOG.md"
 
@@ -19,6 +20,9 @@ class DummyChangelog:
 
     def get_file_path(self):
         return self.file_path
+
+    def has_unreleased(self):
+        return self.has_unreleased_value
 
     def write_to_file(self):
         self.calls.append(("write_to_file",))
@@ -208,7 +212,6 @@ def test_command_github_release_supports_dry_run_and_real_execution(
         cli.CliContext(changelog=changelog),
     )
     dry_run_output = capsys.readouterr().out
-    assert ("get", UNRELEASED_ENTRY) in changelog.calls
     assert ("suggest_future_version",) in changelog.calls
     assert "published GitHub release v1.2.3 in owner/repo" in dry_run_output
 

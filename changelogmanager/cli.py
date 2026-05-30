@@ -41,6 +41,7 @@ from changelogmanager.config import (
     write_configuration,
 )
 from changelogmanager.github import GitHub
+from changelogmanager.gitlab import DEFAULT_GITLAB_URL, GitLab
 from changelogmanager.runtime_logging import (
     VERBOSE,
     configure_runtime_logging,
@@ -821,6 +822,22 @@ def command_github_release(args: argparse.Namespace, ctx: CliContext) -> None:
         args.repository,
     )
     changelog = ctx.changelog
+
+    if not changelog.has_unreleased():
+        # Nothing staged for release (e.g. the push right after a release landed).
+        # Report a clear skip and exit 0 so the CI step reads as "skipped",
+        # not a silent green success that quietly did nothing.
+        emit(
+            ctx,
+            text=(
+                f"Skipping GitHub release: no [Unreleased] entries in "
+                f"{changelog.get_file_path()}"
+            ),
+            json_key="skipped",
+            json_value="no_unreleased_entries",
+        )
+        return
+
     token = args.github_token or os.environ.get("GITHUB_TOKEN", "").strip()
     if not token:
         raise logging.Error(
@@ -828,7 +845,6 @@ def command_github_release(args: argparse.Namespace, ctx: CliContext) -> None:
         )
 
     if args.dry_run:
-        changelog.get(UNRELEASED_ENTRY)
         future_version = changelog.suggest_future_version()
         release_state = "draft" if args.draft else "published"
         print_dry_run(
@@ -858,6 +874,75 @@ def command_github_release(args: argparse.Namespace, ctx: CliContext) -> None:
             "repository": args.repository,
             "html_url": html_url or None,
             "release_id": release_id,
+        }
+    )
+
+
+def command_gitlab_release(args: argparse.Namespace, ctx: CliContext) -> None:
+    """Creates or updates a GitLab release from the changelog."""
+
+    logger.info(
+        "Running gitlab-release command for %s against %s",
+        ctx.changelog.get_file_path(),
+        args.project,
+    )
+    changelog = ctx.changelog
+
+    if not changelog.has_unreleased():
+        emit(
+            ctx,
+            text=(
+                f"Skipping GitLab release: no [Unreleased] entries in "
+                f"{changelog.get_file_path()}"
+            ),
+            json_key="skipped",
+            json_value="no_unreleased_entries",
+        )
+        return
+
+    token = (
+        args.gitlab_token
+        or os.environ.get("GITLAB_TOKEN", "").strip()
+        or os.environ.get("CI_JOB_TOKEN", "").strip()
+    )
+    if not token:
+        raise logging.Error(
+            message=(
+                "GitLab token required: pass --gitlab-token or set "
+                "GITLAB_TOKEN / CI_JOB_TOKEN"
+            ),
+        )
+
+    if args.dry_run:
+        future_version = changelog.suggest_future_version()
+        print_dry_run(
+            ctx,
+            f"would create or update GitLab release v{future_version} "
+            f"in {args.project}",
+        )
+        ctx.json_payload["version"] = str(future_version)
+        ctx.json_payload["project"] = args.project
+        return
+
+    gitlab = GitLab(
+        project=args.project, token=token, gitlab_url=args.gitlab_url
+    )
+    release = gitlab.create_release(changelog=changelog, ref=args.ref)
+    tag_name = str(release.get("tag_name", ""))
+    web_url = str(
+        release.get("_links", {}).get("self", "")
+        if isinstance(release.get("_links"), Mapping)
+        else ""
+    ).strip()
+    message = f"Created GitLab release {tag_name} in {args.project}"
+    if web_url:
+        message += f": {web_url}"
+    emit(ctx, text=message)
+    ctx.json_payload.update(
+        {
+            "tag_name": tag_name,
+            "project": args.project,
+            "web_url": web_url or None,
         }
     )
 
@@ -1385,6 +1470,35 @@ def build_parser(  # pylint: disable=too-many-locals,too-many-statements
     )
     add_dry_run_argument(github_release_parser)
     github_release_parser.set_defaults(handler=command_github_release)
+
+    gitlab_release_parser = subparsers.add_parser(
+        "gitlab-release",
+        help="Creates or updates a GitLab release from the changelog",
+    )
+    gitlab_release_parser.add_argument(
+        "-p",
+        "--project",
+        required=True,
+        help="GitLab project ID or path (e.g. group/project)",
+    )
+    gitlab_release_parser.add_argument(
+        "-t",
+        "--gitlab-token",
+        default=None,
+        help="GitLab token (falls back to GITLAB_TOKEN or CI_JOB_TOKEN)",
+    )
+    gitlab_release_parser.add_argument(
+        "--gitlab-url",
+        default=DEFAULT_GITLAB_URL,
+        help=f"Base URL of the GitLab instance (default: {DEFAULT_GITLAB_URL})",
+    )
+    gitlab_release_parser.add_argument(
+        "--ref",
+        default="HEAD",
+        help="Commit or branch the tag should point at when created (default: HEAD)",
+    )
+    add_dry_run_argument(gitlab_release_parser)
+    gitlab_release_parser.set_defaults(handler=command_gitlab_release)
 
     from_commits_parser = subparsers.add_parser(
         "from-commits",

@@ -64,6 +64,20 @@ class Changelog:
         """Returns the path to the changelog file"""
         return self.__changelog_file_path
 
+    def has_unreleased(self) -> bool:
+        """Returns True when an [Unreleased] section with entries is present.
+
+        The metadata-only stub created by :meth:`add` does not count; there must
+        be at least one change-type bucket holding entries.
+        """
+        unreleased = self.__changelog.get(UNRELEASED_ENTRY)
+        if not isinstance(unreleased, Mapping):
+            return False
+        return any(
+            change_type != "metadata" and entries
+            for change_type, entries in unreleased.items()
+        )
+
     def set_data(self, data: dict[str, Any]) -> None:
         """Replaces the in-memory changelog data (used by autofix)."""
         logger.info(

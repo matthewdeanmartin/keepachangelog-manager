@@ -28,28 +28,60 @@ Supports precommit, cli, and GitHub actions workflows.
 - seed `[Unreleased]` from git history using Conventional Commit subjects
 - export changelogs as JSON, YAML, or HTML
 - export a bundled CLI skill for Copilot or Claude
-- create or update GitHub releases
+- create or update GitHub and GitLab releases
 - work with multi-component repositories via config files
 - script the CLI with `--dry-run`, `--quiet`, `--json`, `--info`, and `--verbose`
 - use an optional Tkinter GUI for common workflows
 
 ## Commands
 
+Commands are grouped below by what they do.
+
+### File editing
+
+Commands that read and rewrite your `CHANGELOG.md`.
+
 ```text
-create
-version
-validate
-release
-to-json
-to-yaml
-to-html
-add
-remove
-edit
-github-release
-from-commits
-skill export
-gui
+create        Create a new (empty) CHANGELOG.md
+add           Add an entry to [Unreleased]
+edit          Edit an existing [Unreleased] entry
+remove        Remove an [Unreleased] entry (or --list them)
+from-commits  Seed [Unreleased] from git commit history
+```
+
+### Machine readability
+
+Commands and global flags for scripting and exporting structured data.
+
+```text
+version       Print previous/current/future version
+to-json       Export the changelog as JSON
+to-yaml       Export the changelog as YAML
+to-html       Export the changelog as HTML
+skill export  Export the bundled CLI skill for Copilot or Claude
+
+--json        Emit a single machine-readable JSON object on stdout
+--quiet       Suppress human-friendly output
+--info        Runtime logging on stderr
+--verbose     Verbose runtime logging on stderr (implies --info)
+```
+
+### Repo release tools
+
+Commands that cut a release and publish it to a forge.
+
+```text
+release         Release [Unreleased] into a versioned section
+github-release  Create/update a GitHub release from the changelog
+gitlab-release  Create/update a GitLab release from the changelog
+```
+
+### Validation & setup
+
+```text
+validate      Validate the CHANGELOG.md (use --fix to autofix)
+config        Show or initialize configuration (config init)
+gui           Launch the optional Tkinter GUI
 ```
 
 ## Quick examples
@@ -85,6 +117,16 @@ Release non-interactively:
 ```sh
 changelogmanager release --yes
 ```
+
+Publish a forge release from `[Unreleased]`:
+
+```sh
+changelogmanager github-release --repository owner/name
+changelogmanager gitlab-release --project group/name
+```
+
+GitLab note: the default `CI_JOB_TOKEN` usually cannot create releases — use a
+project/group/personal access token via `GITLAB_TOKEN`. See [docs/CI.md](docs/CI.md#authentication-and-the-ci_job_token-caveat).
 
 Export structured output:
 
