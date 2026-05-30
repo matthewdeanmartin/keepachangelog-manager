@@ -1,6 +1,7 @@
 # (Keep a) Changelog Manager
 
-CLI and Python library for managing `CHANGELOG.md` files that follow the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
+CLI and Python library for managing `CHANGELOG.md` files that follow
+the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
 Fork of `keepachangelog-manager`, originally mostly written by KevinDeJong at TomTom International.
 
@@ -12,10 +13,10 @@ Fork of `keepachangelog-manager`, originally mostly written by KevinDeJong at To
 uv tool install keepachangelog-manager-fork
 ```
 
-The package name on PyPI is `keepachangelog-manager-fork`. The installed commands is `changelogmanager` with legacy alias of `keepachangelog-manager`.
+The package name on PyPI is `keepachangelog-manager-fork`. The installed commands is `changelogmanager` with legacy
+alias of `keepachangelog-manager`.
 
 Supports precommit, cli, and GitHub actions workflows.
-
 
 ## What it does
 
@@ -126,7 +127,8 @@ changelogmanager gitlab-release --project group/name
 ```
 
 GitLab note: the default `CI_JOB_TOKEN` usually cannot create releases — use a
-project/group/personal access token via `GITLAB_TOKEN`. See [docs/CI.md](docs/CI.md#authentication-and-the-ci_job_token-caveat).
+project/group/personal access token via `GITLAB_TOKEN`.
+See [docs/CI.md](docs/CI.md#authentication-and-the-ci_job_token-caveat).
 
 Export structured output:
 
@@ -151,7 +153,8 @@ changelogmanager --info validate
 changelogmanager --verbose from-commits --dry-run
 ```
 
-`--info` and `--verbose` enable stdlib runtime logging on stderr for diagnostics. `--verbose` is the more detailed level and implies `--info`. Existing validation diagnostics still use the configured LLVM or GitHub Actions annotation format.
+`--info` and `--verbose` enable stdlib runtime logging on stderr for diagnostics. `--verbose` is the more detailed level
+and implies `--info`. Existing validation diagnostics still use the configured LLVM or GitHub Actions annotation format.
 
 ## Configuration
 
@@ -179,9 +182,12 @@ changelogmanager config init
 changelogmanager skill export
 ```
 
-If `--config` is omitted, the CLI auto-detects `.changelogmanager.yml`, `.changelogmanager.yaml`, `changelogmanager.yml`, `changelogmanager.yaml`, or `[tool.changelogmanager]` in `pyproject.toml` from the current directory.
+If `--config` is omitted, the CLI auto-detects `.changelogmanager.yml`, `.changelogmanager.yaml`,
+`changelogmanager.yml`, `changelogmanager.yaml`, or `[tool.changelogmanager]` in `pyproject.toml` from the current
+directory.
 
-`changelogmanager config init` is the quickest way to bootstrap config. It defaults to `pyproject.toml`, `Conventional Commits`, and `semver`, and re-running it updates the active config instead of starting from scratch.
+`changelogmanager config init` is the quickest way to bootstrap config. It defaults to `pyproject.toml`,
+`Conventional Commits`, and `semver`, and re-running it updates the active config instead of starting from scratch.
 
 ## Optional desktop GUI
 
@@ -189,7 +195,8 @@ If `--config` is omitted, the CLI auto-detects `.changelogmanager.yml`, `.change
 changelogmanager gui
 ```
 
-The GUI currently wraps the common commands `create`, `version`, `validate`, `release`, `to-json`, `add`, and `github-release`.
+The GUI currently wraps the common commands `create`, `version`, `validate`, `release`, `to-json`, `add`, and
+`github-release`.
 
 ## Documentation
 
