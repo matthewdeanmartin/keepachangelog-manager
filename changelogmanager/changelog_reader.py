@@ -508,6 +508,14 @@ class ChangelogReader:
                 "Added brackets around Unreleased heading"
             ]
 
+        bracketed_unreleased = re.compile(r"^\[unreleased\]$", re.IGNORECASE).match(
+            fixed
+        )
+        if bracketed_unreleased and fixed != f"[{UNRELEASED_ENTRY.title()}]":
+            return f"[{UNRELEASED_ENTRY.title()}]", [
+                "Canonicalized Unreleased heading casing"
+            ]
+
         bare_version = re.compile(
             r"^(v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)(.*)$"
         ).match(fixed)

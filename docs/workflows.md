@@ -270,6 +270,9 @@ changelogmanager validate --fix
 
 This can:
 
+- repair safe layout issues before parsing, such as `## Unreleased`,
+  `## Added`, miscased or near-miss change headings, simple entry wrappers,
+  a leading `v` in release headings, and ISO date separator variants
 - reorder released versions into descending SemVer order
 - lowercase change-type headings such as `Added` -> `added`
 - remove empty change-type sections

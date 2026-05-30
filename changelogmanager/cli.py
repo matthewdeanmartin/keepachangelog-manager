@@ -1558,7 +1558,7 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         "--fix",
         action="store_true",
         default=False,
-        help="Apply autofixes (re-order versions, lowercase change types, dedupe)",
+        help="Apply autofixes for safe layout and structural changelog issues",
     )
     validate_parser.add_argument(
         "--all",

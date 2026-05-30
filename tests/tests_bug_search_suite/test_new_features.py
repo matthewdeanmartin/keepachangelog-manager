@@ -193,7 +193,7 @@ class TestValidateFix:
         p = tmp_path / "CHANGELOG.md"
         p.write_text(
             "# Changelog\n\n"
-            "## Unreleased\n"
+            "## [unreleased]\n"
             "## ADDED\n"
             "  - > quoted thing\n"
             "- 1. numbered thing\n\n"
