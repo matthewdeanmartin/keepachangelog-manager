@@ -214,6 +214,48 @@ def test_to_json_and_write_to_json_render_changelog_content(tmp_path):
     assert json.loads(output_file.read_text(encoding="utf-8")) == json.loads(rendered)
 
 
+def test_to_json_specific_version_uses_export_release_shape():
+    changelog = Changelog(
+        changelog=OrderedDict(
+            [
+                ("2.0.0", released_entry("2.0.0")),
+                ("1.0.0", released_entry("1.0.0", added=["Feature"])),
+            ]
+        )
+    )
+
+    rendered = changelog.to_json(version="1.0.0")
+
+    assert json.loads(rendered) == [
+        {
+            "metadata": {"version": "1.0.0", "release_date": "2024-01-01"},
+            "added": ["Feature"],
+        }
+    ]
+
+
+def test_write_to_json_validates_before_creating_output(tmp_path):
+    changelog = Changelog(
+        changelog=OrderedDict(
+            [
+                (
+                    "1.0.0",
+                    {
+                        "metadata": {"version": "1.0.0", "release_date": "2024-01-01"},
+                        "added": [""],
+                    },
+                )
+            ]
+        )
+    )
+    output_file = tmp_path / "CHANGELOG.json"
+
+    with pytest.raises(logging.Error, match="Invalid JSON export"):
+        changelog.write_to_json(str(output_file))
+
+    assert not output_file.exists()
+
+
 def test_write_to_file_uses_string_representation_and_exists(tmp_path, monkeypatch):
     changelog_file = tmp_path / "CHANGELOG.md"
     changelog = Changelog(file_path=str(changelog_file), changelog=OrderedDict())

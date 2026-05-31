@@ -439,9 +439,11 @@ class TestChangelogJson:
         }
         cl = Changelog(file_path=str(tmp_path / "CHANGELOG.md"), changelog=changelog)
         parsed = json.loads(cl.to_json(version="1.0.0"))
-        # When requesting a specific version, get() returns the dict for that version
-        # to_json wraps it in a list by iterating values — so it should be one item per field
+        # Specific-version exports use the same list-of-releases shape as full exports.
         assert isinstance(parsed, list)
+        assert parsed == [
+            {"metadata": {"version": "1.0.0", "release_date": "2024-01-01"}}
+        ]
 
 
 # ---------------------------------------------------------------------------

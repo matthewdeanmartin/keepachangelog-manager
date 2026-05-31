@@ -51,6 +51,7 @@ from changelogmanager.runtime_logging import (
     configure_runtime_logging,
     get_logger,
 )
+from changelogmanager.schema_validation import DEFAULT_SCHEMA_VERSION, SCHEMA_VERSIONS
 from changelogmanager.skill_bundle import (
     CLAUDE_PERSONAL_SKILLS_DIR,
     CLAUDE_PROJECT_SKILLS_DIR,
@@ -59,6 +60,10 @@ from changelogmanager.skill_bundle import (
     export_skill,
 )
 from changelogmanager.version_bumper import bump_version_files, jiggle_available
+from changelogmanager.versioning import (
+    detect_versioning_scheme_from_file,
+    version_scheme_label,
+)
 
 VERSION_REFERENCES = ["previous", "current", "future"]
 logger = get_logger(__name__)
@@ -480,12 +485,13 @@ def load_changelog(config: str | None, component: str, input_file: str) -> Chang
         get_validation_options(config).get("enforce_preamble", False)
     )
     preamble_keywords = get_preamble_keywords(config)
-    versioning_scheme = get_versioning_scheme(config)
+    versioning_scheme = resolve_versioning_scheme(config, file_path)
 
     changelog_dict = ChangelogReader(
         file_path=file_path,
         enforce_preamble=enforce_preamble,
         preamble_keywords=preamble_keywords,
+        versioning_scheme=versioning_scheme,
     ).read()
     logger.info("Loaded changelog file %s", file_path)
     return Changelog(
@@ -506,6 +512,14 @@ def resolve_changelog_file(
     return input_file
 
 
+def resolve_versioning_scheme(config: str | None, file_path: str) -> str:
+    """Returns configured scheme, or detects it from the changelog preamble."""
+
+    if config:
+        return get_versioning_scheme(config)
+    return detect_versioning_scheme_from_file(file_path) or get_versioning_scheme(config)
+
+
 def load_changelog_for_validate_fix(
     args: argparse.Namespace, config: str | None
 ) -> Changelog:
@@ -516,12 +530,13 @@ def load_changelog_for_validate_fix(
         get_validation_options(config).get("enforce_preamble", False)
     )
     preamble_keywords = get_preamble_keywords(config)
-    versioning_scheme = get_versioning_scheme(config)
+    versioning_scheme = resolve_versioning_scheme(config, file_path)
 
     reader = ChangelogReader(
         file_path=file_path,
         enforce_preamble=enforce_preamble,
         preamble_keywords=preamble_keywords,
+        versioning_scheme=versioning_scheme,
     )
     fixed_text, raw_applied = reader.autofix_text()
     args.raw_autofixes = raw_applied
@@ -548,6 +563,7 @@ def load_changelog_for_validate_fix(
             file_path=read_path,
             enforce_preamble=enforce_preamble,
             preamble_keywords=preamble_keywords,
+            versioning_scheme=versioning_scheme,
         ).read()
     finally:
         if temp_path:
@@ -653,6 +669,9 @@ def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
         file_path=ctx.changelog.get_file_path(),
         enforce_preamble=enforce_preamble,
         preamble_keywords=preamble_keywords,
+        versioning_scheme=resolve_versioning_scheme(
+            config, ctx.changelog.get_file_path()
+        ),
     )
     fixed_data, applied = reader.autofix(dict(ctx.changelog.get()))
 
@@ -784,15 +803,18 @@ def command_to_json(args: argparse.Namespace, ctx: CliContext) -> None:
     logger.info("Running to-json command for %s", ctx.changelog.get_file_path())
     changelog = ctx.changelog
     output = export_target(args, "CHANGELOG.json")
+    schema_version = getattr(args, "schema_version", DEFAULT_SCHEMA_VERSION)
 
     if args.dry_run:
-        changelog.to_json()
+        changelog.to_json(schema_version=schema_version)
         print_dry_run(ctx, f"would write JSON output to {output}")
         ctx.json_payload["output"] = output
+        ctx.json_payload["schema_version"] = schema_version
         return
 
-    changelog.write_to_json(file=output)
+    changelog.write_to_json(file=output, schema_version=schema_version)
     ctx.json_payload["output"] = output
+    ctx.json_payload["schema_version"] = schema_version
 
 
 def command_to_yaml(args: argparse.Namespace, ctx: CliContext) -> None:
@@ -1360,7 +1382,13 @@ def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
     for version in plan.skipped_versions:
         emit(ctx, text=f"  skip {version} already present")
     for tag in plan.skipped_tags:
-        emit(ctx, text=f"  skip {tag} not SemVer compatible")
+        emit(
+            ctx,
+            text=(
+                f"  skip {tag} not "
+                f"{version_scheme_label(ctx.changelog.get_versioning_scheme())} compatible"
+            ),
+        )
 
     if args.dry_run:
         message = (
@@ -1452,6 +1480,7 @@ def run_validate_all(  # pylint: disable=too-many-locals
                     file_path=path,
                     enforce_preamble=enforce_preamble,
                     preamble_keywords=preamble_keywords,
+                    versioning_scheme=versioning_scheme,
                 )
                 fixed_text, raw_applied = raw_reader.autofix_text()
                 if raw_applied:
@@ -1473,6 +1502,7 @@ def run_validate_all(  # pylint: disable=too-many-locals
                 file_path=read_path,
                 enforce_preamble=enforce_preamble,
                 preamble_keywords=preamble_keywords,
+                versioning_scheme=versioning_scheme,
             )
             try:
                 data = reader.read()
@@ -1706,6 +1736,12 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     )
     to_json_parser.add_argument(
         "--file-name", default="CHANGELOG.json", help="Filename of the JSON output"
+    )
+    to_json_parser.add_argument(
+        "--schema-version",
+        choices=SCHEMA_VERSIONS,
+        default=DEFAULT_SCHEMA_VERSION,
+        help="KAG-Manager JSON schema version to validate the export against",
     )
     add_dry_run_argument(to_json_parser)
     to_json_parser.set_defaults(handler=command_to_json)

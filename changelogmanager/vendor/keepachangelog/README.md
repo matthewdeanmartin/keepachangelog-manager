@@ -8,7 +8,7 @@ This directory contains a slim vendored copy of the parser/serializer logic from
 - `to_dict(...)`
 - `to_dict(..., show_unreleased=True)`
 - `from_dict(...)`
-- SemVer metadata extraction used by parsed release entries
+- SemVer, PEP 440, and CalVer metadata extraction used by parsed release entries
 - version-link parsing (`[1.2.3]: https://...`)
 
 ## Dropped

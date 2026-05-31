@@ -77,15 +77,13 @@ class TestVersionOrdering:
 
 
 # ---------------------------------------------------------------------------
-# to_json with specific version — potential bug: iterates values of a single entry
+# to_json with specific version
 # ---------------------------------------------------------------------------
 
 
 class TestToJsonSpecificVersion:
     def test_to_json_specific_version_structure(self, tmp_path):
-        """to_json(version='1.0.0') calls get('1.0.0') which returns a single entry dict,
-        then does [v for _, v in content.items()] — this iterates the VALUES of a single
-        version entry (metadata, added, ...), not a list of versions."""
+        """to_json(version='1.0.0') exports a one-item release list."""
         changelog = OrderedDict()
         changelog["1.0.0"] = {
             "metadata": {"version": "1.0.0", "release_date": "2024-01-01"},
@@ -94,11 +92,13 @@ class TestToJsonSpecificVersion:
         cl = Changelog(file_path=str(tmp_path / "CHANGELOG.md"), changelog=changelog)
         raw = cl.to_json(version="1.0.0")
         parsed = json.loads(raw)
-        # The JSON is a list of the values inside the 1.0.0 dict
-        # This may or may not be the intended behavior — document what actually happens
         assert isinstance(parsed, list)
-        # The list should contain the metadata dict and the added list
-        assert any(isinstance(item, dict) and "version" in item for item in parsed)
+        assert parsed == [
+            {
+                "metadata": {"version": "1.0.0", "release_date": "2024-01-01"},
+                "added": ["Feature A"],
+            }
+        ]
 
 
 # ---------------------------------------------------------------------------

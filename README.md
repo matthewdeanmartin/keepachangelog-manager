@@ -25,7 +25,7 @@ What we keep from it:
 - `to_dict(...)`
 - `to_dict(..., show_unreleased=True)`
 - `from_dict(...)`
-- release metadata and compare-link parsing
+- SemVer, PEP 440, and CalVer release metadata and compare-link parsing
 
 What we intentionally dropped:
 
@@ -54,7 +54,7 @@ Supports precommit, cli, and GitHub actions workflows.
 
 - create and validate changelogs
 - add, edit, list, and remove `[Unreleased]` entries
-- infer the next SemVer release from change types
+- infer the next release from change types for SemVer, PEP 440, or CalVer projects
 - release `[Unreleased]` with an optional confirmation guard
 - seed `[Unreleased]` from git history using Conventional Commit subjects
 - export changelogs as JSON, YAML, or HTML

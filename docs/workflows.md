@@ -128,13 +128,13 @@ the wrong version number. You have two sub-options:
 
 ### Automatic version bump
 
-`release` inspects the change types in `[Unreleased]` and bumps the version according to SemVer:
+`release` inspects the change types in `[Unreleased]` and bumps the version according to the configured scheme (`semver`, `pep440`, or `calver`):
 
 | Change type present | Bump |
 |---|---|
 | `removed` | Major |
 | `added` or `security` | Minor |
-| `changed`, `deprecated`, `fixed` only | Patch |
+| `changed`, `deprecated`, `fixed` only | Patch/micro |
 
 ```sh
 changelogmanager release
@@ -250,7 +250,7 @@ changelogmanager validate
 The validator checks:
 
 - Heading depth (maximum 3 levels)
-- Version headings follow `## [x.y.z] - yyyy-mm-dd`
+- Version headings follow `## [version] - yyyy-mm-dd`, where `version` matches the configured scheme
 - Change headings are one of the six allowed types
 - Entries do not use sub-lists, numbered lists, or block quotes
 - Versions are in descending order
@@ -273,7 +273,7 @@ This can:
 - repair safe layout issues before parsing, such as `## Unreleased`,
   `## Added`, miscased or near-miss change headings, simple entry wrappers,
   a leading `v` in release headings, and ISO date separator variants
-- reorder released versions into descending SemVer order
+- reorder released versions into descending configured-version order
 - lowercase change-type headings such as `Added` -> `added`
 - remove empty change-type sections
 - deduplicate identical entries within a section

@@ -19,6 +19,8 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
+from changelogmanager.versioning import parse_version, version_metadata
+
 __all__ = ["from_dict", "to_dict"]
 
 PREAMBLE = """# Changelog
@@ -64,6 +66,15 @@ def semantic_version(version: str) -> dict[str, Any]:
     }
 
 
+def supported_version_metadata(version: str) -> dict[str, Any]:
+    if not version:
+        return {"semantic_version": INITIAL_SEMANTIC_VERSION.copy()}
+    for scheme in ("semver", "calver", "pep440"):
+        with suppress(ValueError):
+            return version_metadata(parse_version(version, scheme))
+    raise ValueError(version)
+
+
 def add_release(changes: dict[str, dict[str, Any]], line: str) -> dict[str, Any]:
     release_line = line[3:].lower().strip()
     version, release_date = (
@@ -77,7 +88,7 @@ def add_release(changes: dict[str, dict[str, Any]], line: str) -> dict[str, Any]
         "release_date": extract_date(release_date),
     }
     with suppress(ValueError):
-        metadata["semantic_version"] = semantic_version(version)
+        metadata.update(supported_version_metadata(version))
     return changes.setdefault(version, {"metadata": metadata})
 
 

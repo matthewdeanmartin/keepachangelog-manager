@@ -157,11 +157,12 @@ changelogmanager version [OPTIONS]
 | `previous` | The version before the current one |
 | `future` | The next version, auto-calculated from `[Unreleased]` change types |
 
-The `future` version is calculated using these SemVer bump rules:
+The `future` version is calculated using the configured versioning scheme
+(`semver`, `pep440`, or `calver`) and these change-type bump rules:
 
 - `removed` present -> major bump
 - `added` or `security` present -> minor bump
-- Otherwise -> patch bump
+- Otherwise -> patch/micro bump
 
 ______________________________________________________________________
 
@@ -186,7 +187,7 @@ Non-interactive runs without `--yes` are refused. Use `release --dry-run` to pre
 Fails with exit code 1 if:
 
 - There is no `[Unreleased]` section
-- The provided version is not SemVer compliant
+- The provided version is not compliant with the configured versioning scheme
 - The version already exists in the changelog
 - The version would be older than the current latest release
 

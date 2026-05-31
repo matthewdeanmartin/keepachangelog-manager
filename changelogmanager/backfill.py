@@ -11,12 +11,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from semantic_version import Version  # type: ignore
-
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
 from changelogmanager.runtime_logging import VERBOSE, get_logger
+from changelogmanager.versioning import parse_version, version_scheme_label
 
 logger = get_logger(__name__)
 
@@ -89,6 +88,7 @@ def discover_tag_releases(
     since: str | None = None,
     until: str | None = None,
     cwd: str | None = None,
+    versioning_scheme: str = "semver",
 ) -> tuple[list[BackfillRelease], list[str]]:
     """Discovers local git tags and returns normalized releases plus skipped tags."""
 
@@ -121,9 +121,13 @@ def discover_tag_releases(
         date = row[1].strip() or None if len(row) > 1 else None
         version = normalize_tag_version(tag)
         try:
-            Version(version)
+            parse_version(version, versioning_scheme)
         except ValueError:
-            logger.warning("Skipping non-SemVer tag during backfill: %s", tag)
+            logger.warning(
+                "Skipping tag during backfill that is not %s compatible: %s",
+                version_scheme_label(versioning_scheme),
+                tag,
+            )
             skipped.append(tag)
             continue
         releases.append(
@@ -148,10 +152,14 @@ def discover_tag_releases(
             )
         )
 
-    releases.sort(key=lambda release: Version(release.version), reverse=True)
+    releases.sort(
+        key=lambda release: parse_version(release.version, versioning_scheme),
+        reverse=True,
+    )
     logger.info(
-        "Discovered %d SemVer tag release(s) for backfill; skipped %d tag(s)",
+        "Discovered %d %s tag release(s) for backfill; skipped %d tag(s)",
         len(releases),
+        version_scheme_label(versioning_scheme),
         len(skipped),
     )
     return releases, skipped
@@ -167,7 +175,10 @@ def plan_tag_backfill(
 ) -> BackfillPlan:
     """Builds a conservative local tag backfill plan."""
 
-    releases, skipped_tags = discover_tag_releases(since=since, until=until)
+    versioning_scheme = changelog.get_versioning_scheme()
+    releases, skipped_tags = discover_tag_releases(
+        since=since, until=until, versioning_scheme=versioning_scheme
+    )
     existing_versions = {
         str(version)
         for version in changelog.get()
@@ -208,7 +219,7 @@ def apply_backfill_plan(changelog: Changelog, plan: BackfillPlan) -> None:
 
     sorted_releases = sorted(
         current.items(),
-        key=lambda item: Version(str(item[0])),
+        key=lambda item: parse_version(str(item[0]), changelog.get_versioning_scheme()),
         reverse=True,
     )
     updated: OrderedDict[str, Any] = OrderedDict()

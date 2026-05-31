@@ -16,7 +16,7 @@ Because `github-release` defaults to `--draft`, the workflow:
 
 1. Deletes any existing draft releases in the repository.
 1. Reads the current `[Unreleased]` section from `CHANGELOG.md`.
-1. Infers the next SemVer version from the unreleased change types.
+1. Infers the next version from the unreleased change types and configured versioning scheme.
 1. Creates a fresh draft GitHub release tagged like `v1.2.3`.
 1. Uses the `[Unreleased]` entries as the release notes body, grouped by change type.
 

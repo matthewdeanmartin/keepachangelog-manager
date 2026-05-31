@@ -12,10 +12,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 import yaml
-from semantic_version import Version  # type: ignore
 
 import changelogmanager.llvm_diagnostics as logging
-from changelogmanager.vendor import keepachangelog
 from changelogmanager.change_types import (
     CATEGORIES,
     DEFAULT_CHANGELOG_FILE,
@@ -24,8 +22,23 @@ from changelogmanager.change_types import (
 )
 from changelogmanager.config import get_versioning_markdown
 from changelogmanager.runtime_logging import VERBOSE, get_logger
+from changelogmanager.schema_validation import (
+    DEFAULT_SCHEMA_VERSION,
+    SchemaVersion,
+    validate_changelog_export,
+)
+from changelogmanager.vendor import keepachangelog
+from changelogmanager.versioning import (
+    VersionValue,
+    bump_version,
+    initial_version,
+    normalize_scheme,
+    parse_version,
+    version_metadata,
+    version_scheme_label,
+)
 
-INITIAL_VERSION = Version("0.0.1")
+INITIAL_VERSION = parse_version("0.0.1", "semver")
 logger = get_logger(__name__)
 
 
@@ -54,7 +67,7 @@ class Changelog:
         """Constructor"""
         self.__changelog_file_path = file_path
         self.__changelog = changelog if changelog else {}
-        self.__versioning_scheme = versioning_scheme
+        self.__versioning_scheme = normalize_scheme(versioning_scheme)
         logger.log(
             VERBOSE,
             "Initialized changelog object for %s with %d version entries",
@@ -65,6 +78,10 @@ class Changelog:
     def get_file_path(self) -> str:
         """Returns the path to the changelog file"""
         return self.__changelog_file_path
+
+    def get_versioning_scheme(self) -> str:
+        """Returns the configured versioning scheme for this changelog."""
+        return self.__versioning_scheme
 
     def has_unreleased(self) -> bool:
         """Returns True when an [Unreleased] section with entries is present.
@@ -277,13 +294,9 @@ class Changelog:
             override_version = override_version[1:]
 
         try:
-            target_version = (
-                Version(override_version)
-                if override_version
-                else self.suggest_future_version()
-            )
+            target_version = parse_version(override_version, self.__versioning_scheme) if override_version else self.suggest_future_version()
         except ValueError as exc_info:
-            msg = f"Version '{override_version}' is not SemVer compliant"
+            msg = f"Version '{override_version}' is not {version_scheme_label(self.__versioning_scheme)} compliant"
             logger.error(
                 "Rejected invalid release version %s for %s",
                 override_version,
@@ -307,21 +320,16 @@ class Changelog:
             )
 
         def update_unreleased_version(
-            changelog_in: dict[str, Any], new_version: Version
+            changelog_in: dict[str, Any], new_version: VersionValue
         ) -> OrderedDict[str, Any]:
             changelog_out = OrderedDict(changelog_in.copy())
             changelog_out[str(new_version)] = changelog_out.pop(UNRELEASED_ENTRY)
-            changelog_out[str(new_version)]["metadata"] = {
+            metadata = {
                 "version": str(new_version),
                 "release_date": datetime.now().strftime("%Y-%m-%d"),
-                "semantic_version": {
-                    "buildmetadata": None,
-                    "major": new_version.major,
-                    "minor": new_version.minor,
-                    "patch": new_version.patch,
-                    "prerelease": None,
-                },
             }
+            metadata.update(version_metadata(new_version))
+            changelog_out[str(new_version)]["metadata"] = metadata
 
             # Ensure that the new entry is on top
             changelog_out.move_to_end(str(new_version), last=False)
@@ -331,7 +339,7 @@ class Changelog:
         self.__changelog = dict(update_unreleased_version(self.__changelog, target_version))
         logger.info("Prepared release %s for %s", target_version, self.__changelog_file_path)
 
-    def version(self) -> Version:
+    def version(self) -> VersionValue:
         """Returns the last released version"""
         logger.log(
             VERBOSE, "Calculating current version for %s", self.__changelog_file_path
@@ -348,11 +356,11 @@ class Changelog:
                     message="Only an Unreleased version is available",
                 )
 
-            return Version(list(self.__changelog)[1])
+            return parse_version(list(self.__changelog)[1], self.__versioning_scheme)
 
-        return Version(list(self.__changelog)[0])
+        return parse_version(list(self.__changelog)[0], self.__versioning_scheme)
 
-    def previous_version(self) -> Version:
+    def previous_version(self) -> VersionValue:
         """Returns the previously released version"""
         logger.log(
             VERBOSE,
@@ -372,45 +380,49 @@ class Changelog:
                     message="No previous versions available",
                 )
 
-            return Version(list(self.__changelog)[2])
+            return parse_version(list(self.__changelog)[2], self.__versioning_scheme)
 
-        return Version(list(self.__changelog)[1])
+        return parse_version(list(self.__changelog)[1], self.__versioning_scheme)
 
-    def suggest_future_version(self) -> Version:
+    def suggest_future_version(self) -> VersionValue:
         """Suggests a future version based on the [Unreleased]-changes"""
         logger.info("Suggesting future version for %s", self.__changelog_file_path)
 
         if self.__has_only_unreleased_version():
-            return INITIAL_VERSION
+            return initial_version(self.__versioning_scheme)
 
         def determine_version(
-            unreleased: Mapping[str, Any], prev_version: Version
-        ) -> Version:
+            unreleased: Mapping[str, Any], prev_version: VersionValue
+        ) -> VersionValue:
             bump_type = VersionCore.PATCH
             for identifier, category in CATEGORIES.items():
                 if identifier in unreleased and category.bump.value > bump_type.value:
                     bump_type = category.bump
 
-            if bump_type == VersionCore.MAJOR:
-                return prev_version.next_major()
-
-            if bump_type == VersionCore.MINOR:
-                return prev_version.next_minor()
-
-            return prev_version.next_patch()
+            return bump_version(prev_version, bump_type)
 
         return determine_version(self.get(UNRELEASED_ENTRY), self.version())
 
-    def write_to_json(self, file: str, version: Optional[str] = None) -> None:
+    def write_to_json(
+        self,
+        file: str,
+        version: Optional[str] = None,
+        schema_version: SchemaVersion = DEFAULT_SCHEMA_VERSION,
+    ) -> None:
         """Stores the Changelog file in JSON format"""
         logger.info(
             "Writing JSON export for %s to %s", self.__changelog_file_path, file
         )
 
+        rendered = self.to_json(version=version, schema_version=schema_version)
         with Path(file).open("w", encoding="UTF-8") as file_handle:
-            file_handle.write(self.to_json(version=version))
+            file_handle.write(rendered)
 
-    def to_json(self, version: Optional[str] = None) -> str:
+    def to_json(
+        self,
+        version: Optional[str] = None,
+        schema_version: SchemaVersion = DEFAULT_SCHEMA_VERSION,
+    ) -> str:
         """Returns the Changelog file in JSON format"""
         logger.log(
             VERBOSE,
@@ -420,7 +432,12 @@ class Changelog:
         )
 
         content = self.get(version=version)
-        json_data = [value for _, value in content.items()]
+        json_data = [content] if version else [value for _, value in content.items()]
+        validate_changelog_export(
+            json_data,
+            schema_version=schema_version,
+            file_path=self.__changelog_file_path,
+        )
         return json.dumps(json_data, indent=4)
 
     def write_to_yaml(self, file: str, version: Optional[str] = None) -> None:

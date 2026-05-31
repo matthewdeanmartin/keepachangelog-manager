@@ -30,12 +30,12 @@ class DummyChangelog:
     def release(self, version):
         self.calls.append(("release", version))
 
-    def to_json(self):
-        self.calls.append(("to_json",))
+    def to_json(self, schema_version="current"):
+        self.calls.append(("to_json", schema_version))
         return "[]"
 
-    def write_to_json(self, file):
-        self.calls.append(("write_to_json", file))
+    def write_to_json(self, file, schema_version="current"):
+        self.calls.append(("write_to_json", file, schema_version))
 
     def add(self, change_type, message):
         self.calls.append(("add", change_type, message))
@@ -65,10 +65,17 @@ def test_load_changelog_uses_component_config_when_present(monkeypatch):
     seen = {}
 
     class FakeReader:
-        def __init__(self, file_path, enforce_preamble=False, preamble_keywords=None):
+        def __init__(
+            self,
+            file_path,
+            enforce_preamble=False,
+            preamble_keywords=None,
+            versioning_scheme="semver",
+        ):
             seen["file_path"] = file_path
             seen["enforce_preamble"] = enforce_preamble
             seen["preamble_keywords"] = preamble_keywords
+            seen["versioning_scheme"] = versioning_scheme
 
         def read(self):
             return {"1.0.0": {"metadata": {"version": "1.0.0"}}}
@@ -96,6 +103,7 @@ def test_load_changelog_uses_component_config_when_present(monkeypatch):
     assert changelog.get_file_path() == "docs/COMPONENT_CHANGELOG.md"
     assert changelog.get()["1.0.0"]["metadata"]["version"] == "1.0.0"
     assert seen["preamble_keywords"] == ("keep a changelog", "semantic versioning")
+    assert seen["versioning_scheme"] == "semver"
 
 
 def test_prompt_for_missing_add_arguments_uses_existing_values_without_prompt(
@@ -176,7 +184,7 @@ def test_command_release_add_and_to_json_respect_dry_run_and_confirmation(
         make_args(dry_run=True, file_name="out.json"),
         cli.CliContext(changelog=changelog),
     )
-    assert ("to_json",) in changelog.calls
+    assert ("to_json", "current") in changelog.calls
     assert "Dry run: would write JSON output to out.json" in capsys.readouterr().out
 
 

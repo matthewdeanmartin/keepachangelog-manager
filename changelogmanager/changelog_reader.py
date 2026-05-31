@@ -2,24 +2,32 @@
 
 """Changelog Reader"""
 
+from __future__ import annotations
+
 import datetime
 import difflib
 import re
 from collections import OrderedDict
 from collections.abc import Generator, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Optional
-
-from semantic_version import Version  # type: ignore
+from typing import Any
 
 import changelogmanager.llvm_diagnostics as logging
-from changelogmanager.vendor import keepachangelog
 from changelogmanager.change_types import (
     DEFAULT_CHANGELOG_FILE,
     TYPES_OF_CHANGE,
     UNRELEASED_ENTRY,
 )
 from changelogmanager.runtime_logging import VERBOSE, get_logger
+from changelogmanager.schema_validation import validate_changelog_mapping
+from changelogmanager.vendor import keepachangelog
+from changelogmanager.versioning import (
+    detect_versioning_scheme_from_file,
+    normalize_scheme,
+    parse_version,
+    version_scheme_expectation,
+    version_scheme_label,
+)
 
 PREAMBLE_KEYWORDS = ("keep a changelog", "semantic versioning")
 logger = get_logger(__name__)
@@ -32,12 +40,15 @@ class ChangelogReader:
         self,
         file_path: str = DEFAULT_CHANGELOG_FILE,
         enforce_preamble: bool = False,
-        preamble_keywords: Optional[Sequence[str]] = None,
+        preamble_keywords: Sequence[str] | None = None,
+        versioning_scheme: str | None = None,
     ) -> None:
         """Constructor"""
 
         self.__file_path = file_path
         self.__enforce_preamble = enforce_preamble
+        self.__versioning_scheme_explicit = versioning_scheme is not None
+        self.__versioning_scheme = normalize_scheme(versioning_scheme)
         self.__preamble_keywords = tuple(
             keyword.lower() for keyword in (preamble_keywords or PREAMBLE_KEYWORDS)
         )
@@ -75,6 +86,7 @@ class ChangelogReader:
         )
 
         self.validate_contents(changelog)
+        validate_changelog_mapping(changelog, file_path=self.__file_path)
         logger.info(
             "Loaded changelog %s with %d version entries",
             self.__file_path,
@@ -113,7 +125,7 @@ class ChangelogReader:
             )
 
     @staticmethod
-    def __closest_change_type(content: str) -> Optional[str]:
+    def __closest_change_type(content: str) -> str | None:
         """Return the canonical change type that ``content`` most likely meant.
 
         Catches casing mistakes (``ADDED``) and minor typos (``Chnaged``) so we
@@ -178,10 +190,11 @@ class ChangelogReader:
         if version_str == UNRELEASED_ENTRY.title():
             return
 
-        # Verify that the version is valid SemVer syntax
+        # Verify that the version is valid for the configured versioning scheme.
         try:
-            version = Version(version_str)
+            version = parse_version(version_str, self.__versioning_scheme)
         except ValueError:
+            label = version_scheme_label(self.__versioning_scheme)
             yield logging.Error(
                 file_path=self.__file_path,
                 line=line,
@@ -189,8 +202,8 @@ class ChangelogReader:
                 column_number=logging.Range(
                     start=line.find("[") + 2, range=len(version_str)
                 ),
-                message=f"Incompatible version '{version_str}' specified, MUST be SemVer compliant",
-                expectations="Use MAJOR.MINOR.PATCH, e.g. '1.2.3' (see https://semver.org)",
+                message=f"Incompatible version '{version_str}' specified, MUST be {label} compliant",
+                expectations=version_scheme_expectation(self.__versioning_scheme),
             )
             return
 
@@ -351,7 +364,7 @@ class ChangelogReader:
                 )
 
     def __validate_preamble(self) -> list[logging.Error]:
-        """Optional check that the first non-blank lines mention KaC + SemVer."""
+        """Optional check that the first non-blank lines mention KaC + versioning."""
 
         if not self.__enforce_preamble:
             logger.log(VERBOSE, "Skipping preamble validation for %s", self.__file_path)
@@ -389,6 +402,10 @@ class ChangelogReader:
         """Validates the changelog file according to KeepAChangelog conventions"""
 
         logger.info("Validating changelog layout for %s", self.__file_path)
+        if not self.__versioning_scheme_explicit:
+            detected = detect_versioning_scheme_from_file(self.__file_path)
+            if detected:
+                self.__versioning_scheme = detected
         line_number = 1
         errors: list[logging.Error] = []
         with Path(self.__file_path).open(encoding="UTF-8") as file_handle:
@@ -516,22 +533,19 @@ class ChangelogReader:
                 "Canonicalized Unreleased heading casing"
             ]
 
-        bare_version = re.compile(
-            r"^(v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)(.*)$"
-        ).match(fixed)
+        version_pattern = r"v?[0-9A-Za-z]+(?:[._!+-]?[0-9A-Za-z]+)*"
+        bare_version = re.compile(rf"^({version_pattern})(.*)$").match(fixed)
         if bare_version:
             fixed = f"[{bare_version.group(1)}]{bare_version.group(2)}"
             applied.append("Added brackets around release version")
 
-        bracketed = re.compile(r"^\[(v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)\](.*)$").match(
-            fixed
-        )
+        bracketed = re.compile(rf"^\[({version_pattern})\](.*)$").match(fixed)
         if not bracketed:
             return content, []
 
         version = bracketed.group(1)
         suffix = bracketed.group(2).strip()
-        if version.startswith("v"):
+        if version.startswith("v") and self.__versioning_scheme in {"semver", "pep440"}:
             version = version[1:]
             applied.append("Removed leading 'v' from release version")
 
@@ -583,7 +597,7 @@ class ChangelogReader:
         logger.info("Validating changelog contents for %s", self.__file_path)
 
         is_first_entry = True
-        prev_version: Optional[Version] = None
+        prev_version: Any | None = None
 
         for version, release in changelog.items():
             if version == UNRELEASED_ENTRY:
@@ -593,7 +607,7 @@ class ChangelogReader:
                         message="Unreleased version should be on top of the CHANGELOG.md file",
                     ).report()
             else:
-                new_version = Version(version)
+                new_version = parse_version(version, self.__versioning_scheme)
                 if prev_version and prev_version <= new_version:
                     logging.Warning(
                         file_path=self.__file_path,
@@ -746,7 +760,7 @@ class ChangelogReader:
         try:
             sorted_releases = sorted(
                 fixed.items(),
-                key=lambda item: Version(item[0]),
+                key=lambda item: parse_version(item[0], self.__versioning_scheme),
                 reverse=True,
             )
         except ValueError:
@@ -758,7 +772,10 @@ class ChangelogReader:
         prev_keys = list(fixed.keys())
         new_keys = [key for key, _ in sorted_releases]
         if prev_keys != new_keys:
-            applied.append("Reordered released versions in descending semver order")
+            applied.append(
+                "Reordered released versions in descending "
+                f"{version_scheme_label(self.__versioning_scheme)} order"
+            )
         for key, value in sorted_releases:
             result[key] = value
 
