@@ -10,10 +10,10 @@ from collections.abc import Generator, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Optional
 
-import keepachangelog  # type: ignore
 from semantic_version import Version  # type: ignore
 
 import changelogmanager._llvm_diagnostics as logging
+from changelogmanager._vendor import keepachangelog
 from changelogmanager.change_types import (
     DEFAULT_CHANGELOG_FILE,
     TYPES_OF_CHANGE,

@@ -917,22 +917,12 @@ wheels = [
 ]
 
 [[package]]
-name = "keepachangelog"
-version = "2.0.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/fa/2e/951923e56c149b6772dbffee0dcac00738405d7d7a0fdd30537047cf6727/keepachangelog-2.0.0.tar.gz", hash = "sha256:6839f0646690ae514aca6dedbc7b8aa652c56db3be43081a1940c55c1c807709", size = 24488, upload-time = "2024-06-14T12:56:28.442Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/23/06/b4f06ca7afb5d9e942c642980c308ffcfa1fa0e8b0a3ddbec78483ef1614/keepachangelog-2.0.0-py3-none-any.whl", hash = "sha256:0b2259fd73b55f2b99e61035ff83f3d86d0f2764841a7e2de86e31e675e42fee", size = 13349, upload-time = "2024-06-14T12:56:26.884Z" },
-]
-
-[[package]]
 name = "keepachangelog-manager-fork"
 version = "5.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "inquirer", version = "3.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9.2'" },
     { name = "inquirer", version = "3.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9.2'" },
-    { name = "keepachangelog" },
     { name = "pyyaml" },
     { name = "semantic-version" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
@@ -1002,7 +992,6 @@ test = [
 requires-dist = [
     { name = "inquirer", specifier = ">=3.4.0,<4" },
     { name = "jiggle-version", marker = "extra == 'jiggle'", specifier = ">=2.1.0,<3" },
-    { name = "keepachangelog", specifier = ">=2.0.0,<3" },
     { name = "mdformat", marker = "extra == 'format'", specifier = ">=0.7" },
     { name = "pyyaml", specifier = ">=6.0.2,<7" },
     { name = "semantic-version", specifier = ">=2.10.0,<3" },

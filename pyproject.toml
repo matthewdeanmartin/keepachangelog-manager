@@ -9,7 +9,6 @@ license-files = ["LICENSE.md"]
 dependencies = [
     "pyyaml>=6.0.2,<7",
     "semantic_version>=2.10.0,<3",
-    "keepachangelog>=2.0.0,<3",
     "urllib3>=2.6.3,<3",
     "inquirer>=3.4.0,<4",
     "tomli>=2.4.1; python_version < '3.11'",
@@ -103,6 +102,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["F401", "F811", "ARG001", "ARG002", "ARG005", "A004"]
 "changelogmanager/_llvm_diagnostics/*" = ["N818", "A001"]
+"tests/test_vendored_keepachangelog/*" = ["I001", "PTH118", "PTH123", "SIM117", "UP015", "W291"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["changelogmanager"]

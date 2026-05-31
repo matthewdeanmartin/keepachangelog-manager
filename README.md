@@ -7,6 +7,36 @@ Fork of `keepachangelog-manager`, originally mostly written by KevinDeJong at To
 
 ![gif](https://raw.githubusercontent.com/matthewdeanmartin/keepachangelog-manager/main/resources/usage.gif)
 
+## Vendored `keepachangelog`
+
+This project now vendors a slimmed-down copy of
+[`Colin-b/keepachangelog`](https://github.com/Colin-b/keepachangelog) under
+`changelogmanager/_vendor/keepachangelog/` instead of depending on the PyPI
+package at runtime.
+
+Credits:
+
+- upstream project: [`Colin-b/keepachangelog`](https://github.com/Colin-b/keepachangelog)
+- upstream license: MIT, copied to
+  [`changelogmanager/_vendor/keepachangelog/LICENSE`](changelogmanager/_vendor/keepachangelog/LICENSE)
+
+What we keep from it:
+
+- `to_dict(...)`
+- `to_dict(..., show_unreleased=True)`
+- `from_dict(...)`
+- release metadata and compare-link parsing
+
+What we intentionally dropped:
+
+- CLI entry points
+- release automation helpers
+- `to_raw_dict(...)`
+- web framework integrations
+
+The vendored subfolder also includes copied upstream parser/serializer tests in
+`tests/test_vendored_keepachangelog/`.
+
 ## Install
 
 ```sh

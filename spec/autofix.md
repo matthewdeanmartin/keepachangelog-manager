@@ -20,7 +20,7 @@ Autofix is a two-layer operation:
    entries within a bucket, and re-sorts versions newest-first. Returns
    `(data, applied_messages)`.
 2. **Serialization** — `Changelog.write_to_file()` renders the dict back to
-   Markdown via `keepachangelog.from_dict(...)` plus our preamble rewrite
+   Markdown via the vendored `keepachangelog.from_dict(...)` subset plus our preamble rewrite
    (`Changelog.__render_preamble`).
 
 The CLI glue is `command_validate(args, ctx)` in `cli.py`: on `--fix` it
@@ -30,8 +30,8 @@ multi-component path is `run_validate_all(...)`.
 This means today's autofixes are limited to what survives a
 parse → dict → re-serialize round trip. Anything purely cosmetic in the raw
 Markdown (blank lines, heading spacing, list bullet style, trailing whitespace)
-is normalized only as a side effect of `keepachangelog`'s serializer, which we
-do not control.
+is normalized only as a side effect of the vendored `keepachangelog`
+serializer, which we keep intentionally tiny.
 
 ## Proposed change: add a formatting pass
 
@@ -39,7 +39,7 @@ Introduce a **third, optional layer** that runs *after* serialization: a
 Markdown formatter pass. Pipeline becomes:
 
 ```
-raw md ─▶ parse ─▶ structural autofix (dict) ─▶ serialize (keepachangelog)
+raw md ─▶ parse ─▶ structural autofix (dict) ─▶ serialize (vendored keepachangelog)
         ─▶ FORMAT PASS (mdformat) ─▶ write to file
 ```
 
@@ -49,7 +49,8 @@ entries, versions) — only whitespace/wrapping/bullet style.
 
 ### Why a separate pass (not inside the serializer)
 
-- `keepachangelog.from_dict` output is fixed; we should not fork it.
+- `keepachangelog.from_dict` output is intentionally fixed; keep the vendored
+  surface small instead of teaching it formatting concerns.
 - Formatting is opt-in and tool-discovery-dependent, so it must degrade
   gracefully when `mdformat` is absent.
 - Keeping it textual and last means it composes with the existing structural

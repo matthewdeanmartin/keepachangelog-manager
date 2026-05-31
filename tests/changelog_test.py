@@ -39,7 +39,7 @@ from .utils import (
 def test_default_changelog(mocker):
     """Verifies that, by default, a `CHANGELOG.md` file is used as input."""
 
-    mocker.patch("keepachangelog.to_dict", return_value={})
+    mocker.patch("changelogmanager.changelog.keepachangelog.to_dict", return_value={})
 
     changelog = Changelog()
     assert changelog.get_file_path() == DEFAULT_CHANGELOG_FILE

@@ -2,17 +2,21 @@
 
 **keepachangelog-manager** is a CLI tool and Python library for managing `CHANGELOG.md` files that follow the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
-## keepachangelog vs keepachangelog-manager
+## vendored keepachangelog vs keepachangelog-manager
 
-These are two separate things that work together:
+These are two separate layers that now live in this repository:
 
 | | [keepachangelog](https://pypi.org/project/keepachangelog/) | keepachangelog-manager |
 |---|---|---|
-| **What it is** | A Python library | A CLI tool built on top of that library |
+| **What it is** | A slim vendored parser/serializer subpackage | A CLI tool and higher-level library |
 | **What it does** | Parses `CHANGELOG.md` into Python dicts and back | Validates, edits, releases, and exports your changelog |
-| **Who uses it** | Developers calling it from Python code | Developers and CI pipelines running shell commands |
+| **Where it lives** | `changelogmanager/_vendor/keepachangelog/` | `changelogmanager/` |
 
-`keepachangelog-manager` uses `keepachangelog` internally for parsing and serialisation. You do not need to import `keepachangelog` yourself — the manager wraps it.
+`keepachangelog-manager` vendors the tiny subset of
+[`Colin-b/keepachangelog`](https://github.com/Colin-b/keepachangelog) that it
+uses internally for parsing and serialisation. The vendored copy keeps only
+`to_dict(...)`, `to_dict(..., show_unreleased=True)`, and `from_dict(...)`,
+plus the small helpers those functions need.
 
 ## What keepachangelog-manager adds
 

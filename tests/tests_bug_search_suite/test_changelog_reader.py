@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 import changelogmanager._llvm_diagnostics as logging
+from changelogmanager._vendor import keepachangelog
 from changelogmanager.changelog_reader import ChangelogReader
 
 # ---------------------------------------------------------------------------
@@ -213,14 +214,12 @@ class TestValidateContents:
         # Validation should report a warning (not raise), but layout is valid
         errors = reader.validate_layout()
         assert errors == 0  # layout is fine
-        changelog = __import__("keepachangelog").to_dict(p, show_unreleased=True)
+        changelog = keepachangelog.to_dict(p, show_unreleased=True)
         # validate_contents only reports, does not raise
         reader.validate_contents(changelog)  # should not raise
 
     def test_unreleased_not_first_reports_warning(self, tmp_path):
         """validate_contents prints a warning but does not raise when Unreleased is not first."""
-        import keepachangelog
-
         content = (
             "# Changelog\n\n"
             "## [1.0.0] - 2024-01-01\n"
