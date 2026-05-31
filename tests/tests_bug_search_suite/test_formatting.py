@@ -15,8 +15,8 @@ import pytest
 from changelogmanager.cli import main
 from changelogmanager.formatting import (
     Formatter,
-    _InProcessFormatter,
-    _SubprocessFormatter,
+    InProcessFormatter,
+    SubprocessFormatter,
     discover_formatter,
     format_markdown,
 )
@@ -63,26 +63,26 @@ UNORDERED_CHANGELOG = """\
 """
 
 
-def _write(path: Path, body: str = CLEAN_CHANGELOG) -> str:
+def write_changelog(path: Path, body: str = CLEAN_CHANGELOG) -> str:
     p = path / "CHANGELOG.md"
     p.write_text(body, encoding="utf-8")
     return str(p)
 
 
-def _capture(argv: list[str]) -> tuple[int, str]:
+def capture_output(argv: list[str]) -> tuple[int, str]:
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = main(argv)
     return rc, buf.getvalue()
 
 
-def _make_formatter(text: str = "") -> Formatter:
+def make_formatter(text: str = "") -> Formatter:
     """Returns a Formatter that appends a marker so tests can detect it ran."""
 
-    def _fmt(md: str, options: dict[str, Any]) -> str:
+    def fmt(md: str, options: dict[str, Any]) -> str:
         return md + text
 
-    return _fmt  # type: ignore[return-value]
+    return fmt  # type: ignore[return-value]
 
 
 # ---------------------------------------------------------------------------
@@ -97,7 +97,7 @@ class TestDiscoverFormatter:
         fake_mdformat.text.return_value = "formatted"
         with patch.dict("sys.modules", {"mdformat": fake_mdformat}):
             f = discover_formatter()
-        assert isinstance(f, _InProcessFormatter)
+        assert isinstance(f, InProcessFormatter)
 
     def test_falls_back_to_executable(self):
         """When mdformat is not importable but is on PATH, subprocess formatter is returned."""
@@ -106,7 +106,7 @@ class TestDiscoverFormatter:
         # Simulate: import fails, shutil.which finds executable
         with (
             patch(
-                "changelogmanager.formatting._InProcessFormatter",
+                "changelogmanager.formatting.InProcessFormatter",
                 side_effect=ImportError,
             ),
             patch("shutil.which", return_value="/usr/bin/mdformat"),
@@ -117,10 +117,10 @@ class TestDiscoverFormatter:
             import changelogmanager.formatting as fmt_mod
 
             with patch.object(fmt_mod, "discover_formatter") as mock_disc:
-                mock_disc.return_value = _SubprocessFormatter("/usr/bin/mdformat")
+                mock_disc.return_value = SubprocessFormatter("/usr/bin/mdformat")
                 fmt_mod.discover_formatter()
             # The mock returned a SubprocessFormatter — verify it's the right type
-            assert isinstance(mock_disc.return_value, _SubprocessFormatter)
+            assert isinstance(mock_disc.return_value, SubprocessFormatter)
 
     def test_returns_none_when_nothing_found(self):
         """When both import and which fail, None is returned."""
@@ -160,7 +160,7 @@ class TestDiscoverFormatterClean:
             result = discover_formatter()
             # If mdformat is not installed, should be SubprocessFormatter
             if saved is None:
-                assert isinstance(result, _SubprocessFormatter)
+                assert isinstance(result, SubprocessFormatter)
         finally:
             if saved is not None:
                 sys.modules["mdformat"] = saved
@@ -173,7 +173,7 @@ class TestDiscoverFormatterClean:
 
 class TestFormatMarkdown:
     def test_returns_formatted_text(self):
-        marker_fmt = _make_formatter("__MARKER__")
+        marker_fmt = make_formatter("__MARKER__")
         result = format_markdown("# Hello\n", marker_fmt)
         assert "__MARKER__" in result
 
@@ -208,7 +208,7 @@ class TestFormatMarkdown:
 
     def test_idempotent_on_already_formatted(self):
         """Calling format_markdown twice should produce the same result."""
-        identity = _make_formatter()
+        identity = make_formatter()
         first = format_markdown("# Hello\n\n- item\n", identity)
         second = format_markdown(first, identity)
         assert first == second
@@ -222,7 +222,7 @@ class TestFormatMarkdown:
 class TestFormatFlag:
     def test_no_format_skips_format_pass(self, tmp_path):
         """--no-format suppresses the format pass even when a formatter is available."""
-        p = _write(tmp_path, UNORDERED_CHANGELOG)
+        p = write_changelog(tmp_path, UNORDERED_CHANGELOG)
         Path(p).read_text(encoding="utf-8")
         rc = main(["--input-file", p, "validate", "--fix", "--no-format"])
         assert rc == 0
@@ -232,7 +232,7 @@ class TestFormatFlag:
 
     def test_format_flag_errors_when_no_formatter(self, tmp_path):
         """--format raises an error when neither mdformat import nor executable is available."""
-        p = _write(tmp_path)
+        p = write_changelog(tmp_path)
         # cli.py imports discover_formatter directly, so patch at the cli module level
         with patch("changelogmanager.cli.discover_formatter", return_value=None):
             rc = main(["--input-file", p, "validate", "--fix", "--format"])
@@ -240,17 +240,17 @@ class TestFormatFlag:
 
     def test_no_format_and_format_are_mutually_exclusive(self, tmp_path):
         """--format and --no-format cannot be used together."""
-        p = _write(tmp_path)
+        p = write_changelog(tmp_path)
         rc = main(["--input-file", p, "validate", "--fix", "--format", "--no-format"])
         assert rc != 0  # argparse exits non-zero for mutually exclusive groups
 
     def test_format_dry_run_does_not_write(self, tmp_path):
         """--fix --format --dry-run reports what would change without writing."""
-        p = _write(tmp_path, UNORDERED_CHANGELOG)
+        p = write_changelog(tmp_path, UNORDERED_CHANGELOG)
         original = Path(p).read_text(encoding="utf-8")
         with patch(
             "changelogmanager.cli.discover_formatter",
-            return_value=_make_formatter("  "),
+            return_value=make_formatter("  "),
         ):
             rc = main(["--input-file", p, "validate", "--fix", "--dry-run"])
         assert rc == 0
@@ -259,19 +259,19 @@ class TestFormatFlag:
 
     def test_format_dry_run_reports_would_fix(self, tmp_path):
         """Dry-run with a formatter that changes text reports 'would fix'."""
-        p = _write(tmp_path, UNORDERED_CHANGELOG)
+        p = write_changelog(tmp_path, UNORDERED_CHANGELOG)
         with patch(
             "changelogmanager.cli.discover_formatter",
-            return_value=_make_formatter("\n<!-- formatted -->"),
+            return_value=make_formatter("\n<!-- formatted -->"),
         ):
-            rc, out = _capture(["--input-file", p, "validate", "--fix", "--dry-run"])
+            rc, out = capture_output(["--input-file", p, "validate", "--fix", "--dry-run"])
         assert rc == 0
         assert "would fix" in out or "Dry run" in out
 
     def test_no_format_with_valid_file_reports_no_fixes(self, tmp_path):
         """--fix --no-format on an already-correct file should report no fixes."""
-        p = _write(tmp_path, CLEAN_CHANGELOG)
-        rc, out = _capture(["--input-file", p, "validate", "--fix", "--no-format"])
+        p = write_changelog(tmp_path, CLEAN_CHANGELOG)
+        rc, out = capture_output(["--input-file", p, "validate", "--fix", "--no-format"])
         assert rc == 0
         assert "No fixes required" in out
 
@@ -283,8 +283,8 @@ class TestFormatFlag:
 
 class TestJsonPayload:
     def test_json_has_formatted_false_when_no_format(self, tmp_path):
-        p = _write(tmp_path)
-        rc, out = _capture(
+        p = write_changelog(tmp_path)
+        rc, out = capture_output(
             ["--json", "--input-file", p, "validate", "--fix", "--no-format"]
         )
         assert rc == 0
@@ -294,26 +294,26 @@ class TestJsonPayload:
 
     def test_json_has_formatted_false_when_no_fixes(self, tmp_path):
         """A file with no structural fixes and no format changes → formatted: False."""
-        p = _write(tmp_path, CLEAN_CHANGELOG)
+        p = write_changelog(tmp_path, CLEAN_CHANGELOG)
         # Use an identity formatter that returns the text unchanged.
         # Patch at the cli module level (cli imports discover_formatter directly).
         identity_fmt = (
-            _make_formatter()
+            make_formatter()
         )  # appends "" — truly no-op on already-serialized text
         with patch(
             "changelogmanager.cli.discover_formatter", return_value=identity_fmt
         ):
-            rc, out = _capture(["--json", "--input-file", p, "validate", "--fix"])
+            rc, out = capture_output(["--json", "--input-file", p, "validate", "--fix"])
         assert rc == 0
         payload = json.loads(out)
         assert payload.get("formatted") is False
 
     def test_json_has_formatted_true_when_format_applied(self, tmp_path):
         """formatted: true when the format pass changes the serialized text."""
-        p = _write(tmp_path, UNORDERED_CHANGELOG)
-        marking_fmt = _make_formatter("\n<!-- mdformat -->")
+        p = write_changelog(tmp_path, UNORDERED_CHANGELOG)
+        marking_fmt = make_formatter("\n<!-- mdformat -->")
         with patch("changelogmanager.cli.discover_formatter", return_value=marking_fmt):
-            rc, out = _capture(["--json", "--input-file", p, "validate", "--fix"])
+            rc, out = capture_output(["--json", "--input-file", p, "validate", "--fix"])
         assert rc == 0
         payload = json.loads(out)
         assert payload.get("formatted") is True
@@ -327,7 +327,7 @@ class TestJsonPayload:
 class TestIdempotency:
     def test_fix_twice_is_noop(self, tmp_path):
         """Running validate --fix a second time should report no fixes."""
-        p = _write(tmp_path, UNORDERED_CHANGELOG)
+        p = write_changelog(tmp_path, UNORDERED_CHANGELOG)
         # First pass: applies structural fixes (and possibly format pass)
         rc1 = main(["--input-file", p, "validate", "--fix", "--no-format"])
         assert rc1 == 0
@@ -341,7 +341,7 @@ class TestIdempotency:
 
     def test_format_twice_is_noop(self, tmp_path):
         """The format pass itself is idempotent when using the real mdformat (if available)."""
-        p = _write(tmp_path, UNORDERED_CHANGELOG)
+        p = write_changelog(tmp_path, UNORDERED_CHANGELOG)
         f = discover_formatter()
         if f is None:
             pytest.skip("mdformat not installed")
@@ -413,7 +413,7 @@ class TestValidateAllWithFormat:
         cl.write_text(UNORDERED_CHANGELOG, encoding="utf-8")
         monkeypatch.chdir(tmp_path)
 
-        marking_fmt = _make_formatter("\n<!-- mdformat -->")
+        marking_fmt = make_formatter("\n<!-- mdformat -->")
         # Patch at the cli module level (cli imports discover_formatter directly)
         with patch("changelogmanager.cli.discover_formatter", return_value=marking_fmt):
             rc = main(["--config", str(cfg), "validate", "--all", "--fix"])
@@ -456,7 +456,7 @@ class TestChangelogRender:
                 }
             },
         )
-        marker_fmt = _make_formatter("__FORMATTED__")
+        marker_fmt = make_formatter("__FORMATTED__")
         text = cl.render(formatter=marker_fmt)
         assert "__FORMATTED__" in text
 
@@ -473,7 +473,7 @@ class TestChangelogRender:
                 }
             },
         )
-        marker_fmt = _make_formatter("__WRITTEN__")
+        marker_fmt = make_formatter("__WRITTEN__")
         cl.write_to_file(formatter=marker_fmt)
         assert "__WRITTEN__" in p.read_text(encoding="utf-8")
 

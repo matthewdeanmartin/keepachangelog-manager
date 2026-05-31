@@ -11,7 +11,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-import changelogmanager._llvm_diagnostics as logging
+import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import CATEGORIES, UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
 from changelogmanager.runtime_logging import VERBOSE, get_logger
@@ -147,7 +147,7 @@ class GitLab:
 
         version = f"v{changelog.suggest_future_version()}"
         name = f"Release {version}"
-        description = _generate_release_notes(changelog.get(UNRELEASED_ENTRY))
+        description = generate_release_notes(changelog.get(UNRELEASED_ENTRY))
 
         existing = self.get_release(version)
         if existing is not None:
@@ -177,7 +177,7 @@ class GitLab:
         return response
 
 
-def _generate_release_notes(release: Mapping[str, Any]) -> str:
+def generate_release_notes(release: Mapping[str, Any]) -> str:
     """Renders [Unreleased] entries as GitLab-flavoured Markdown."""
 
     body = "## What's changed\n\n"

@@ -11,14 +11,14 @@ Fork of `keepachangelog-manager`, originally mostly written by KevinDeJong at To
 
 This project now vendors a slimmed-down copy of
 [`Colin-b/keepachangelog`](https://github.com/Colin-b/keepachangelog) under
-`changelogmanager/_vendor/keepachangelog/` instead of depending on the PyPI
+`changelogmanager/vendor/keepachangelog/` instead of depending on the PyPI
 package at runtime.
 
 Credits:
 
 - upstream project: [`Colin-b/keepachangelog`](https://github.com/Colin-b/keepachangelog)
 - upstream license: MIT, copied to
-  [`changelogmanager/_vendor/keepachangelog/LICENSE`](changelogmanager/_vendor/keepachangelog/LICENSE)
+  [`changelogmanager/vendor/keepachangelog/LICENSE`](changelogmanager/vendor/keepachangelog/LICENSE)
 
 What we keep from it:
 

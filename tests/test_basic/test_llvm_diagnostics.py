@@ -1,9 +1,9 @@
 from io import StringIO
 
-from changelogmanager._llvm_diagnostics import Error, Info, Range, Warning, formatters
-from changelogmanager._llvm_diagnostics import messages as diagnostics_messages
-from changelogmanager._llvm_diagnostics.parser import diagnostics_messages_from_file
-from changelogmanager._llvm_diagnostics.utils import (
+from changelogmanager.llvm_diagnostics import Error, Info, Range, Warning, formatters
+from changelogmanager.llvm_diagnostics import messages as diagnostics_messages
+from changelogmanager.llvm_diagnostics.parser import diagnostics_messages_from_file
+from changelogmanager.llvm_diagnostics.utils import (
     TextFormat,
     format_string,
     strip_ansi_escape_chars,

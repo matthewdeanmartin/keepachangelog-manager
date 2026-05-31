@@ -101,7 +101,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["F401", "F811", "ARG001", "ARG002", "ARG005", "A004"]
-"changelogmanager/_llvm_diagnostics/*" = ["N818", "A001"]
+"changelogmanager/llvm_diagnostics/*" = ["N818", "A001"]
 "tests/test_vendored_keepachangelog/*" = ["I001", "PTH118", "PTH123", "SIM117", "UP015", "W291"]
 
 [tool.hatch.build.targets.wheel]

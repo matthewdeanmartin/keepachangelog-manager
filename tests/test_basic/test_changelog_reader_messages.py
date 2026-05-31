@@ -12,12 +12,12 @@ Property-based coverage lives in
 
 import pytest
 
-import changelogmanager._llvm_diagnostics as logging
+import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import TYPES_OF_CHANGE
 from changelogmanager.changelog_reader import ChangelogReader
 
 
-def _capture(tmp_path, monkeypatch, text):
+def capture_output(tmp_path, monkeypatch, text):
     """Write ``text`` to a CHANGELOG, run layout validation, return the errors.
 
     Returns a list of ``(message, expectations)`` tuples in report order plus
@@ -39,11 +39,11 @@ def _capture(tmp_path, monkeypatch, text):
     return reported, count
 
 
-def _messages(reported):
+def get_messages(reported):
     return [msg for msg, _ in reported]
 
 
-def _expectations(reported):
+def get_expectations(reported):
     return [exp for _, exp in reported]
 
 
@@ -53,11 +53,11 @@ def _expectations(reported):
 
 
 def test_change_section_at_level_2_reports_heading_level(tmp_path, monkeypatch):
-    reported, count = _capture(tmp_path, monkeypatch, "## Changed\n- a change\n")
+    reported, count = capture_output(tmp_path, monkeypatch, "## Changed\n- a change\n")
 
     assert count == 1
-    assert "change section but is at heading level 2" in _messages(reported)[0]
-    assert _expectations(reported)[0] == "Use '### Changed' instead of '## Changed'"
+    assert "change section but is at heading level 2" in get_messages(reported)[0]
+    assert get_expectations(reported)[0] == "Use '### Changed' instead of '## Changed'"
 
 
 def test_change_section_at_level_2_does_not_say_missing_version_tag(
@@ -65,10 +65,10 @@ def test_change_section_at_level_2_does_not_say_missing_version_tag(
 ):
     # This is the exact bug we fixed: "## Added" must not be reported as a
     # malformed version heading.
-    reported, _ = _capture(tmp_path, monkeypatch, "## Added\n- a feature\n")
+    reported, _ = capture_output(tmp_path, monkeypatch, "## Added\n- a feature\n")
 
-    assert all("Missing version tag" not in msg for msg in _messages(reported))
-    assert _expectations(reported)[0] == "Use '### Added' instead of '## Added'"
+    assert all("Missing version tag" not in msg for msg in get_messages(reported))
+    assert get_expectations(reported)[0] == "Use '### Added' instead of '## Added'"
 
 
 # ---------------------------------------------------------------------------
@@ -77,24 +77,24 @@ def test_change_section_at_level_2_does_not_say_missing_version_tag(
 
 
 def test_misspelled_change_type_at_level_3_suggests_correction(tmp_path, monkeypatch):
-    reported, count = _capture(tmp_path, monkeypatch, "### Chnaged\n- a change\n")
+    reported, count = capture_output(tmp_path, monkeypatch, "### Chnaged\n- a change\n")
 
     assert count == 1
-    assert _expectations(reported)[0] == "Did you mean '### Changed'?"
+    assert get_expectations(reported)[0] == "Did you mean '### Changed'?"
 
 
 def test_miscased_change_type_at_level_3_suggests_canonical(tmp_path, monkeypatch):
-    reported, count = _capture(tmp_path, monkeypatch, "### ADDED\n- a feature\n")
+    reported, count = capture_output(tmp_path, monkeypatch, "### ADDED\n- a feature\n")
 
     assert count == 1
-    assert _expectations(reported)[0] == "Did you mean '### Added'?"
+    assert get_expectations(reported)[0] == "Did you mean '### Added'?"
 
 
 def test_unrecognizable_change_type_lists_valid_options(tmp_path, monkeypatch):
-    reported, count = _capture(tmp_path, monkeypatch, "### Bananas\n- nope\n")
+    reported, count = capture_output(tmp_path, monkeypatch, "### Bananas\n- nope\n")
 
     assert count == 1
-    expectation = _expectations(reported)[0]
+    expectation = get_expectations(reported)[0]
     assert expectation.startswith("Use one of: ")
     for change_type in TYPES_OF_CHANGE:
         assert change_type.title() in expectation
@@ -106,17 +106,17 @@ def test_unrecognizable_change_type_lists_valid_options(tmp_path, monkeypatch):
 
 
 def test_genuinely_missing_version_tag_keeps_message(tmp_path, monkeypatch):
-    reported, count = _capture(tmp_path, monkeypatch, "## 1.0.0 - 2024-01-01\n")
+    reported, count = capture_output(tmp_path, monkeypatch, "## 1.0.0 - 2024-01-01\n")
 
     assert count == 1
-    assert _messages(reported)[0] == "Missing version tag"
+    assert get_messages(reported)[0] == "Missing version tag"
 
 
 def test_missing_version_tag_includes_format_hint(tmp_path, monkeypatch):
-    reported, _ = _capture(tmp_path, monkeypatch, "## 1.0.0 - 2024-01-01\n")
+    reported, _ = capture_output(tmp_path, monkeypatch, "## 1.0.0 - 2024-01-01\n")
 
     assert (
-        _expectations(reported)[0]
+        get_expectations(reported)[0]
         == "Use the form '## [1.2.3] - 2022-12-31' or '## [Unreleased]'"
     )
 
@@ -127,17 +127,17 @@ def test_missing_version_tag_includes_format_hint(tmp_path, monkeypatch):
 
 
 def test_invalid_semver_includes_semver_hint(tmp_path, monkeypatch):
-    reported, count = _capture(tmp_path, monkeypatch, "## [1.2] - 2024-01-01\n")
+    reported, count = capture_output(tmp_path, monkeypatch, "## [1.2] - 2024-01-01\n")
 
     assert count == 1
-    assert "MUST be SemVer compliant" in _messages(reported)[0]
-    assert _expectations(reported)[0] == (
+    assert "MUST be SemVer compliant" in get_messages(reported)[0]
+    assert get_expectations(reported)[0] == (
         "Use MAJOR.MINOR.PATCH, e.g. '1.2.3' (see https://semver.org)"
     )
 
 
 def test_valid_semver_version_heading_is_clean(tmp_path, monkeypatch):
-    reported, count = _capture(
+    reported, count = capture_output(
         tmp_path, monkeypatch, "## [1.2.3] - 2024-01-01\n### Added\n- thing\n"
     )
 
@@ -151,31 +151,31 @@ def test_valid_semver_version_heading_is_clean(tmp_path, monkeypatch):
 
 
 def test_missing_metadata_dash_suggests_release_date(tmp_path, monkeypatch):
-    reported, count = _capture(tmp_path, monkeypatch, "## [1.2.3]\n")
+    reported, count = capture_output(tmp_path, monkeypatch, "## [1.2.3]\n")
 
     assert count == 1
-    assert "Missing metadata" in _messages(reported)[0]
-    assert _expectations(reported)[0] == (
+    assert "Missing metadata" in get_messages(reported)[0]
+    assert get_expectations(reported)[0] == (
         "Add a release date, e.g. '## [1.2.3] - 2022-12-31'"
     )
 
 
 def test_non_date_metadata_suggests_iso_date(tmp_path, monkeypatch):
-    reported, count = _capture(tmp_path, monkeypatch, "## [1.2.3] - someday\n")
+    reported, count = capture_output(tmp_path, monkeypatch, "## [1.2.3] - someday\n")
 
     assert count == 1
-    assert "Incompatible release date" in _messages(reported)[0]
+    assert "Incompatible release date" in get_messages(reported)[0]
     assert (
-        _expectations(reported)[0] == "Use an ISO date, e.g. '## [1.2.3] - 2022-12-31'"
+        get_expectations(reported)[0] == "Use an ISO date, e.g. '## [1.2.3] - 2022-12-31'"
     )
 
 
 def test_impossible_calendar_date_explains_why(tmp_path, monkeypatch):
-    reported, count = _capture(tmp_path, monkeypatch, "## [1.2.3] - 2024-13-40\n")
+    reported, count = capture_output(tmp_path, monkeypatch, "## [1.2.3] - 2024-13-40\n")
 
     assert count == 1
-    assert "Incompatible release date" in _messages(reported)[0]
-    expectation = _expectations(reported)[0]
+    assert "Incompatible release date" in get_messages(reported)[0]
+    expectation = get_expectations(reported)[0]
     assert "2024-13-40" in expectation
     assert "not a real calendar date" in expectation
 
@@ -186,38 +186,38 @@ def test_impossible_calendar_date_explains_why(tmp_path, monkeypatch):
 
 
 def test_heading_too_deep_explains_allowed_levels(tmp_path, monkeypatch):
-    reported, count = _capture(tmp_path, monkeypatch, "#### Too Deep\n")
+    reported, count = capture_output(tmp_path, monkeypatch, "#### Too Deep\n")
 
     assert count == 1
-    assert "Heading depth is too high" in _messages(reported)[0]
-    expectation = _expectations(reported)[0]
+    assert "Heading depth is too high" in get_messages(reported)[0]
+    expectation = get_expectations(reported)[0]
     assert "### Change type" in expectation
 
 
 def test_numbered_list_entry_suggests_bullet(tmp_path, monkeypatch):
-    reported, count = _capture(tmp_path, monkeypatch, "- 1. nested numbered\n")
+    reported, count = capture_output(tmp_path, monkeypatch, "- 1. nested numbered\n")
 
     assert count == 1
-    assert "Numbered lists are not permitted" in _messages(reported)[0]
-    assert _expectations(reported)[0] == (
+    assert "Numbered lists are not permitted" in get_messages(reported)[0]
+    assert get_expectations(reported)[0] == (
         "Use a '- ' bullet instead of a numbered '1.' list"
     )
 
 
 def test_indented_sublist_entry_suggests_top_level_bullet(tmp_path, monkeypatch):
-    reported, count = _capture(tmp_path, monkeypatch, "  - indented entry\n")
+    reported, count = capture_output(tmp_path, monkeypatch, "  - indented entry\n")
 
     assert count == 1
-    assert "Sub-lists are not permitted" in _messages(reported)[0]
-    assert "top-level '- ' bullet" in _expectations(reported)[0]
+    assert "Sub-lists are not permitted" in get_messages(reported)[0]
+    assert "top-level '- ' bullet" in get_expectations(reported)[0]
 
 
 def test_block_quote_entry_suggests_plain_text(tmp_path, monkeypatch):
-    reported, count = _capture(tmp_path, monkeypatch, "- > quoted entry\n")
+    reported, count = capture_output(tmp_path, monkeypatch, "- > quoted entry\n")
 
     assert count == 1
-    assert "Block quotes are not permitted" in _messages(reported)[0]
-    assert "block-quote" in _expectations(reported)[0]
+    assert "Block quotes are not permitted" in get_messages(reported)[0]
+    assert "block-quote" in get_expectations(reported)[0]
 
 
 # ---------------------------------------------------------------------------
@@ -240,7 +240,7 @@ def test_block_quote_entry_suggests_plain_text(tmp_path, monkeypatch):
     ],
 )
 def test_every_layout_error_has_an_expectation(tmp_path, monkeypatch, text):
-    reported, count = _capture(tmp_path, monkeypatch, text)
+    reported, count = capture_output(tmp_path, monkeypatch, text)
 
     assert count >= 1
     for _, expectation in reported:

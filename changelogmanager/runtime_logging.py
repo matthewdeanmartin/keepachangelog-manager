@@ -13,7 +13,7 @@ VERBOSE = 15
 LOGGER_NAME = "changelogmanager"
 
 
-def _coerce_log_kwargs(
+def coerce_log_kwargs(
     kwargs: Mapping[str, object],
 ) -> tuple[Any, bool, int, Mapping[str, object] | None]:
     unknown = set(kwargs) - {"exc_info", "stack_info", "stacklevel", "extra"}
@@ -56,7 +56,7 @@ def _coerce_log_kwargs(
     return exc_info, stack_info, stacklevel, extra
 
 
-def _install_verbose_level() -> None:
+def install_verbose_level() -> None:
     if logging.getLevelName(VERBOSE) != "VERBOSE":
         logging.addLevelName(VERBOSE, "VERBOSE")
 
@@ -67,7 +67,7 @@ def _install_verbose_level() -> None:
         self: logging.Logger, message: str, *args: object, **kwargs: object
     ) -> None:
         if self.isEnabledFor(VERBOSE):
-            exc_info, stack_info, stacklevel, extra = _coerce_log_kwargs(kwargs)
+            exc_info, stack_info, stacklevel, extra = coerce_log_kwargs(kwargs)
             self.log(
                 VERBOSE,
                 message,
@@ -84,14 +84,14 @@ def _install_verbose_level() -> None:
 def get_logger(name: str) -> logging.Logger:
     """Returns a configured logger within the changelogmanager namespace."""
 
-    _install_verbose_level()
+    install_verbose_level()
     return logging.getLogger(name)
 
 
 def configure_runtime_logging(*, info: bool, verbose: bool) -> None:
     """Configures stderr logging for runtime diagnostics."""
 
-    _install_verbose_level()
+    install_verbose_level()
     namespace_logger = logging.getLogger(LOGGER_NAME)
     namespace_logger.handlers.clear()
     namespace_logger.propagate = False

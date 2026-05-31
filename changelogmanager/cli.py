@@ -23,7 +23,7 @@ from typing import Any
 import inquirer  # type: ignore
 import yaml
 
-import changelogmanager._llvm_diagnostics as logging
+import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.backfill import apply_backfill_plan, plan_tag_backfill
 from changelogmanager.change_types import TYPES_OF_CHANGE, UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
@@ -136,7 +136,7 @@ def resolve_config(config: str | None) -> str | None:
     return detected
 
 
-def _config_source_text(args: argparse.Namespace, config_path: str | None) -> str:
+def config_source_text(args: argparse.Namespace, config_path: str | None) -> str:
     config_arg = args.config if isinstance(args.config, str) else None
     if config_arg:
         return f"explicit --config ({config_path})"
@@ -145,19 +145,19 @@ def _config_source_text(args: argparse.Namespace, config_path: str | None) -> st
     return "built-in defaults"
 
 
-def _resolved_config_path(args: argparse.Namespace) -> str | None:
+def resolved_config_path(args: argparse.Namespace) -> str | None:
     resolved = getattr(args, "resolved_config_path", None)
     return resolved if isinstance(resolved, str) else None
 
 
-def _config_prompt_choices(
+def config_prompt_choices(
     options: Mapping[str, str],
 ) -> tuple[list[str], dict[str, str]]:
     reverse = {label: value for value, label in options.items()}
     return list(options.values()), reverse
 
 
-def _component_defaults(config: Mapping[str, Any]) -> tuple[str, str]:
+def component_defaults(config: Mapping[str, Any]) -> tuple[str, str]:
     components = config.get("project", {}).get("components", []) or []
     first = components[0] if components else {}
     name = str(first.get("name", "default"))
@@ -165,7 +165,7 @@ def _component_defaults(config: Mapping[str, Any]) -> tuple[str, str]:
     return name, changelog
 
 
-def _skill_location_choices() -> tuple[list[str], dict[str, Path]]:
+def skill_location_choices() -> tuple[list[str], dict[str, Path]]:
     cwd = Path.cwd()
     mapping = {
         f"GitHub Copilot project ({cwd / COPILOT_SKILLS_DIR})": cwd
@@ -190,7 +190,7 @@ def prompt_for_skill_export_path(path: str | None) -> Path:
             message="skill export requires --path in non-interactive mode",
         )
 
-    choices, choice_map = _skill_location_choices()
+    choices, choice_map = skill_location_choices()
     answers = inquirer.prompt(
         [
             inquirer.List(
@@ -236,11 +236,11 @@ def prompt_for_config_init(  # pylint: disable=too-many-locals
 
     logger.info("Prompting for configuration initialization values")
     prompts: list[inquirer.questions.Question] = []
-    version_choices, version_reverse = _config_prompt_choices(
+    version_choices, version_reverse = config_prompt_choices(
         {scheme: data["label"] for scheme, data in VERSIONING_SCHEMES.items()}
     )
-    commit_choices, commit_reverse = _config_prompt_choices(COMMIT_STYLE_LABELS)
-    component_name, changelog_path = _component_defaults(config)
+    commit_choices, commit_reverse = config_prompt_choices(COMMIT_STYLE_LABELS)
+    component_name, changelog_path = component_defaults(config)
     components = config.get("project", {}).get("components", []) or []
     commit_style = str(
         config.get("project", {}).get("commits", {}).get("style", "conventional")
@@ -331,7 +331,7 @@ def prompt_for_config_init(  # pylint: disable=too-many-locals
     }
 
 
-def _build_updated_config(
+def build_updated_config(
     base_config: Mapping[str, Any], answers: Mapping[str, Any]
 ) -> dict[str, Any]:
     logger.log(VERBOSE, "Building updated configuration from prompt answers")
@@ -365,7 +365,7 @@ def command_config(args: argparse.Namespace, ctx: CliContext) -> None:
     """Shows the effective configuration and its origin."""
 
     logger.info("Running config command")
-    resolved_config = _resolved_config_path(args)
+    resolved_config = resolved_config_path(args)
     config_arg = args.config if isinstance(args.config, str) else None
     if config_arg and not Path(config_arg).is_file():
         raise logging.Error(
@@ -376,7 +376,7 @@ def command_config(args: argparse.Namespace, ctx: CliContext) -> None:
         resolved_config if resolved_config and Path(resolved_config).is_file() else None
     )
     config = get_effective_configuration(active_path)
-    source = _config_source_text(args, active_path)
+    source = config_source_text(args, active_path)
     emit(ctx, text=f"Config source: {source}")
     emit(
         ctx,
@@ -393,7 +393,7 @@ def command_config_init(args: argparse.Namespace, ctx: CliContext) -> None:
     """Creates or updates configuration interactively."""
 
     logger.info("Running config init command")
-    resolved_config = _resolved_config_path(args)
+    resolved_config = resolved_config_path(args)
     config_arg = args.config if isinstance(args.config, str) else None
     existing_path = (
         resolved_config if resolved_config and Path(resolved_config).is_file() else None
@@ -420,7 +420,7 @@ def command_config_init(args: argparse.Namespace, ctx: CliContext) -> None:
             else default_config_path_for_format(str(answers["config_format"]))
         )
     )
-    updated = _build_updated_config(existing_config, answers)
+    updated = build_updated_config(existing_config, answers)
     write_configuration(str(target_path), updated)
 
     action = (
@@ -599,7 +599,7 @@ def command_version(args: argparse.Namespace, ctx: CliContext) -> None:
     ctx.json_payload["reference"] = args.reference
 
 
-def _resolve_formatter(
+def resolve_formatter(
     args: argparse.Namespace, config: Any
 ) -> tuple[Any, dict[str, Any]]:
     """Returns (formatter_or_None, mdformat_options) honouring CLI flags and config."""
@@ -644,7 +644,7 @@ def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
         return
 
     # --fix mode: re-read with autofix, normalise, and write back.
-    config = _resolved_config_path(args)
+    config = resolved_config_path(args)
     enforce_preamble = bool(
         get_validation_options(config).get("enforce_preamble", False)
     )
@@ -656,7 +656,7 @@ def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
     )
     fixed_data, applied = reader.autofix(dict(ctx.changelog.get()))
 
-    formatter, fmt_options = _resolve_formatter(args, config)
+    formatter, fmt_options = resolve_formatter(args, config)
 
     # Check whether the format pass would change anything (needed for dry-run and
     # the "no fixes required" early-exit check).
@@ -773,7 +773,7 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
         ctx.json_payload["bumped_version"] = new_version
 
 
-def _export_target(args: argparse.Namespace, default_name: str) -> str:
+def export_target(args: argparse.Namespace, default_name: str) -> str:
     file_name = getattr(args, "file_name", None)
     return file_name or default_name
 
@@ -783,7 +783,7 @@ def command_to_json(args: argparse.Namespace, ctx: CliContext) -> None:
 
     logger.info("Running to-json command for %s", ctx.changelog.get_file_path())
     changelog = ctx.changelog
-    output = _export_target(args, "CHANGELOG.json")
+    output = export_target(args, "CHANGELOG.json")
 
     if args.dry_run:
         changelog.to_json()
@@ -800,7 +800,7 @@ def command_to_yaml(args: argparse.Namespace, ctx: CliContext) -> None:
 
     logger.info("Running to-yaml command for %s", ctx.changelog.get_file_path())
     changelog = ctx.changelog
-    output = _export_target(args, "CHANGELOG.yaml")
+    output = export_target(args, "CHANGELOG.yaml")
 
     if args.dry_run:
         changelog.to_yaml()
@@ -817,7 +817,7 @@ def command_to_html(args: argparse.Namespace, ctx: CliContext) -> None:
 
     logger.info("Running to-html command for %s", ctx.changelog.get_file_path())
     changelog = ctx.changelog
-    output = _export_target(args, "CHANGELOG.html")
+    output = export_target(args, "CHANGELOG.html")
 
     if args.dry_run:
         changelog.to_html()
@@ -1179,17 +1179,17 @@ CONVENTIONAL_TO_KAC = {
 }
 
 
-def _git_executable() -> str:
+def git_executable() -> str:
     git = shutil.which("git")
     if git is None:
         raise FileNotFoundError("git executable not found on PATH")
     return git
 
 
-def _git_log_since(since: str | None) -> list[str]:
+def git_log_since(since: str | None) -> list[str]:
     """Returns commit subjects since a ref (or all if since is None)."""
 
-    cmd = [_git_executable(), "log", "--no-merges", "--pretty=%s"]
+    cmd = [git_executable(), "log", "--no-merges", "--pretty=%s"]
     if since:
         cmd.append(f"{since}..HEAD")
     logger.info("Running git log command with since=%s", since or "<all>")
@@ -1206,11 +1206,11 @@ def _git_log_since(since: str | None) -> list[str]:
     return [line for line in result.stdout.splitlines() if line.strip()]
 
 
-def _last_release_tag() -> str | None:
+def last_release_tag() -> str | None:
     logger.log(VERBOSE, "Looking up last release tag with git describe")
     try:
         result = subprocess.run(  # nosec B603
-            [_git_executable(), "describe", "--tags", "--abbrev=0"],
+            [git_executable(), "describe", "--tags", "--abbrev=0"],
             check=True,
             capture_output=True,
             text=True,
@@ -1251,9 +1251,9 @@ def command_from_commits(  # pylint: disable=too-many-locals,too-many-branches
     logger.info("Running from-commits command for %s", ctx.changelog.get_file_path())
     since = args.since
     if since is None and not args.all_history:
-        since = _last_release_tag()
+        since = last_release_tag()
 
-    subjects = _git_log_since(since)
+    subjects = git_log_since(since)
     if not subjects:
         emit(ctx, text="No commits found", json_key="added", json_value=0)
         return
@@ -1386,13 +1386,13 @@ def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
 # ----------------------------------------------------------------------
 
 
-def _changed_files() -> set[str]:
+def changed_files() -> set[str]:
     """Returns paths changed vs HEAD (staged+unstaged+untracked)."""
 
     logger.log(VERBOSE, "Inspecting git status for changed files")
     try:
         result = subprocess.run(  # nosec B603
-            [_git_executable(), "status", "--porcelain"],
+            [git_executable(), "status", "--porcelain"],
             check=True,
             capture_output=True,
             text=True,
@@ -1420,7 +1420,7 @@ def run_validate_all(  # pylint: disable=too-many-locals
 
     logger.info("Running validate --all using %s", config_path)
     components = get_components_from_config(config_path)
-    changed = _changed_files() if getattr(args, "changed_only", False) else None
+    changed = changed_files() if getattr(args, "changed_only", False) else None
 
     failures = 0
     summaries: list[dict[str, Any]] = []
@@ -1429,7 +1429,7 @@ def run_validate_all(  # pylint: disable=too-many-locals
     )
     preamble_keywords = get_preamble_keywords(config_path)
     versioning_scheme = get_versioning_scheme(config_path)
-    formatter, fmt_options = _resolve_formatter(args, config_path)
+    formatter, fmt_options = resolve_formatter(args, config_path)
 
     for component in components:
         path = component.get("changelog")
@@ -1645,15 +1645,15 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         default=False,
         help="When combined with --all, only validate components changed in git",
     )
-    _fmt_group = validate_parser.add_mutually_exclusive_group()
-    _fmt_group.add_argument(
+    fmt_group = validate_parser.add_mutually_exclusive_group()
+    fmt_group.add_argument(
         "--format",
         dest="format",
         action="store_true",
         default=False,
         help="Run mdformat after structural fixes (error if mdformat not found)",
     )
-    _fmt_group.add_argument(
+    fmt_group.add_argument(
         "--no-format",
         dest="no_format",
         action="store_true",
@@ -1952,12 +1952,12 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     from_commits_parser.set_defaults(handler=command_from_commits)
 
     gui_parser = subparsers.add_parser("gui", help="Launch the Tkinter GUI")
-    gui_parser.set_defaults(handler=_command_gui)
+    gui_parser.set_defaults(handler=command_gui)
 
     return parser
 
 
-def _command_gui(_args: argparse.Namespace, _ctx: CliContext) -> None:
+def command_gui(_args: argparse.Namespace, _ctx: CliContext) -> None:
     """Launch the Tkinter GUI (handler used only as a fallback path)."""
 
     from changelogmanager.gui import run_gui  # pylint: disable=import-outside-toplevel

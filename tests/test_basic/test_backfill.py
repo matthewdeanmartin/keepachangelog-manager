@@ -3,17 +3,17 @@ from types import SimpleNamespace
 
 import pytest
 
-import changelogmanager._llvm_diagnostics as logging
+import changelogmanager.llvm_diagnostics as logging
 from changelogmanager import backfill, cli
 from changelogmanager.changelog import Changelog
 from changelogmanager.changelog_reader import ChangelogReader
 
 
 def fake_tag_run(stdout):
-    def _run(*args, **kwargs):
+    def run(*args, **kwargs):
         return SimpleNamespace(stdout=stdout)
 
-    return _run
+    return run
 
 
 def test_discover_tag_releases_normalizes_orders_and_skips_non_semver(monkeypatch):

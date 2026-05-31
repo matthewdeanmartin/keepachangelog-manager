@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0; see changelogmanager/_llvm_diagnostics/LICENSE.md.
+# SPDX-License-Identifier: Apache-2.0; see changelogmanager/llvm_diagnostics/LICENSE.md.
 # Vendored from llvm_diagnostics 3.0.1 with local import path adjustments.
 
 """Utilities"""
@@ -6,7 +6,7 @@
 import re
 from enum import Enum, auto
 
-_ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
 class TextFormat(Enum):
@@ -27,7 +27,7 @@ def format_string(string: str, color: TextFormat) -> str:
 
 def strip_ansi_escape_chars(string: str) -> str:
     """Removes all ANSI code characters from string"""
-    return _ANSI_ESCAPE.sub("", string)
+    return ANSI_ESCAPE.sub("", string)
 
 
 class Level(Enum):

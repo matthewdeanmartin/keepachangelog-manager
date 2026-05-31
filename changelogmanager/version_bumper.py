@@ -7,7 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import changelogmanager._llvm_diagnostics as logging
+import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.runtime_logging import get_logger
 
 if TYPE_CHECKING:
@@ -19,14 +19,14 @@ try:
     from jiggle_version.discover import find_source_files
     from jiggle_version.update import update_pyproject_toml, update_python_file
 
-    _HAS_JIGGLE = True
+    HAS_JIGGLE = True
 except ImportError:
-    _HAS_JIGGLE = False
+    HAS_JIGGLE = False
 
 
 def jiggle_available() -> bool:
     """Returns True when jiggle-version is importable."""
-    return _HAS_JIGGLE
+    return HAS_JIGGLE
 
 
 def bump_version_files(
@@ -41,7 +41,7 @@ def bump_version_files(
 
     Raises logging.Error if jiggle-version is not installed.
     """
-    if not _HAS_JIGGLE:
+    if not HAS_JIGGLE:
         raise logging.Error(
             message=(
                 "jiggle-version is required to bump version files. "

@@ -1,6 +1,6 @@
 import pytest
 
-from changelogmanager._vendor import keepachangelog
+from changelogmanager.vendor import keepachangelog
 
 
 def test_changelog_not_found():

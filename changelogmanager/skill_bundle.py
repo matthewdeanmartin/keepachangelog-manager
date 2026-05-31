@@ -65,11 +65,11 @@ def export_skill(destination: str | Path) -> Path:
 
     target = resolve_export_path(destination)
     logger.info("Exporting bundled skill to %s", target)
-    _copy_tree(bundled_skill_root(), target)
+    copy_tree(bundled_skill_root(), target)
     return target
 
 
-def _copy_tree(source: Traversable, destination: Path) -> None:
+def copy_tree(source: Traversable, destination: Path) -> None:
     if destination.exists():
         logger.error("Skill export destination already exists: %s", destination)
         raise FileExistsError(str(destination))
@@ -80,7 +80,7 @@ def _copy_tree(source: Traversable, destination: Path) -> None:
         child_path = destination / child.name
         if child.is_dir():
             logger.log(VERBOSE, "Recursively copying skill directory %s", child_path)
-            _copy_tree(child, child_path)
+            copy_tree(child, child_path)
             continue
         logger.log(VERBOSE, "Copying skill file %s", child_path)
         child_path.write_bytes(child.read_bytes())

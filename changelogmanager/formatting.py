@@ -26,7 +26,7 @@ class Formatter(Protocol):
     def __call__(self, text: str, options: dict[str, Any]) -> str: ...
 
 
-class _InProcessFormatter:
+class InProcessFormatter:
     def __call__(self, text: str, options: dict[str, Any]) -> str:
         import mdformat
 
@@ -35,13 +35,13 @@ class _InProcessFormatter:
         return str(mdformat.text(text, options={"wrap": wrap, "number": number}))
 
 
-class _SubprocessFormatter:
+class SubprocessFormatter:
     def __init__(self, executable: str) -> None:
-        self._exe = executable
+        self.exe = executable
 
     def __call__(self, text: str, options: dict[str, Any]) -> str:  # noqa: ARG002
         result = subprocess.run(  # nosec B603
-            [self._exe, "-"],
+            [self.exe, "-"],
             input=text,
             capture_output=True,
             text=True,
@@ -58,7 +58,7 @@ def discover_formatter() -> Formatter | None:
         import mdformat  # noqa: F401
 
         logger.log(VERBOSE, "mdformat available in-process; using in-process formatter")
-        return _InProcessFormatter()
+        return InProcessFormatter()
     except ImportError:
         pass
 
@@ -67,7 +67,7 @@ def discover_formatter() -> Formatter | None:
         logger.log(
             VERBOSE, "mdformat executable found at %s; using subprocess formatter", exe
         )
-        return _SubprocessFormatter(exe)
+        return SubprocessFormatter(exe)
 
     logger.log(VERBOSE, "No mdformat formatter found; format pass will be skipped")
     return None

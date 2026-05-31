@@ -10,7 +10,7 @@ These are two separate layers that now live in this repository:
 |---|---|---|
 | **What it is** | A slim vendored parser/serializer subpackage | A CLI tool and higher-level library |
 | **What it does** | Parses `CHANGELOG.md` into Python dicts and back | Validates, edits, releases, and exports your changelog |
-| **Where it lives** | `changelogmanager/_vendor/keepachangelog/` | `changelogmanager/` |
+| **Where it lives** | `changelogmanager/vendor/keepachangelog/` | `changelogmanager/` |
 
 `keepachangelog-manager` vendors the tiny subset of
 [`Colin-b/keepachangelog`](https://github.com/Colin-b/keepachangelog) that it

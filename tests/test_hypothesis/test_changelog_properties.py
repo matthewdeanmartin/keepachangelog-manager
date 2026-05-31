@@ -10,7 +10,7 @@ from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 from semantic_version import Version
 
-import changelogmanager._llvm_diagnostics as logging
+import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import CATEGORIES, TYPES_OF_CHANGE, UNRELEASED_ENTRY
 from changelogmanager.changelog import INITIAL_VERSION, Changelog
 
@@ -38,10 +38,10 @@ semver_strategy = st.builds(
 change_type_subsets = st.frozensets(valid_change_types, min_size=1)
 
 # Suppress function-scoped-fixture warning: these tests create their own tmp dirs
-_suppress = settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+suppress = settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
 
 
-def _tmp_changelog(tmp_dir: str) -> str:
+def tmp_changelog(tmp_dir: str) -> str:
     return str(Path(tmp_dir) / "CHANGELOG.md")
 
 
@@ -219,7 +219,7 @@ class TestReleaseInvariants:
         assume(Version(override) > Version("0.0.0"))
         with tempfile.TemporaryDirectory() as tmp:
             cl = make_changelog_with_unreleased(
-                change_types, released_version="0.0.0", file_path=_tmp_changelog(tmp)
+                change_types, released_version="0.0.0", file_path=tmp_changelog(tmp)
             )
             cl.release(override_version=override)
             assert UNRELEASED_ENTRY not in cl.get()
@@ -230,7 +230,7 @@ class TestReleaseInvariants:
         assume(Version(override) > Version("0.0.0"))
         with tempfile.TemporaryDirectory() as tmp:
             cl = make_changelog_with_unreleased(
-                change_types, released_version="0.0.0", file_path=_tmp_changelog(tmp)
+                change_types, released_version="0.0.0", file_path=tmp_changelog(tmp)
             )
             cl.release(override_version=override)
             assert list(cl.get().keys())[0] == override
@@ -241,7 +241,7 @@ class TestReleaseInvariants:
         assume(Version(override) > Version("0.0.0"))
         with tempfile.TemporaryDirectory() as tmp:
             cl = make_changelog_with_unreleased(
-                change_types, released_version="0.0.0", file_path=_tmp_changelog(tmp)
+                change_types, released_version="0.0.0", file_path=tmp_changelog(tmp)
             )
             cl.release(override_version=override)
             meta = cl.get()[override]["metadata"]
@@ -255,7 +255,7 @@ class TestReleaseInvariants:
         assume(Version(override) > Version("0.0.0"))
         with tempfile.TemporaryDirectory() as tmp:
             cl = make_changelog_with_unreleased(
-                change_types, released_version="0.0.0", file_path=_tmp_changelog(tmp)
+                change_types, released_version="0.0.0", file_path=tmp_changelog(tmp)
             )
             cl.release(override_version=override)
             meta = cl.get()[override]["metadata"]
@@ -269,7 +269,7 @@ class TestReleaseInvariants:
     def test_release_without_override_produces_valid_semver(self, change_types):
         with tempfile.TemporaryDirectory() as tmp:
             cl = make_changelog_with_unreleased(
-                change_types, released_version="1.0.0", file_path=_tmp_changelog(tmp)
+                change_types, released_version="1.0.0", file_path=tmp_changelog(tmp)
             )
             cl.release()
             for k in cl.get():
@@ -282,7 +282,7 @@ class TestReleaseInvariants:
         assume(Version(override) > Version("0.0.0"))
         with tempfile.TemporaryDirectory() as tmp:
             cl = make_changelog_with_unreleased(
-                change_types, released_version="0.0.0", file_path=_tmp_changelog(tmp)
+                change_types, released_version="0.0.0", file_path=tmp_changelog(tmp)
             )
             cl.release(override_version=override)
             assert "0.0.0" in cl.get()
@@ -295,7 +295,7 @@ class TestReleaseInvariants:
         assume(Version(override) > Version("0.0.0"))
         with tempfile.TemporaryDirectory() as tmp:
             cl = make_changelog_with_unreleased(
-                change_types, released_version="0.0.0", file_path=_tmp_changelog(tmp)
+                change_types, released_version="0.0.0", file_path=tmp_changelog(tmp)
             )
             cl.release(override_version=override)
             date_str = cl.get()[override]["metadata"]["release_date"]
@@ -359,13 +359,13 @@ class TestVPrefixStripping:
 
         with tempfile.TemporaryDirectory() as tmp1:
             cl1 = make_changelog_with_unreleased(
-                {"added"}, released_version="0.0.0", file_path=_tmp_changelog(tmp1)
+                {"added"}, released_version="0.0.0", file_path=tmp_changelog(tmp1)
             )
             cl1.release(override_version=semver)
 
         with tempfile.TemporaryDirectory() as tmp2:
             cl2 = make_changelog_with_unreleased(
-                {"added"}, released_version="0.0.0", file_path=_tmp_changelog(tmp2)
+                {"added"}, released_version="0.0.0", file_path=tmp_changelog(tmp2)
             )
             cl2.release(override_version=f"v{semver}")
 

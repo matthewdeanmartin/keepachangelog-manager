@@ -5,7 +5,7 @@ from datetime import datetime as real_datetime
 import pytest
 from semantic_version import Version
 
-import changelogmanager._llvm_diagnostics as logging
+import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import UNRELEASED_ENTRY
 from changelogmanager.changelog import INITIAL_VERSION, Changelog
 

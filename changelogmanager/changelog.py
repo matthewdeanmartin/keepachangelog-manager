@@ -14,8 +14,8 @@ from typing import Any, Optional
 import yaml
 from semantic_version import Version  # type: ignore
 
-import changelogmanager._llvm_diagnostics as logging
-from changelogmanager._vendor import keepachangelog
+import changelogmanager.llvm_diagnostics as logging
+from changelogmanager.vendor import keepachangelog
 from changelogmanager.change_types import (
     CATEGORIES,
     DEFAULT_CHANGELOG_FILE,
@@ -29,7 +29,7 @@ INITIAL_VERSION = Version("0.0.1")
 logger = get_logger(__name__)
 
 
-def _require_string_entries(
+def require_string_entries(
     entries: object, *, file_path: str, change_type: str
 ) -> list[str]:
     if not isinstance(entries, list) or not all(
@@ -148,7 +148,7 @@ class Changelog:
                 message="Unable to remove without [Unreleased] section",
             )
         unreleased = self.__changelog[UNRELEASED_ENTRY]
-        entries = _require_string_entries(
+        entries = require_string_entries(
             unreleased.get(change_type),
             file_path=self.get_file_path(),
             change_type=change_type,
@@ -192,7 +192,7 @@ class Changelog:
                 message="Unable to edit without [Unreleased] section",
             )
         unreleased = self.__changelog[UNRELEASED_ENTRY]
-        entries = _require_string_entries(
+        entries = require_string_entries(
             unreleased.get(change_type),
             file_path=self.get_file_path(),
             change_type=change_type,
@@ -277,27 +277,27 @@ class Changelog:
             override_version = override_version[1:]
 
         try:
-            _version = (
+            target_version = (
                 Version(override_version)
                 if override_version
                 else self.suggest_future_version()
             )
         except ValueError as exc_info:
-            _message = f"Version '{override_version}' is not SemVer compliant"
+            msg = f"Version '{override_version}' is not SemVer compliant"
             logger.error(
                 "Rejected invalid release version %s for %s",
                 override_version,
                 self.__changelog_file_path,
             )
-            raise logging.Error(message=_message) from exc_info
+            raise logging.Error(message=msg) from exc_info
 
-        if str(_version) in self.get():
+        if str(target_version) in self.get():
             raise logging.Error(
                 file_path=self.get_file_path(),
-                message=f"Unable to release an already released version '{_version}'",
+                message=f"Unable to release an already released version '{target_version}'",
             )
 
-        if not self.__has_only_unreleased_version() and _version < self.version():
+        if not self.__has_only_unreleased_version() and target_version < self.version():
             raise logging.Error(
                 file_path=self.get_file_path(),
                 message=(
@@ -328,8 +328,8 @@ class Changelog:
 
             return changelog_out
 
-        self.__changelog = dict(update_unreleased_version(self.__changelog, _version))
-        logger.info("Prepared release %s for %s", _version, self.__changelog_file_path)
+        self.__changelog = dict(update_unreleased_version(self.__changelog, target_version))
+        logger.info("Prepared release %s for %s", target_version, self.__changelog_file_path)
 
     def version(self) -> Version:
         """Returns the last released version"""

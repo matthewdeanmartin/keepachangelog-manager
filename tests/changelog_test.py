@@ -18,7 +18,7 @@ import pytest
 from freezegun import freeze_time
 from semantic_version import Version
 
-import changelogmanager._llvm_diagnostics as logging
+import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import CATEGORIES, VersionCore
 from changelogmanager.changelog import (
     DEFAULT_CHANGELOG_FILE,
@@ -359,13 +359,13 @@ def test_suggest_future_version(changelog_file):
 def test_suggest_future_version_cascade(changelog_file):
     """Verifies that the next version is returned"""
 
-    _patch_types = [
+    patch_types = [
         key for key, value in CATEGORIES.items() if value.bump == VersionCore.PATCH
     ]
-    _minor_types = [
+    minor_types = [
         key for key, value in CATEGORIES.items() if value.bump == VersionCore.MINOR
     ]
-    _major_types = [
+    major_types = [
         key for key, value in CATEGORIES.items() if value.bump == VersionCore.MAJOR
     ]
 
@@ -381,6 +381,6 @@ def test_suggest_future_version_cascade(changelog_file):
             changelog.add(change_type, "")
             assert changelog.suggest_future_version() == expected_version
 
-    validate_version("1.1.1", _patch_types)
-    validate_version("1.2.0", _minor_types)
-    validate_version("2.0.0", _major_types)
+    validate_version("1.1.1", patch_types)
+    validate_version("1.2.0", minor_types)
+    validate_version("2.0.0", major_types)

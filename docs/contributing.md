@@ -34,12 +34,12 @@ changelogmanager/
   change_types.py      category definitions and semver bump mapping
   config.py            YAML config file loading for multi-component repos
   github.py            GitHub API client for release management
-  _llvm_diagnostics/   vendored diagnostic message formatting
+  llvm_diagnostics/   vendored diagnostic message formatting
 ```
 
-## Diagnostics (`_llvm_diagnostics`)
+## Diagnostics (`llvm_diagnostics`)
 
-Error, warning, and info messages are raised as exceptions from `changelogmanager._llvm_diagnostics`. The `main()` function catches them and calls `.report()`, which prints to stderr in the configured format. This means validation errors do not produce stack traces — they produce readable diagnostic output.
+Error, warning, and info messages are raised as exceptions from `changelogmanager.llvm_diagnostics`. The `main()` function catches them and calls `.report()`, which prints to stderr in the configured format. This means validation errors do not produce stack traces — they produce readable diagnostic output.
 
 ## Submitting changes
 

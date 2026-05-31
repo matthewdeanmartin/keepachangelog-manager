@@ -4,7 +4,7 @@ import os.path
 
 import pytest
 
-from changelogmanager._vendor import keepachangelog
+from changelogmanager.vendor import keepachangelog
 
 
 @pytest.fixture

@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0; see changelogmanager/llvm_diagnostics/LICENSE.md.
+# Vendored from llvm_diagnostics 3.0.1 with local import path adjustments.
+
+# flake8: noqa
+# pylint: disable=W0622
+
+"""Init"""
+
+from changelogmanager.llvm_diagnostics import formatters
+from changelogmanager.llvm_diagnostics.formatters import config
+from changelogmanager.llvm_diagnostics.messages import Error, Info, Range, Warning
+from changelogmanager.llvm_diagnostics.utils import Level
+
+__all__ = ["formatters", "config", "Error", "Info", "Range", "Warning", "Level"]

@@ -4,7 +4,7 @@ from urllib.error import HTTPError, URLError
 
 import pytest
 
-import changelogmanager._llvm_diagnostics as logging
+import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
 from changelogmanager.github import RELEASES_CHUNK_SIZE, GitHub, HttpMethods

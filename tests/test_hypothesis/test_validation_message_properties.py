@@ -18,12 +18,12 @@ from pathlib import Path
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
-import changelogmanager._llvm_diagnostics as logging
+import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import TYPES_OF_CHANGE
 from changelogmanager.changelog_reader import ChangelogReader
 
 # Tests write their own files into the function-scoped tmp_path fixture.
-_suppress = settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+suppress = settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
 
 ACCEPTED_TITLES = [ct.title() for ct in TYPES_OF_CHANGE]
 
@@ -36,7 +36,7 @@ heading_text = st.text(
 ).filter(lambda s: s.strip() != "")
 
 
-def _capture(tmp_path, monkeypatch, text):
+def capture_output(tmp_path, monkeypatch, text):
     changelog_file = tmp_path / "CHANGELOG.md"
     changelog_file.write_text(text, encoding="utf-8")
     reader = ChangelogReader(file_path=str(changelog_file))
@@ -57,16 +57,16 @@ def _capture(tmp_path, monkeypatch, text):
 
 
 class TestValidatorRobustness:
-    @_suppress
+    @suppress
     @given(text=st.text(max_size=200))
     def test_arbitrary_single_line_never_crashes(self, tmp_path, monkeypatch, text):
         # Strip newlines so this is genuinely one logical line.
         line = text.replace("\n", " ").replace("\r", " ")
-        reported, count = _capture(tmp_path, monkeypatch, line + "\n")
+        reported, count = capture_output(tmp_path, monkeypatch, line + "\n")
         assert count == len(reported)
         assert count >= 0
 
-    @_suppress
+    @suppress
     @given(
         depth=st.integers(min_value=1, max_value=6),
         content=heading_text,
@@ -75,7 +75,7 @@ class TestValidatorRobustness:
         self, tmp_path, monkeypatch, depth, content
     ):
         line = ("#" * depth) + " " + content + "\n"
-        reported, count = _capture(tmp_path, monkeypatch, line)
+        reported, count = capture_output(tmp_path, monkeypatch, line)
         assert count == len(reported)
 
 
@@ -85,24 +85,24 @@ class TestValidatorRobustness:
 
 
 class TestEveryErrorIsActionable:
-    @_suppress
+    @suppress
     @given(depth=st.integers(min_value=4, max_value=6), content=heading_text)
     def test_too_deep_heading_always_has_expectation(
         self, tmp_path, monkeypatch, depth, content
     ):
         line = ("#" * depth) + " " + content + "\n"
-        reported, count = _capture(tmp_path, monkeypatch, line)
+        reported, count = capture_output(tmp_path, monkeypatch, line)
         assert count == 1
         assert reported[0].expectations
 
-    @_suppress
+    @suppress
     @given(content=heading_text)
     def test_level_3_unknown_heading_always_has_expectation(
         self, tmp_path, monkeypatch, content
     ):
         assume(content.strip() not in ACCEPTED_TITLES)
         line = "### " + content + "\n"
-        reported, count = _capture(tmp_path, monkeypatch, line)
+        reported, count = capture_output(tmp_path, monkeypatch, line)
         # Either it's flagged (with a hint) or it happened to be valid.
         for err in reported:
             assert err.expectations
@@ -114,24 +114,24 @@ class TestEveryErrorIsActionable:
 
 
 class TestDidYouMeanSuggestions:
-    @_suppress
+    @suppress
     @given(change_type=st.sampled_from(TYPES_OF_CHANGE))
     def test_uppercased_change_type_suggests_exact_canonical(
         self, tmp_path, monkeypatch, change_type
     ):
         line = "### " + change_type.upper() + "\n"
-        reported, count = _capture(tmp_path, monkeypatch, line)
+        reported, count = capture_output(tmp_path, monkeypatch, line)
         assert count == 1
         assert reported[0].expectations == f"Did you mean '### {change_type.title()}'?"
 
-    @_suppress
+    @suppress
     @given(content=heading_text)
     def test_did_you_mean_only_ever_names_valid_types(
         self, tmp_path, monkeypatch, content
     ):
         assume(content.strip() not in ACCEPTED_TITLES)
         line = "### " + content + "\n"
-        reported, _ = _capture(tmp_path, monkeypatch, line)
+        reported, _ = capture_output(tmp_path, monkeypatch, line)
         for err in reported:
             exp = err.expectations or ""
             if exp.startswith("Did you mean '### "):
@@ -145,25 +145,25 @@ class TestDidYouMeanSuggestions:
 
 
 class TestChangeSectionAtLevel2:
-    @_suppress
+    @suppress
     @given(change_type=st.sampled_from(TYPES_OF_CHANGE))
     def test_canonical_change_type_at_level_2_is_heading_level_error(
         self, tmp_path, monkeypatch, change_type
     ):
         title = change_type.title()
         line = "## " + title + "\n"
-        reported, count = _capture(tmp_path, monkeypatch, line)
+        reported, count = capture_output(tmp_path, monkeypatch, line)
         assert count == 1
         assert "Missing version tag" not in reported[0].message
         assert reported[0].expectations == f"Use '### {title}' instead of '## {title}'"
 
-    @_suppress
+    @suppress
     @given(change_type=st.sampled_from(TYPES_OF_CHANGE))
     def test_uppercased_change_type_at_level_2_still_caught(
         self, tmp_path, monkeypatch, change_type
     ):
         line = "## " + change_type.upper() + "\n"
-        reported, count = _capture(tmp_path, monkeypatch, line)
+        reported, count = capture_output(tmp_path, monkeypatch, line)
         assert count == 1
         assert "Missing version tag" not in reported[0].message
         assert "heading level 2" in reported[0].message
@@ -175,7 +175,7 @@ class TestChangeSectionAtLevel2:
 
 
 class TestValidHeadingsStayClean:
-    @_suppress
+    @suppress
     @given(
         major=st.integers(min_value=0, max_value=99),
         minor=st.integers(min_value=0, max_value=99),
@@ -188,15 +188,15 @@ class TestValidHeadingsStayClean:
         self, tmp_path, monkeypatch, major, minor, patch, year, month, day
     ):
         line = f"## [{major}.{minor}.{patch}] - {year:04d}-{month:02d}-{day:02d}\n"
-        reported, count = _capture(tmp_path, monkeypatch, line)
+        reported, count = capture_output(tmp_path, monkeypatch, line)
         assert count == 0
         assert reported == []
 
-    @_suppress
+    @suppress
     @given(change_type=st.sampled_from(TYPES_OF_CHANGE))
     def test_canonical_change_section_at_level_3_is_clean(
         self, tmp_path, monkeypatch, change_type
     ):
         line = "### " + change_type.title() + "\n"
-        reported, count = _capture(tmp_path, monkeypatch, line)
+        reported, count = capture_output(tmp_path, monkeypatch, line)
         assert count == 0

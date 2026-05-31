@@ -2,7 +2,7 @@ from collections import OrderedDict
 
 import pytest
 
-import changelogmanager._llvm_diagnostics as logging
+import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import UNRELEASED_ENTRY
 from changelogmanager.changelog_reader import ChangelogReader
 

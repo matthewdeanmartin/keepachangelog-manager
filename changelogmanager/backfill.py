@@ -13,7 +13,7 @@ from typing import Any
 
 from semantic_version import Version  # type: ignore
 
-import changelogmanager._llvm_diagnostics as logging
+import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
 from changelogmanager.runtime_logging import VERBOSE, get_logger
@@ -96,7 +96,7 @@ def discover_tag_releases(
     try:
         result = subprocess.run(  # nosec B603
             [
-                _git_executable(),
+                git_executable(),
                 "for-each-ref",
                 "--sort=creatordate",
                 "--format=%(refname:short)%09%(creatordate:short)",
@@ -112,7 +112,7 @@ def discover_tag_releases(
 
     rows = [line.split("\t", 1) for line in result.stdout.splitlines() if line.strip()]
     if since or until:
-        rows = _filter_tag_rows(rows, since=since, until=until)
+        rows = filter_tag_rows(rows, since=since, until=until)
 
     releases: list[BackfillRelease] = []
     skipped: list[str] = []
@@ -204,7 +204,7 @@ def apply_backfill_plan(changelog: Changelog, plan: BackfillPlan) -> None:
     current = OrderedDict(changelog.get())
     unreleased = current.pop(UNRELEASED_ENTRY, None)
     for release in plan.releases:
-        current[release.version] = _release_to_changelog_entry(release)
+        current[release.version] = release_to_changelog_entry(release)
 
     sorted_releases = sorted(
         current.items(),
@@ -220,7 +220,7 @@ def apply_backfill_plan(changelog: Changelog, plan: BackfillPlan) -> None:
     changelog.set_data(dict(updated))
 
 
-def _release_to_changelog_entry(release: BackfillRelease) -> dict[str, Any]:
+def release_to_changelog_entry(release: BackfillRelease) -> dict[str, Any]:
     entry: dict[str, Any] = {
         "metadata": {
             "version": release.version,
@@ -232,17 +232,17 @@ def _release_to_changelog_entry(release: BackfillRelease) -> dict[str, Any]:
     return entry
 
 
-def _filter_tag_rows(
+def filter_tag_rows(
     rows: Sequence[list[str]], *, since: str | None, until: str | None
 ) -> list[list[str]]:
-    start = _find_tag_boundary(rows, since) if since else 0
-    end = _find_tag_boundary(rows, until) if until else len(rows) - 1
+    start = find_tag_boundary(rows, since) if since else 0
+    end = find_tag_boundary(rows, until) if until else len(rows) - 1
     if start > end:
         return []
     return [list(row) for row in rows[start : end + 1]]
 
 
-def _find_tag_boundary(rows: Sequence[list[str]], target: str | None) -> int:
+def find_tag_boundary(rows: Sequence[list[str]], target: str | None) -> int:
     if target is None:
         return 0
     normalized = normalize_tag_version(target)
@@ -253,7 +253,7 @@ def _find_tag_boundary(rows: Sequence[list[str]], target: str | None) -> int:
     raise logging.Error(message=f"Tag boundary not found: {target}")
 
 
-def _git_executable() -> str:
+def git_executable() -> str:
     git = Path("git")
     logger.log(VERBOSE, "Using git executable %s", git)
     return str(git)

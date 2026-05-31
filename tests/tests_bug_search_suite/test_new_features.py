@@ -30,13 +30,13 @@ All notable changes follow Keep a Changelog and Semantic Versioning.
 """
 
 
-def _write(path: Path, body: str = VALID_CHANGELOG) -> str:
+def write_changelog(path: Path, body: str = VALID_CHANGELOG) -> str:
     p = path / "CHANGELOG.md"
     p.write_text(body, encoding="utf-8")
     return str(p)
 
 
-def _capture(argv: list[str]) -> tuple[int, str]:
+def capture_output(argv: list[str]) -> tuple[int, str]:
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = main(argv)
@@ -50,7 +50,7 @@ def _capture(argv: list[str]) -> tuple[int, str]:
 
 class TestRemove:
     def test_remove_entry(self, tmp_path):
-        p = _write(tmp_path)
+        p = write_changelog(tmp_path)
         rc = main(["--input-file", p, "remove", "-t", "added", "-i", "0"])
         assert rc == 0
         text = Path(p).read_text(encoding="utf-8")
@@ -58,20 +58,20 @@ class TestRemove:
         assert "Second feature" in text
 
     def test_remove_dry_run(self, tmp_path):
-        p = _write(tmp_path)
+        p = write_changelog(tmp_path)
         original = Path(p).read_text(encoding="utf-8")
         rc = main(["--input-file", p, "remove", "-t", "added", "-i", "0", "--dry-run"])
         assert rc == 0
         assert Path(p).read_text(encoding="utf-8") == original
 
     def test_remove_invalid_index(self, tmp_path):
-        p = _write(tmp_path)
+        p = write_changelog(tmp_path)
         rc = main(["--input-file", p, "remove", "-t", "added", "-i", "99"])
         assert rc == 1
 
     def test_remove_list(self, tmp_path):
-        p = _write(tmp_path)
-        rc, out = _capture(["--input-file", p, "remove", "--list"])
+        p = write_changelog(tmp_path)
+        rc, out = capture_output(["--input-file", p, "remove", "--list"])
         assert rc == 0
         assert "First feature" in out
         assert "[added] 0" in out
@@ -84,7 +84,7 @@ class TestRemove:
 
 class TestEdit:
     def test_edit_message(self, tmp_path):
-        p = _write(tmp_path)
+        p = write_changelog(tmp_path)
         rc = main(
             [
                 "--input-file",
@@ -104,7 +104,7 @@ class TestEdit:
         assert "First feature" not in text
 
     def test_edit_change_type(self, tmp_path):
-        p = _write(tmp_path)
+        p = write_changelog(tmp_path)
         rc = main(
             [
                 "--input-file",
@@ -125,7 +125,7 @@ class TestEdit:
         assert "First feature" not in added_block
 
     def test_edit_requires_change(self, tmp_path):
-        p = _write(tmp_path)
+        p = write_changelog(tmp_path)
         rc = main(["--input-file", p, "edit", "-t", "added", "-i", "0"])
         assert rc == 1
 
@@ -137,12 +137,12 @@ class TestEdit:
 
 class TestReleaseYes:
     def test_release_with_yes(self, tmp_path):
-        p = _write(tmp_path)
+        p = write_changelog(tmp_path)
         rc = main(["--input-file", p, "release", "--yes"])
         assert rc == 0
 
     def test_release_without_yes_in_non_interactive_fails(self, tmp_path):
-        p = _write(tmp_path)
+        p = write_changelog(tmp_path)
         rc = main(["--input-file", p, "release"])
         assert rc == 1
 
@@ -237,14 +237,14 @@ class TestValidateFix:
 
 class TestQuietJson:
     def test_quiet_suppresses_text_output(self, tmp_path):
-        p = _write(tmp_path)
-        rc, out = _capture(["--quiet", "--input-file", p, "version"])
+        p = write_changelog(tmp_path)
+        rc, out = capture_output(["--quiet", "--input-file", p, "version"])
         assert rc == 0
         assert out == ""
 
     def test_json_emits_structured_output(self, tmp_path):
-        p = _write(tmp_path)
-        rc, out = _capture(["--json", "--input-file", p, "version"])
+        p = write_changelog(tmp_path)
+        rc, out = capture_output(["--json", "--input-file", p, "version"])
         assert rc == 0
         payload = json.loads(out)
         assert payload["version"] == "1.0.0"
@@ -258,7 +258,7 @@ class TestQuietJson:
 
 class TestExports:
     def test_to_yaml_writes_file(self, tmp_path):
-        p = _write(tmp_path)
+        p = write_changelog(tmp_path)
         out = tmp_path / "out.yaml"
         rc = main(["--input-file", p, "to-yaml", "--file-name", str(out)])
         assert rc == 0
@@ -266,7 +266,7 @@ class TestExports:
         assert "First feature" in body
 
     def test_to_html_writes_file(self, tmp_path):
-        p = _write(tmp_path)
+        p = write_changelog(tmp_path)
         out = tmp_path / "out.html"
         rc = main(["--input-file", p, "to-html", "--file-name", str(out)])
         assert rc == 0
@@ -301,7 +301,7 @@ class TestExports:
 
 class TestGitHubTokenFallback:
     def test_token_from_env(self, tmp_path, monkeypatch):
-        p = _write(tmp_path)
+        p = write_changelog(tmp_path)
         monkeypatch.setenv("GITHUB_TOKEN", "env-token")
         # Dry-run avoids real API calls.
         rc = main(
@@ -310,7 +310,7 @@ class TestGitHubTokenFallback:
         assert rc == 0
 
     def test_missing_token_errors(self, tmp_path, monkeypatch):
-        p = _write(tmp_path)
+        p = write_changelog(tmp_path)
         monkeypatch.delenv("GITHUB_TOKEN", raising=False)
         rc = main(["--input-file", p, "github-release", "-r", "owner/repo"])
         assert rc == 1
@@ -368,7 +368,7 @@ def git_repo(tmp_path, monkeypatch):
 
 class TestFromCommits:
     def test_seeds_unreleased(self, git_repo):
-        p = _write(git_repo)
+        p = write_changelog(git_repo)
         rc = main(["--input-file", p, "from-commits", "--all-history"])
         assert rc == 0
         text = Path(p).read_text(encoding="utf-8")
@@ -376,7 +376,7 @@ class TestFromCommits:
         assert "oops" in text
 
     def test_dry_run_does_not_write(self, git_repo):
-        p = _write(git_repo)
+        p = write_changelog(git_repo)
         original = Path(p).read_text(encoding="utf-8")
         rc = main(["--input-file", p, "from-commits", "--all-history", "--dry-run"])
         assert rc == 0
@@ -399,7 +399,7 @@ class TestAutoDetectAndAll:
             encoding="utf-8",
         )
         monkeypatch.chdir(tmp_path)
-        rc, out = _capture(["--component", "api", "version"])
+        rc, out = capture_output(["--component", "api", "version"])
         assert rc == 0
         assert "1.0.0" in out
 

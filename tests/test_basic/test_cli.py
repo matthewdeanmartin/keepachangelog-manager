@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import changelogmanager._llvm_diagnostics as logging
+import changelogmanager.llvm_diagnostics as logging
 from changelogmanager import cli
 from changelogmanager.change_types import UNRELEASED_ENTRY
 

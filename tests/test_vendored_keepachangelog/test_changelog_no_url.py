@@ -1,4 +1,4 @@
-from changelogmanager._vendor import keepachangelog
+from changelogmanager.vendor import keepachangelog
 
 
 changelog_as_text = """# Changelog

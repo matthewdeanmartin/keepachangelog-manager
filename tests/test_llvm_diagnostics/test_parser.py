@@ -4,13 +4,13 @@
 
 from pathlib import Path
 
-import changelogmanager._llvm_diagnostics as llvm_diagnostics
-from changelogmanager._llvm_diagnostics import parser
+import changelogmanager.llvm_diagnostics as llvm_diagnostics
+from changelogmanager.llvm_diagnostics import parser
 
 RESOURCES_DIR = Path(__file__).resolve().parent / "resources"
 
 
-def _check_expectations_vs_file(file, expectations):
+def check_expectations_vs_file(file, expectations):
     for index, item in enumerate(parser.diagnostics_messages_from_file(file)):
         assert isinstance(item, llvm_diagnostics.messages.__Message)
         assert item.file_path == expectations[index].get("filepath")
@@ -20,7 +20,7 @@ def _check_expectations_vs_file(file, expectations):
 
 
 def test_parse_from_logging():
-    _check_expectations_vs_file(
+    check_expectations_vs_file(
         str(RESOURCES_DIR / "test.out"),
         [
             {
@@ -63,7 +63,7 @@ def test_parse_from_logging():
 
 
 def test_parse_from_own_output_file():
-    _check_expectations_vs_file(
+    check_expectations_vs_file(
         str(RESOURCES_DIR / "own.out"),
         [
             {

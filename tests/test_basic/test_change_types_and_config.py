@@ -1,6 +1,6 @@
 import pytest
 
-import changelogmanager._llvm_diagnostics as logging
+import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import CATEGORIES, TYPES_OF_CHANGE, VersionCore
 from changelogmanager.config import (
     get_component_from_config,

@@ -10,21 +10,21 @@ from typing import Any, Optional
 
 import yaml
 
-import changelogmanager._llvm_diagnostics as logging
+import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.runtime_logging import VERBOSE, get_logger
 
 try:
     import tomllib  # type: ignore[import-not-found]
 
-    _HAS_TOMLLIB = True
+    HAS_TOMLLIB = True
 except ImportError:  # Python < 3.11
     try:
         import tomli as tomllib  # type: ignore[import-not-found]
 
-        _HAS_TOMLLIB = True
+        HAS_TOMLLIB = True
     except ImportError:
         tomllib = None
-        _HAS_TOMLLIB = False
+        HAS_TOMLLIB = False
 
 
 CONFIG_FILE_CANDIDATES = (
@@ -95,7 +95,7 @@ def normalize_configuration(config: Optional[Mapping[str, Any]]) -> dict[str, An
     logger.log(VERBOSE, "Normalizing configuration with defaults")
     normalized = deepcopy(DEFAULT_CONFIG)
     if isinstance(config, Mapping):
-        _merge_mappings(normalized, config)
+        merge_mappings(normalized, config)
     return normalized
 
 
@@ -105,11 +105,11 @@ def load_configuration(config_path: str) -> dict[str, Any]:
     path = Path(config_path)
     logger.info("Loading configuration from %s", path)
     if path.name == PYPROJECT_FILE or path.suffix == ".toml":
-        return _load_pyproject(path)
-    return _load_yaml(path)
+        return load_pyproject(path)
+    return load_yaml(path)
 
 
-def _load_yaml(path: Path) -> dict[str, Any]:
+def load_yaml(path: Path) -> dict[str, Any]:
     logger.log(VERBOSE, "Reading YAML configuration from %s", path)
     with path.open(encoding="UTF-8") as file_handle:
         data = yaml.safe_load(file_handle)
@@ -120,8 +120,8 @@ def _load_yaml(path: Path) -> dict[str, Any]:
     return dict(data)
 
 
-def _load_pyproject(path: Path) -> dict[str, Any]:
-    if not _HAS_TOMLLIB:
+def load_pyproject(path: Path) -> dict[str, Any]:
+    if not HAS_TOMLLIB:
         raise logging.Error(
             file_path=str(path),
             message=(
@@ -159,7 +159,7 @@ def auto_detect_config(start_dir: Optional[Path] = None) -> Optional[str]:
             return str(candidate_path)
 
     pyproject_path = base / PYPROJECT_FILE
-    if pyproject_path.is_file() and _HAS_TOMLLIB:
+    if pyproject_path.is_file() and HAS_TOMLLIB:
         try:
             with pyproject_path.open("rb") as file_handle:
                 data = tomllib.load(file_handle)
@@ -327,35 +327,35 @@ def write_configuration(config_path: str, config: Mapping[str, Any]) -> None:
     logger.info("Writing configuration to %s", path)
     path.parent.mkdir(parents=True, exist_ok=True)
     if config_format_from_path(config_path) == "pyproject":
-        _write_pyproject(path, config)
+        write_pyproject(path, config)
         return
-    _write_yaml(path, config)
+    write_yaml(path, config)
 
 
-def _merge_mappings(base: dict[str, Any], updates: Mapping[str, Any]) -> dict[str, Any]:
+def merge_mappings(base: dict[str, Any], updates: Mapping[str, Any]) -> dict[str, Any]:
     for key, value in updates.items():
         if isinstance(value, Mapping) and isinstance(base.get(key), dict):
-            _merge_mappings(base[key], value)
+            merge_mappings(base[key], value)
             continue
         base[key] = deepcopy(value)
     return base
 
 
-def _write_yaml(path: Path, config: Mapping[str, Any]) -> None:
+def write_yaml(path: Path, config: Mapping[str, Any]) -> None:
     logger.log(VERBOSE, "Serializing YAML configuration to %s", path)
     with path.open("w", encoding="UTF-8") as file_handle:
         yaml.safe_dump(dict(config), file_handle, sort_keys=False, allow_unicode=True)
 
 
-def _write_pyproject(path: Path, config: Mapping[str, Any]) -> None:
+def write_pyproject(path: Path, config: Mapping[str, Any]) -> None:
     logger.log(VERBOSE, "Serializing pyproject configuration to %s", path)
     content = path.read_text(encoding="UTF-8") if path.is_file() else ""
-    section = _serialize_pyproject_section(config)
-    updated = _replace_pyproject_section(content, section)
+    section = serialize_pyproject_section(config)
+    updated = replace_pyproject_section(content, section)
     path.write_text(updated, encoding="UTF-8")
 
 
-def _replace_pyproject_section(content: str, section: str) -> str:
+def replace_pyproject_section(content: str, section: str) -> str:
     lines = content.splitlines(keepends=True)
     start = None
     end = None
@@ -390,7 +390,7 @@ def _replace_pyproject_section(content: str, section: str) -> str:
     return merged
 
 
-def _serialize_pyproject_section(config: Mapping[str, Any]) -> str:
+def serialize_pyproject_section(config: Mapping[str, Any]) -> str:
     project = config.get("project", {}) or {}
     validation = project.get("validation", {}) or {}
     commits = project.get("commits", {}) or {}
@@ -402,13 +402,13 @@ def _serialize_pyproject_section(config: Mapping[str, Any]) -> str:
         "[tool.changelogmanager.project]",
         "",
         "[tool.changelogmanager.project.validation]",
-        f"enforce_preamble = {_toml_bool(bool(validation.get('enforce_preamble', False)))}",
+        f"enforce_preamble = {toml_bool(bool(validation.get('enforce_preamble', False)))}",
         "",
         "[tool.changelogmanager.project.commits]",
-        f"style = {_toml_string(str(commits.get('style', 'conventional')))}",
+        f"style = {toml_string(str(commits.get('style', 'conventional')))}",
         "",
         "[tool.changelogmanager.project.versioning]",
-        f"scheme = {_toml_string(str(versioning.get('scheme', 'semver')))}",
+        f"scheme = {toml_string(str(versioning.get('scheme', 'semver')))}",
     ]
 
     for component in components:
@@ -416,18 +416,18 @@ def _serialize_pyproject_section(config: Mapping[str, Any]) -> str:
             [
                 "",
                 "[[tool.changelogmanager.project.components]]",
-                f"name = {_toml_string(str(component.get('name', 'default')))}",
-                f"changelog = {_toml_string(str(component.get('changelog', 'CHANGELOG.md')))}",
+                f"name = {toml_string(str(component.get('name', 'default')))}",
+                f"changelog = {toml_string(str(component.get('changelog', 'CHANGELOG.md')))}",
             ]
         )
 
     return "\n".join(lines) + "\n"
 
 
-def _toml_string(value: str) -> str:
+def toml_string(value: str) -> str:
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{escaped}"'
 
 
-def _toml_bool(value: bool) -> str:
+def toml_bool(value: bool) -> str:
     return "true" if value else "false"

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0; see changelogmanager/_llvm_diagnostics/LICENSE.md.
+# SPDX-License-Identifier: Apache-2.0; see changelogmanager/llvm_diagnostics/LICENSE.md.
 # Vendored from llvm_diagnostics 3.0.1 with local import path adjustments.
 
 """Diagnostic Messages"""
@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from sys import stderr
 from typing import Optional
 
-from changelogmanager._llvm_diagnostics import formatters
-from changelogmanager._llvm_diagnostics.utils import Level
+from changelogmanager.llvm_diagnostics import formatters
+from changelogmanager.llvm_diagnostics.utils import Level
 
 
 @dataclass
