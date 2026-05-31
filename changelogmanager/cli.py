@@ -24,6 +24,7 @@ import inquirer  # type: ignore
 import yaml
 
 import changelogmanager._llvm_diagnostics as logging
+from changelogmanager.backfill import apply_backfill_plan, plan_tag_backfill
 from changelogmanager.change_types import TYPES_OF_CHANGE, UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
 from changelogmanager.changelog_reader import ChangelogReader
@@ -1310,6 +1311,76 @@ def command_from_commits(  # pylint: disable=too-many-locals,too-many-branches
         emit(ctx, text=f"added: [{entry['change_type']}] {entry['message']}")
 
 
+def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
+    """Backfills missing changelog versions from existing release history."""
+
+    logger.info(
+        "Running backfill command for %s from source %s",
+        ctx.changelog.get_file_path(),
+        args.source,
+    )
+    if args.source not in {"tags", "all"}:
+        raise logging.Error(
+            message=(
+                f"Backfill source '{args.source}' is not implemented yet; "
+                "Phase 1 supports local tags"
+            ),
+        )
+    if args.strategy == "replace":
+        raise logging.Error(
+            message="Backfill strategy 'replace' is reserved for a future phase",
+        )
+    if args.strategy == "merge" and not args.missing_only:
+        raise logging.Error(
+            message="Backfill merge into existing versions is reserved for a future phase",
+        )
+    if not args.missing_only:
+        raise logging.Error(
+            message="Backfill for existing versions is reserved for a future phase",
+        )
+    if args.include_unreleased:
+        raise logging.Error(
+            message="Backfill --include-unreleased is reserved for a future phase",
+        )
+
+    plan = plan_tag_backfill(
+        ctx.changelog,
+        since=args.since,
+        until=args.until,
+        missing_only=args.missing_only,
+        dry_run=args.dry_run,
+    )
+    ctx.json_payload.update(plan.to_json())
+
+    emit(ctx, text=f"Backfill plan for {plan.changelog_path}")
+    for version in plan.added_versions:
+        release = next(item for item in plan.releases if item.version == version)
+        tag = release.tag or version
+        emit(ctx, text=f"  add {version} from tag {tag}")
+    for version in plan.skipped_versions:
+        emit(ctx, text=f"  skip {version} already present")
+    for tag in plan.skipped_tags:
+        emit(ctx, text=f"  skip {tag} not SemVer compatible")
+
+    if args.dry_run:
+        message = (
+            f"would update {ctx.changelog.get_file_path()} with "
+            f"{len(plan.added_versions)} version sections"
+        )
+        logger.info("Dry-run: %s", message)
+        emit(
+            ctx,
+            text=f"Dry run: {message}",
+            json_key="dry_run_message",
+            json_value=message,
+        )
+        return
+
+    apply_backfill_plan(ctx.changelog, plan)
+    if plan.added_versions:
+        ctx.changelog.write_to_file()
+
+
 # ----------------------------------------------------------------------
 # --all components handling
 # ----------------------------------------------------------------------
@@ -1774,6 +1845,58 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     )
     add_dry_run_argument(github_pr_parser)
     github_pr_parser.set_defaults(handler=command_github_pr)
+
+    backfill_parser = subparsers.add_parser(
+        "backfill",
+        help="Backfill missing changelog versions from existing release history",
+    )
+    backfill_parser.add_argument(
+        "--source",
+        choices=["tags", "github-releases", "github-prs", "pypi", "commits", "all"],
+        default="all",
+        help="Source or source set to import from",
+    )
+    backfill_parser.add_argument(
+        "--repository",
+        default=None,
+        help="GitHub repository in owner/repo format (reserved for future phases)",
+    )
+    backfill_parser.add_argument(
+        "--package",
+        default=None,
+        help="PyPI package name (reserved for future phases)",
+    )
+    backfill_parser.add_argument(
+        "--since",
+        default=None,
+        help="Earliest version/tag/ref to consider",
+    )
+    backfill_parser.add_argument(
+        "--until",
+        default=None,
+        help="Latest version/tag/ref to consider",
+    )
+    backfill_parser.add_argument(
+        "--missing-only",
+        dest="missing_only",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Only add versions missing from the changelog",
+    )
+    backfill_parser.add_argument(
+        "--include-unreleased",
+        action="store_true",
+        default=False,
+        help="Seed [Unreleased] from changes since latest release (future phase)",
+    )
+    backfill_parser.add_argument(
+        "--strategy",
+        choices=["conservative", "merge", "replace"],
+        default="conservative",
+        help="How to handle versions already present",
+    )
+    add_dry_run_argument(backfill_parser)
+    backfill_parser.set_defaults(handler=command_backfill)
 
     gitlab_release_parser = subparsers.add_parser(
         "gitlab-release",
