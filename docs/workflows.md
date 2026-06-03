@@ -98,6 +98,45 @@ changelogmanager from-commits --strict
 
 ______________________________________________________________________
 
+## Backfilling historical releases
+
+### Backfill missing version sections from local tags
+
+```sh
+changelogmanager backfill --source tags --dry-run
+changelogmanager backfill --source tags
+```
+
+This is aimed at repositories that already have release tags but either no `CHANGELOG.md` yet or gaps in the released sections. The command discovers local git tags, normalizes a leading `v`, filters them through the changelog's active versioning scheme, and adds only versions that are missing.
+
+For each imported version, the tool uses an intentionally honest placeholder:
+
+```markdown
+### Changed
+
+- Release notes unavailable; backfilled from tag `v1.2.3`.
+```
+
+That keeps the generated changelog valid without inventing release notes.
+
+### Limit the range
+
+```sh
+changelogmanager backfill --source tags --since v1.0.0 --until v2.0.0
+```
+
+`--since` and `--until` accept either the exact tag name or the normalized version string.
+
+### What happens today
+
+- `--source tags` is the implemented path
+- `--source all` currently resolves to the same local-tag backfill plan
+- existing versions are skipped by default via `--missing-only`
+- non-version tags are reported and skipped
+- `--strategy merge`, `--strategy replace`, `--include-unreleased`, and the remote backfill sources are reserved for future phases
+
+______________________________________________________________________
+
 ## Releasing
 
 ### Where your version number lives — an important design choice
@@ -367,10 +406,48 @@ Run `github-release` while `[Unreleased]` still exists. If you also want to rewr
 
 ______________________________________________________________________
 
+## GitLab releases
+
+```sh
+changelogmanager gitlab-release --project group/project
+```
+
+GitLab has no draft-release state, so the command is an upsert: it updates the release if the computed tag already exists, otherwise it creates it and lets GitLab create the tag from `--ref`.
+
+Useful variants:
+
+```sh
+changelogmanager gitlab-release --project group/project --ref "$CI_COMMIT_SHA"
+changelogmanager gitlab-release --project group/project --gitlab-url https://gitlab.example.com
+```
+
+The command looks for credentials in `--gitlab-token`, then `GITLAB_TOKEN`, then `CI_JOB_TOKEN`. In practice the default `CI_JOB_TOKEN` usually cannot create releases, so CI jobs should normally supply a project/group/personal access token via `GITLAB_TOKEN`.
+
+See [GitLab automation](gitlab.md) for a concrete `.gitlab-ci.yml` example.
+
+______________________________________________________________________
+
+## GitHub release PR automation
+
+```sh
+changelogmanager github-pr \
+  --repository owner/repo \
+  --head release/bump-123 \
+  --base main \
+  --title "chore: release 1.2.3"
+```
+
+This opens a pull request for a release branch, or updates the title/body if the PR already exists. It is mainly intended for GitHub Actions workflows that cut a release branch and then want an auditable PR back to the target branch.
+
+See [GitHub automation](github.md) for the repository's end-to-end release workflow.
+
+______________________________________________________________________
+
 ## Exports
 
 ```sh
 changelogmanager to-json
+changelogmanager to-json --schema-version v1
 changelogmanager to-yaml
 changelogmanager to-html
 ```
@@ -416,6 +493,8 @@ changelogmanager to-json --file-name changelog-export.json
 changelogmanager to-yaml --file-name changelog-export.yaml
 changelogmanager to-html --file-name changelog-export.html
 ```
+
+`to-json` also accepts `--schema-version` so automation can pin the expected export contract.
 
 ______________________________________________________________________
 

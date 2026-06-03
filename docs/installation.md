@@ -57,6 +57,23 @@ pip install "keepachangelog-manager-fork[jiggle]"
 See [Syncing version strings with --bump-versions](workflows.md#syncing-version-strings-with---bump-versions)
 for usage details.
 
+### `format` - optional mdformat integration
+
+The `format` extra adds `mdformat`, which `validate --fix` can use for an additional Markdown formatting pass after structural changelog fixes.
+
+```sh
+# uv tool install (global CLI)
+uv tool install "keepachangelog-manager-fork[format]"
+
+# uv project dependency
+uv add "keepachangelog-manager-fork[format]"
+
+# pip
+pip install "keepachangelog-manager-fork[format]"
+```
+
+Without this extra, `validate --fix` still applies its built-in changelog autofixes. The formatter pass is optional.
+
 ## Package name vs command name
 
 The PyPI package is named `keepachangelog-manager-fork`. The command you run is `changelogmanager` (or the alias `keepachangelog-manager`). Both entry points call the same code.

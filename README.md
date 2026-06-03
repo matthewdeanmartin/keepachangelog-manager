@@ -7,46 +7,16 @@ Fork of `keepachangelog-manager`, originally mostly written by KevinDeJong at To
 
 ![gif](https://raw.githubusercontent.com/matthewdeanmartin/keepachangelog-manager/main/resources/usage.gif)
 
-## Vendored `keepachangelog`
-
-This project now vendors a slimmed-down copy of
-[`Colin-b/keepachangelog`](https://github.com/Colin-b/keepachangelog) under
-`changelogmanager/vendor/keepachangelog/` instead of depending on the PyPI
-package at runtime.
-
-Credits:
-
-- upstream project: [`Colin-b/keepachangelog`](https://github.com/Colin-b/keepachangelog)
-- upstream license: MIT, copied to
-  [`changelogmanager/vendor/keepachangelog/LICENSE`](changelogmanager/vendor/keepachangelog/LICENSE)
-
-What we keep from it:
-
-- `to_dict(...)`
-- `to_dict(..., show_unreleased=True)`
-- `from_dict(...)`
-- SemVer, PEP 440, and CalVer release metadata and compare-link parsing
-
-What we intentionally dropped:
-
-- CLI entry points
-- release automation helpers
-- `to_raw_dict(...)`
-- web framework integrations
-
-The vendored subfolder also includes copied upstream parser/serializer tests in
-`tests/test_vendored_keepachangelog/`.
-
 ## Install
 
 ```sh
 uv tool install keepachangelog-manager-fork
 ```
 
-The package name on PyPI is `keepachangelog-manager-fork`. The installed commands is `changelogmanager` with legacy
+The package name on PyPI is `keepachangelog-manager-fork`. The installed command is `changelogmanager` with legacy
 alias of `keepachangelog-manager`.
 
-Supports precommit, cli, and GitHub actions workflows.
+Supports pre-commit, CLI, and GitHub Actions workflows.
 
 ## What it does
 
@@ -57,9 +27,11 @@ Supports precommit, cli, and GitHub actions workflows.
 - infer the next release from change types for SemVer, PEP 440, or CalVer projects
 - release `[Unreleased]` with an optional confirmation guard
 - seed `[Unreleased]` from git history using Conventional Commit subjects
+- backfill missing released versions from local git tags
 - export changelogs as JSON, YAML, or HTML
 - export a bundled CLI skill for Copilot or Claude
 - create or update GitHub and GitLab releases
+- open or update a GitHub pull request for release automation
 - work with multi-component repositories via config files
 - script the CLI with `--dry-run`, `--quiet`, `--json`, `--info`, and `--verbose`
 - use an optional Tkinter GUI for common workflows
@@ -78,6 +50,7 @@ add           Add an entry to [Unreleased]
 edit          Edit an existing [Unreleased] entry
 remove        Remove an [Unreleased] entry (or --list them)
 from-commits  Seed [Unreleased] from git commit history
+backfill      Backfill missing released versions from local git tags
 ```
 
 ### Machine readability
@@ -104,6 +77,7 @@ Commands that cut a release and publish it to a forge.
 ```text
 release         Release [Unreleased] into a versioned section
 github-release  Create/update a GitHub release from the changelog
+github-pr       Open/update a GitHub pull request for a changelog branch
 gitlab-release  Create/update a GitLab release from the changelog
 ```
 
@@ -137,6 +111,13 @@ Seed `[Unreleased]` from commit history:
 changelogmanager from-commits
 ```
 
+Backfill an existing repo from git tags:
+
+```sh
+changelogmanager backfill --source tags --dry-run
+changelogmanager backfill --source tags
+```
+
 Validate and autofix common issues:
 
 ```sh
@@ -158,7 +139,7 @@ changelogmanager gitlab-release --project group/name
 
 GitLab note: the default `CI_JOB_TOKEN` usually cannot create releases — use a
 project/group/personal access token via `GITLAB_TOKEN`.
-See [docs/CI.md](docs/CI.md#authentication-and-the-ci_job_token-caveat).
+See [docs/gitlab.md](docs/gitlab.md#authentication-and-the-ci_job_token-caveat).
 
 Export structured output:
 
@@ -228,9 +209,18 @@ changelogmanager gui
 The GUI currently wraps the common commands `create`, `version`, `validate`, `release`, `to-json`, `add`, and
 `github-release`.
 
+## Credits
+
+### Vendored `keepachangelog`
+
+- [`Colin-b/keepachangelog`](https://github.com/Colin-b/keepachangelog)
+- llvm_diagnostics
+
 ## Documentation
 
-- [CI and GitHub Actions](docs/CI.md)
+- [Generic CI](docs/CI.md)
+- [GitHub automation](docs/github.md)
+- [GitLab automation](docs/gitlab.md)
 - [Quick start](docs/quickstart.md)
 - [Installation](docs/installation.md)
 - [Key workflows](docs/workflows.md)

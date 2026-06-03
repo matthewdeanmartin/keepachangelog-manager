@@ -26,10 +26,12 @@ On top of what the `keepachangelog` library provides, this tool gives you:
 - **Interactive and scripted editing** — add, list, edit, or remove `[Unreleased]` entries from the CLI
 - **Automatic semver bumping** — infers the next version from change categories (`removed` → major, `added`/`security` → minor, everything else → patch)
 - **Release workflow** — promotes `[Unreleased]` to a dated version, with `release --yes` for non-interactive runs
+- **Historical backfill** — create missing released sections from local git tags with `backfill --source tags`
 - **Git history seeding** — build `[Unreleased]` from commit history with `from-commits`, including Conventional Commit parsing
 - **Multiple export formats** — export the changelog as JSON, YAML, or HTML
 - **Bundled skill export** — install the packaged `keepachangelog-manager-cli` skill into Copilot or Claude skill directories
-- **GitHub integration** — creates or updates a Draft or published GitHub release from unreleased changes
+- **GitHub integration** — creates draft/published releases and opens or updates release pull requests
+- **GitLab integration** — creates or updates GitLab releases, including self-hosted instances
 - **Config bootstrap + inspection** — generate or update YAML / `pyproject.toml` config with `config init`, then inspect the active config with `config`
 - **Script-friendly output** — use `--dry-run`, `--quiet`, and `--json` in automation
 - **Multi-component repos** — point commands at any `CHANGELOG.md` via YAML config or `[tool.changelogmanager]` in `pyproject.toml`
@@ -37,7 +39,9 @@ On top of what the `keepachangelog` library provides, this tool gives you:
 
 ## Next steps
 
-- [CI and GitHub Actions](CI.md) — quality gates, draft releases, and release automation
+- [Generic CI](CI.md) — validation-focused quality gates that work in any CI system
+- [GitHub automation](github.md) — draft releases, release PRs, and the repository's GitHub Actions release flow
+- [GitLab automation](gitlab.md) — release creation plus the `CI_JOB_TOKEN` caveat
 - [Quick start](quickstart.md) — up and running in two minutes
 - [Installation](installation.md) — all installation methods
 - [Key Workflows](workflows.md) — day-to-day usage patterns

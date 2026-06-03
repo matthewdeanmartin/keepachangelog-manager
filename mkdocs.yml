@@ -18,7 +18,9 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - CI and GitHub Actions: CI.md
+  - Generic CI: CI.md
+  - GitHub automation: github.md
+  - GitLab automation: gitlab.md
   - Quick start: quickstart.md
   - Installation: installation.md
   - Key Workflows: workflows.md

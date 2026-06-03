@@ -34,6 +34,17 @@ changelogmanager config init
 
 That interactive setup defaults to `pyproject.toml`, `Conventional Commits`, and `semver`. If you pick `pep440` or `calver`, future `create` runs use that wording in the generated preamble.
 
+## Already have tagged releases?
+
+If you are adopting the tool in an existing repository, you can backfill missing released sections from local git tags before adding new unreleased entries:
+
+```sh
+changelogmanager backfill --source tags --dry-run
+changelogmanager backfill --source tags
+```
+
+Today the implemented backfill source is local tags. Each missing version gets a conservative placeholder entry under `Changed`, for example `Release notes unavailable; backfilled from tag \`v1.2.3\`.` Existing versions already present in `CHANGELOG.md` are left alone.
+
 ## 3. Add a change
 
 ```sh
@@ -133,6 +144,6 @@ This opens a paneled Tkinter window for the common commands. See the [Desktop GU
 
 ## What's next
 
-- Learn the full set of [workflows](workflows.md) including GitHub releases, commit seeding, exports, and automation flags
+- Learn the full set of [workflows](workflows.md) including backfill, GitHub/GitLab releases, commit seeding, exports, and automation flags
 - Read the complete [CLI reference](cli.md) for every flag and option
 - Try the [Desktop GUI](gui.md) for an interactive front-end
