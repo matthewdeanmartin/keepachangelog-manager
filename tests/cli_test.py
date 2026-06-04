@@ -131,7 +131,7 @@ def test_config_show_reports_auto_detected_source(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     config_path = tmp_path / "changelogmanager.toml"
     config_path.write_text(
-        '[[components]]\n'
+        "[[components]]\n"
         'name = "default"\n'
         'changelog = "CHANGELOG.md"\n'
         "\n"
@@ -175,7 +175,7 @@ def test_config_init_updates_existing_toml_on_second_run(tmp_path, monkeypatch, 
     monkeypatch.chdir(tmp_path)
     config_path = tmp_path / "changelogmanager.toml"
     config_path.write_text(
-        '[[components]]\n'
+        "[[components]]\n"
         'name = "default"\n'
         'changelog = "CHANGELOG.md"\n'
         "\n"

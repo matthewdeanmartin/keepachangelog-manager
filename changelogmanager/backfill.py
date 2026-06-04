@@ -614,9 +614,7 @@ def plan_unreleased_backfill(
     """
 
     versioning_scheme = changelog.get_versioning_scheme()
-    boundary = since or latest_release_tag(
-        cwd=cwd, versioning_scheme=versioning_scheme
-    )
+    boundary = since or latest_release_tag(cwd=cwd, versioning_scheme=versioning_scheme)
     commits = git_log_between(boundary, "HEAD", cwd=cwd)
     candidates = entries_from_commits(commits, commit_schema=commit_schema)
 

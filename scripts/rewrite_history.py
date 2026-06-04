@@ -58,11 +58,10 @@ def build_callback_script() -> str:
     callback = (
         "import re\n"
         "COAUTHOR_RE = re.compile(\n"
-        r'    r"\n?^Co-[Aa]uthored?-[Bb]y:.*$",' "\n"
+        r'    r"\n?^Co-[Aa]uthored?-[Bb]y:.*$",'
+        "\n"
         "    re.MULTILINE,\n"
-        ")\n"
-        + map_str
-        + """
+        ")\n" + map_str + """
 original = commit.message.decode("utf-8", errors="replace")
 
 # 1. Strip Co-Authored-By trailers
@@ -102,9 +101,11 @@ def check_prerequisites() -> None:
 
     # Check for clean-clone requirement: git-filter-repo refuses to run when
     # a remote named 'origin' exists unless --force is passed.
-    remotes = subprocess.run(
-        ["git", "remote"], capture_output=True, text=True
-    ).stdout.strip().splitlines()
+    remotes = (
+        subprocess.run(["git", "remote"], capture_output=True, text=True)
+        .stdout.strip()
+        .splitlines()
+    )
     if "origin" in remotes:
         print(
             "\nWARNING: This repo has a remote named 'origin'.\n"

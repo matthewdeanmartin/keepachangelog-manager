@@ -32,8 +32,8 @@ If `[Unreleased]` has no entries, the command prints a clear skip notice and exi
 Token lookup order is:
 
 1. `--gitlab-token`
-2. `GITLAB_TOKEN`
-3. `CI_JOB_TOKEN`
+1. `GITLAB_TOKEN`
+1. `CI_JOB_TOKEN`
 
 **Heads up:** the default `CI_JOB_TOKEN` is intentionally restricted and typically **cannot** create releases. The
 Releases API often responds with `401 Unauthorized` or `403 Forbidden`.

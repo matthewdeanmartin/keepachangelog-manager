@@ -154,9 +154,7 @@ def load_toml(path: Path) -> dict[str, Any]:
 
     data = read_toml(path)
     if not data:
-        raise logging.Error(
-            file_path=str(path), message="Configuration file is empty"
-        )
+        raise logging.Error(file_path=str(path), message="Configuration file is empty")
     return data
 
 
@@ -476,7 +474,11 @@ def serialize_config_toml(config: Mapping[str, Any], *, prefix: str) -> str:
     if fmt is not None:
         lines.append(f"format = {toml_scalar(fmt)}")
 
-    for name, key in (("defaults", "defaults"), ("github", "github"), ("gitlab", "gitlab")):
+    for name, key in (
+        ("defaults", "defaults"),
+        ("github", "github"),
+        ("gitlab", "gitlab"),
+    ):
         values = project.get(key, {}) or {}
         if not isinstance(values, Mapping) or not values:
             continue

@@ -44,11 +44,11 @@ def test_validate_configuration_rejects_invalid_shapes(config, message):
 def test_get_component_from_config_returns_named_component(tmp_path):
     config_file = tmp_path / "changelogmanager.toml"
     config_file.write_text(
-        '[[components]]\n'
+        "[[components]]\n"
         'name = "api"\n'
         'changelog = "docs/API_CHANGELOG.md"\n'
         "\n"
-        '[[components]]\n'
+        "[[components]]\n"
         'name = "ui"\n'
         'changelog = "docs/UI_CHANGELOG.md"\n',
         encoding="utf-8",
@@ -62,9 +62,7 @@ def test_get_component_from_config_returns_named_component(tmp_path):
 def test_get_component_from_config_rejects_unknown_component(tmp_path):
     config_file = tmp_path / "changelogmanager.toml"
     config_file.write_text(
-        '[[components]]\n'
-        'name = "api"\n'
-        'changelog = "docs/API_CHANGELOG.md"\n',
+        "[[components]]\n" 'name = "api"\n' 'changelog = "docs/API_CHANGELOG.md"\n',
         encoding="utf-8",
     )
 
@@ -115,7 +113,7 @@ def test_write_configuration_round_trips_standalone_and_pyproject(tmp_path):
 def test_preamble_keywords_follow_configured_versioning(tmp_path):
     config_path = tmp_path / "changelogmanager.toml"
     config_path.write_text(
-        '[[components]]\n'
+        "[[components]]\n"
         'name = "default"\n'
         'changelog = "CHANGELOG.md"\n'
         "\n"

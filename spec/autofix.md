@@ -19,7 +19,7 @@ Autofix is a two-layer operation:
    raw text. Today it: lowercases change-type keys, drops empty buckets, dedupes
    entries within a bucket, and re-sorts versions newest-first. Returns
    `(data, applied_messages)`.
-2. **Serialization** — `Changelog.write_to_file()` renders the dict back to
+1. **Serialization** — `Changelog.write_to_file()` renders the dict back to
    Markdown via the vendored `keepachangelog.from_dict(...)` subset plus our preamble rewrite
    (`Changelog.__render_preamble`).
 
@@ -64,10 +64,10 @@ this order and use the first that works:
 1. **In-process import** — `import mdformat; mdformat.text(md)`. Fastest, no
    subprocess. Used when the user installed `keepachangelog-manager-fork[format]`
    (a new optional extra) or has `mdformat` in the same environment.
-2. **Auto-discovered executable** — `shutil.which("mdformat")`, invoked as
+1. **Auto-discovered executable** — `shutil.which("mdformat")`, invoked as
    `mdformat -` reading stdin / writing stdout. Lets users rely on a globally
    installed `uv tool install mdformat` without it being in our venv.
-3. **No formatter found** — skip the pass silently at `--info` level, emit one
+1. **No formatter found** — skip the pass silently at `--info` level, emit one
    `note`-level diagnostic only under `--verbose`. Structural fixes still apply.
 
 A `--no-format` flag (and config key `project.validation.format: false`) forces
@@ -117,15 +117,15 @@ CLI overrides config: `--format` / `--no-format`.
    - `discover_formatter() -> Formatter | None`
    - `format_markdown(text, options) -> str`
    - `Formatter` protocol with in-process and subprocess implementations.
-2. `Changelog.write_to_file()` (or a new `Changelog.render()` returning the
+1. `Changelog.write_to_file()` (or a new `Changelog.render()` returning the
    string) gains an optional `formatter` argument so the CLI can inject the
    discovered formatter; keeps `Changelog` free of discovery logic.
-3. `cli.command_validate` / `run_validate_all`: discover formatter once, thread
+1. `cli.command_validate` / `run_validate_all`: discover formatter once, thread
    it through, honour `--format/--no-format` + config, extend `applied` and the
    JSON payload.
-4. `config.py`: read `project.validation.format`, `formatter`,
+1. `config.py`: read `project.validation.format`, `formatter`,
    `mdformat_options` with sensible defaults.
-5. `pyproject.toml`: add an optional extra:
+1. `pyproject.toml`: add an optional extra:
    ```toml
    [project.optional-dependencies]
    format = ["mdformat>=0.7"]

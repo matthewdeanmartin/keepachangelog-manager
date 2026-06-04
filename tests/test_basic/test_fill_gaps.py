@@ -37,9 +37,7 @@ class DummyChangelog:
         return f"{change_type}[{index}]"
 
     def edit(self, change_type, index, new_message=None, new_change_type=None):
-        self.calls.append(
-            ("edit", change_type, index, new_message, new_change_type)
-        )
+        self.calls.append(("edit", change_type, index, new_message, new_change_type))
 
     def add(self, change_type, message):
         self.added.append((change_type, message))
@@ -62,9 +60,7 @@ class DummyChangelog:
 # ---------------------------------------------------------------------------
 
 
-def test_config_init_with_missing_explicit_config_does_not_crash(
-    monkeypatch, tmp_path
-):
+def test_config_init_with_missing_explicit_config_does_not_crash(monkeypatch, tmp_path):
     """main() must not load a not-yet-created config before the init handler runs."""
 
     target = tmp_path / "new-config.yml"
@@ -117,9 +113,10 @@ def test_resolve_entry_selection_returns_explicit_args_without_prompt(monkeypatc
         cli.inquirer, "prompt", lambda prompts: pytest.fail("unexpected prompt")
     )
     args = make_args(change_type="fixed", index=0)
-    assert cli.resolve_entry_selection(
-        args, DummyChangelog(), action="removed"
-    ) == ("fixed", 0)
+    assert cli.resolve_entry_selection(args, DummyChangelog(), action="removed") == (
+        "fixed",
+        0,
+    )
 
 
 def test_resolve_entry_selection_prompts_when_missing(monkeypatch):
@@ -138,9 +135,7 @@ def test_resolve_entry_selection_prompts_when_missing(monkeypatch):
     monkeypatch.setattr(cli.inquirer, "prompt", fake_prompt)
 
     args = make_args(change_type=None, index=None)
-    assert cli.resolve_entry_selection(
-        args, changelog, action="edited"
-    ) == ("fixed", 0)
+    assert cli.resolve_entry_selection(args, changelog, action="edited") == ("fixed", 0)
     assert captured["choices"] == ["[added] 0: A feature", "[fixed] 0: A bug"]
 
 
@@ -236,17 +231,14 @@ def test_resolve_required_value_prompts_interactively(monkeypatch):
     monkeypatch.setattr(cli, "interactive_enabled", lambda: True)
     monkeypatch.setattr(cli, "prompt_text", lambda message, default=None: "typed")
     assert (
-        cli.resolve_required_value(None, env_var="MY_TOKEN", message="Token")
-        == "typed"
+        cli.resolve_required_value(None, env_var="MY_TOKEN", message="Token") == "typed"
     )
 
 
 def test_resolve_required_value_non_interactive_returns_none(monkeypatch):
     monkeypatch.delenv("MY_TOKEN", raising=False)
     monkeypatch.setattr(cli, "interactive_enabled", lambda: False)
-    assert (
-        cli.resolve_required_value(None, env_var="MY_TOKEN", message="Token") is None
-    )
+    assert cli.resolve_required_value(None, env_var="MY_TOKEN", message="Token") is None
 
 
 def test_command_github_release_prompts_for_repository(monkeypatch):
@@ -364,9 +356,7 @@ def test_command_backfill_include_unreleased_dry_run(monkeypatch, capsys):
         cli,
         "plan_unreleased_backfill",
         lambda cl, *, since, commit_schema: [
-            backfill.BackfillEntry(
-                change_type="fixed", text="a fix", source="commits"
-            )
+            backfill.BackfillEntry(change_type="fixed", text="a fix", source="commits")
         ],
     )
 

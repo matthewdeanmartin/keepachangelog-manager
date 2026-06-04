@@ -43,7 +43,7 @@ changelogmanager backfill --source all --dry-run
 changelogmanager backfill --source all
 ```
 
-Backfill uses local tags and can classify commit subjects between tag intervals using Conventional Commits, gitmoji, or Keep a Changelog flavored prefixes. If no richer commit entries are available, each missing version gets a conservative placeholder under `Changed`, for example `Release notes unavailable; backfilled from tag \`v1.2.3\`.` Existing versions already present in `CHANGELOG.md` are left alone.
+Backfill uses local tags and can classify commit subjects between tag intervals using Conventional Commits, gitmoji, or Keep a Changelog flavored prefixes. If no richer commit entries are available, each missing version gets a conservative placeholder under `Changed`, for example `Release notes unavailable; backfilled from tag \`v1.2.3\`.`Existing versions already present in`CHANGELOG.md\` are left alone.
 
 ## 3. Add a change
 

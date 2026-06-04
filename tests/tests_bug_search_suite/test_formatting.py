@@ -537,7 +537,7 @@ class TestGetFormatOptions:
 
         cfg = tmp_path / "cfg.toml"
         cfg.write_text(
-            "[validation.mdformat_options]\nwrap = \"80\"\nnumber = true\n",
+            '[validation.mdformat_options]\nwrap = "80"\nnumber = true\n',
             encoding="utf-8",
         )
         opts = get_format_options(str(cfg))

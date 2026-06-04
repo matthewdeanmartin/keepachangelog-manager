@@ -17,10 +17,10 @@ draft state.
 Behavior summary:
 
 1. Reads the GitHub token from `--github-token` or `GITHUB_TOKEN`.
-2. Validates that `[Unreleased]` exists and can produce a future version.
-3. Deletes all existing draft releases for the target repository.
-4. Creates a new GitHub release named `Release vX.Y.Z`.
-5. Generates release notes from `[Unreleased]` using the changelog categories and emoji headings.
+1. Validates that `[Unreleased]` exists and can produce a future version.
+1. Deletes all existing draft releases for the target repository.
+1. Creates a new GitHub release named `Release vX.Y.Z`.
+1. Generates release notes from `[Unreleased]` using the changelog categories and emoji headings.
 
 If `[Unreleased]` has no entries, the command prints a clear skip notice and exits `0`.
 
@@ -67,9 +67,9 @@ first so every later step sees the correct version.
 ### Triggering a release
 
 1. Merge unreleased changelog entries to `main`.
-2. Let the draft-release workflow keep the GitHub draft in sync from `[Unreleased]`.
-3. Open the repository's **Releases** page in GitHub and open the current draft.
-4. Review the title, notes, and target branch, then click **Publish release**.
+1. Let the draft-release workflow keep the GitHub draft in sync from `[Unreleased]`.
+1. Open the repository's **Releases** page in GitHub and open the current draft.
+1. Review the title, notes, and target branch, then click **Publish release**.
 
 Publishing fires the `release` event, which starts `.github/workflows/release.yml`.
 

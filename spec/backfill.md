@@ -102,11 +102,11 @@ When multiple sources describe the same version, prefer richer curated sources
 over inferred ones:
 
 1. Existing `CHANGELOG.md` content
-2. GitHub Release notes
-3. PyPI release descriptions
-4. Merged pull requests
-5. Conventional commits
-6. Bare git tags
+1. GitHub Release notes
+1. PyPI release descriptions
+1. Merged pull requests
+1. Conventional commits
+1. Bare git tags
 
 Existing changelog content is always authoritative unless the user explicitly
 chooses a future replace strategy.
@@ -335,12 +335,12 @@ Later phases can expand this with per-entry provenance.
    - source adapter protocol
    - merge/dedupe logic
    - rendering bridge into `Changelog`
-2. Add local git helpers in the backfill module or a small
+1. Add local git helpers in the backfill module or a small
    `changelogmanager/git.py` module.
-3. Extend `changelogmanager/github.py` with release/PR read helpers as needed.
-4. Add CLI wiring in `cli.py`.
-5. Add config readers for source preferences and label mappings.
-6. Add docs in `README.md`, `docs/cli.md`, and `docs/workflows.md` after Phase
+1. Extend `changelogmanager/github.py` with release/PR read helpers as needed.
+1. Add CLI wiring in `cli.py`.
+1. Add config readers for source preferences and label mappings.
+1. Add docs in `README.md`, `docs/cli.md`, and `docs/workflows.md` after Phase
    1 lands.
 
 ## Testing plan

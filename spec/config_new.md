@@ -5,12 +5,12 @@ goals, in priority order:
 
 1. **Remove the `pyyaml` dependency entirely** — from both config storage and the
    `to-yaml` export.
-2. **Store config in TOML** — `[tool.changelogmanager]` in `pyproject.toml`, or a
+1. **Store config in TOML** — `[tool.changelogmanager]` in `pyproject.toml`, or a
    standalone `changelogmanager.toml` for non-Python repos.
-3. **Make config pull its weight** — delete dead knobs, and move genuinely useful,
+1. **Make config pull its weight** — delete dead knobs, and move genuinely useful,
    repeated CLI flags into config so the common workflows stop needing long switch
    clusters.
-4. **Clarify the component model** and add real commit→component routing (the
+1. **Clarify the component model** and add real commit→component routing (the
    feature that was advertised as `component-is-substring` but never implemented).
 
 Decisions already locked in (from review):
@@ -30,12 +30,12 @@ ______________________________________________________________________
 `pyyaml` is a hard runtime dependency (`pyproject.toml` line 12). It is used in
 **three** places, which are easy to conflate:
 
-| Use                | Location                                  | Fate                          |
+| Use | Location | Fate |
 |--------------------|-------------------------------------------|-------------------------------|
-| Config **load**    | `config.py` `load_yaml`                    | **Removed** (TOML only)       |
-| Config **write**   | `config.py` `write_yaml`                   | **Removed** (TOML only)       |
+| Config **load** | `config.py` `load_yaml` | **Removed** (TOML only) |
+| Config **write** | `config.py` `write_yaml` | **Removed** (TOML only) |
 | Config **display** | `cli.py:392` (`command_config` dumps YAML) | **Replaced** with TOML output |
-| `to-yaml` export   | `changelog.py` `to_yaml`/`write_to_yaml`   | **Deleted** (command removed) |
+| `to-yaml` export | `changelog.py` `to_yaml`/`write_to_yaml` | **Deleted** (command removed) |
 
 TOML reading already exists (`load_pyproject` via `tomllib`/`tomli`); TOML writing
 already exists as a hand-rolled string emitter (`serialize_pyproject_section` +
@@ -46,19 +46,19 @@ redundant.
 
 Live, actually-read keys:
 
-| Key                                       | Read by                                                       | Status |
+| Key | Read by | Status |
 |-------------------------------------------|---------------------------------------------------------------|--------|
-| `project.components[]` (`name`, `changelog`) | `get_component_from_config`, `get_components_from_config`     | Live   |
-| `project.validation.enforce_preamble`     | `get_validation_options` → reader preamble enforcement        | Live   |
-| `project.validation.format` / `formatter` / `mdformat_options` | `get_format_options` → `resolve_formatter` | Live   |
-| `project.versioning.scheme`               | `get_versioning_scheme` → reader + preamble keywords          | Live   |
+| `project.components[]` (`name`, `changelog`) | `get_component_from_config`, `get_components_from_config` | Live |
+| `project.validation.enforce_preamble` | `get_validation_options` → reader preamble enforcement | Live |
+| `project.validation.format` / `formatter` / `mdformat_options` | `get_format_options` → `resolve_formatter` | Live |
+| `project.versioning.scheme` | `get_versioning_scheme` → reader + preamble keywords | Live |
 
 Dead / vestigial keys (stored, prompted, written — but **never read to change
 behavior**):
 
-| Key                            | Evidence                                                                 |
+| Key | Evidence |
 |--------------------------------|--------------------------------------------------------------------------|
-| `project.commits.style`        | `get_commit_style` has **zero source callers** (only stale `.pyc`).      |
+| `project.commits.style` | `get_commit_style` has **zero source callers** (only stale `.pyc`). |
 | `component-is-substring` value | Appears only as a label in `config.py` and one line in `docs/workflows.md`; no consuming code. |
 
 `from-commits` and `backfill` use a **separate `--commit-schema` CLI flag**
@@ -91,8 +91,8 @@ ______________________________________________________________________
 `auto_detect_config()` is updated to search, in order:
 
 1. `changelogmanager.toml` (cwd)
-2. `.changelogmanager.toml` (cwd)
-3. `pyproject.toml` — only if it contains a `[tool.changelogmanager]` table.
+1. `.changelogmanager.toml` (cwd)
+1. `pyproject.toml` — only if it contains a `[tool.changelogmanager]` table.
 
 The four YAML candidates (`.changelogmanager.yml/.yaml`, `changelogmanager.yml/.yaml`)
 are **dropped**. `--config <path>` still forces an explicit file; a `.toml` suffix (or
@@ -206,21 +206,20 @@ Introduce a single precedence rule, applied uniformly:
 > **explicit CLI flag > environment variable (where one exists) > config value >
 > built-in default.**
 
-Mechanism: after parsing args and resolving config, a small `apply_config_defaults(args,
-config)` step fills any arg still at its built-in default with the config value. Tokens
+Mechanism: after parsing args and resolving config, a small `apply_config_defaults(args, config)` step fills any arg still at its built-in default with the config value. Tokens
 remain **flag-or-env only** — never stored in config — for safety.
 
 Flags that become config-backed:
 
-| Flag                                | Config key                  | Notes                                   |
+| Flag | Config key | Notes |
 |-------------------------------------|-----------------------------|-----------------------------------------|
-| `-f/--error-format`                 | `defaults.error_format`     | Global; today retyped every call.       |
-| `--commit-schema`                   | `defaults.commit_schema`    | `from-commits`, `backfill`.             |
-| `--schema-version` (to-json)        | `defaults.schema_version`   |                                         |
-| `release --bump-versions`           | `defaults.bump_versions`    | Policy per project.                     |
-| `release --pyproject-only`          | `defaults.pyproject_only`   |                                         |
-| `validate --format` / `--no-format` | `validation.format`         | Already config-backed; document it.     |
-| `github-release/-pr --repository`   | `github.repository`         | Token stays flag/`GITHUB_TOKEN`.        |
+| `-f/--error-format` | `defaults.error_format` | Global; today retyped every call. |
+| `--commit-schema` | `defaults.commit_schema` | `from-commits`, `backfill`. |
+| `--schema-version` (to-json) | `defaults.schema_version` | |
+| `release --bump-versions` | `defaults.bump_versions` | Policy per project. |
+| `release --pyproject-only` | `defaults.pyproject_only` | |
+| `validate --format` / `--no-format` | `validation.format` | Already config-backed; document it. |
+| `github-release/-pr --repository` | `github.repository` | Token stays flag/`GITHUB_TOKEN`. |
 | `gitlab-release --project`/`--gitlab-url` | `gitlab.project`/`gitlab.url` | Token stays flag/`GITLAB_TOKEN`/`CI_JOB_TOKEN`. |
 
 This is the core of "config earning its keep": the things people retype become
@@ -342,12 +341,12 @@ ______________________________________________________________________
 1. **TOML-only config core**: drop YAML load/write, update discovery, generalize the
    TOML emitter for the new (unwrapped) schema, render `config` display as TOML. Keep
    reading the old `project.*` shape for back-compat.
-2. **Remove `to-yaml`** and the `pyyaml` / `types-PyYAML` deps; add the CI grep guard.
-3. **`[defaults]`/`[github]`/`[gitlab]` + `apply_config_defaults`** with the
+1. **Remove `to-yaml`** and the `pyyaml` / `types-PyYAML` deps; add the CI grep guard.
+1. **`[defaults]`/`[github]`/`[gitlab]` + `apply_config_defaults`** with the
    flag > env > config > default precedence; delete `commits.style` /
    `get_commit_style`.
-4. **Component routing**: `match` globs, `from-commits --all` / `backfill --all`.
-5. **`config migrate`** + docs/tests cleanup.
+1. **Component routing**: `match` globs, `from-commits --all` / `backfill --all`.
+1. **`config migrate`** + docs/tests cleanup.
 
 Linting, mypy, and the GUI are intentionally left to separate passes (the GUI still
 builds argv and will need the new `--config` discovery, but no behavior here depends on

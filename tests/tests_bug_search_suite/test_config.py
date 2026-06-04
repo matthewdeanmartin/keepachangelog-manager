@@ -66,7 +66,9 @@ class TestValidateConfiguration:
 
     def test_component_missing_name_raises(self, tmp_path):
         with pytest.raises(logging.Error, match="Component configuration"):
-            validate_configuration(str(tmp_path / "config.toml"), COMPONENT_MISSING_NAME)
+            validate_configuration(
+                str(tmp_path / "config.toml"), COMPONENT_MISSING_NAME
+            )
 
     def test_component_missing_changelog_raises(self, tmp_path):
         with pytest.raises(logging.Error, match="Component configuration"):

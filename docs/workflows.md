@@ -228,8 +228,8 @@ changelogmanager release --bump-versions --yes
 This does, in order:
 
 1. Promotes `[Unreleased]` to the inferred next version in `CHANGELOG.md`.
-2. Writes that same version string into `[project] version` in `pyproject.toml`.
-3. Updates any `__version__ = "..."` variables found in your Python source tree.
+1. Writes that same version string into `[project] version` in `pyproject.toml`.
+1. Updates any `__version__ = "..."` variables found in your Python source tree.
 
 **Limit to `pyproject.toml` only** (skip Python source files):
 

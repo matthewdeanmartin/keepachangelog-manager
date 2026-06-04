@@ -1526,7 +1526,10 @@ def from_commits_all(
         added = apply_classified_to_changelog(changelog, per_component.get(name, []))
         for entry in added:
             verb = "would add" if args.dry_run else "added"
-            emit(ctx, text=f"[{name}] {verb}: [{entry['change_type']}] {entry['message']}")
+            emit(
+                ctx,
+                text=f"[{name}] {verb}: [{entry['change_type']}] {entry['message']}",
+            )
         if added and not args.dry_run:
             changelog.write_to_file()
         summaries.append({"component": name, "path": path, "added": added})
@@ -1536,7 +1539,9 @@ def from_commits_all(
     ctx.json_payload["since"] = since
     if args.dry_run:
         total = sum(len(s["added"]) for s in summaries)
-        print_dry_run(ctx, f"would add {total} entries across {len(summaries)} components")
+        print_dry_run(
+            ctx, f"would add {total} entries across {len(summaries)} components"
+        )
 
 
 def backfill_unreleased(args: argparse.Namespace, ctx: CliContext) -> None:

@@ -40,7 +40,7 @@ You should see the top-level help text listing all available commands.
 
 The `jiggle` extra adds support for the `release --bump-versions` flag, which updates
 `pyproject.toml` and Python source `__version__` strings to match the changelog release
-version.  It is not installed by default because it pulls in
+version. It is not installed by default because it pulls in
 [jiggle-version](https://github.com/matthewdeanmartin/jiggle_version) and its dependencies.
 
 ```sh
