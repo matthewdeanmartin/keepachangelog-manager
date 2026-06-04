@@ -294,7 +294,11 @@ class Changelog:
             override_version = override_version[1:]
 
         try:
-            target_version = parse_version(override_version, self.__versioning_scheme) if override_version else self.suggest_future_version()
+            target_version = (
+                parse_version(override_version, self.__versioning_scheme)
+                if override_version
+                else self.suggest_future_version()
+            )
         except ValueError as exc_info:
             msg = f"Version '{override_version}' is not {version_scheme_label(self.__versioning_scheme)} compliant"
             logger.error(
@@ -336,8 +340,12 @@ class Changelog:
 
             return changelog_out
 
-        self.__changelog = dict(update_unreleased_version(self.__changelog, target_version))
-        logger.info("Prepared release %s for %s", target_version, self.__changelog_file_path)
+        self.__changelog = dict(
+            update_unreleased_version(self.__changelog, target_version)
+        )
+        logger.info(
+            "Prepared release %s for %s", target_version, self.__changelog_file_path
+        )
 
     def version(self) -> VersionValue:
         """Returns the last released version"""

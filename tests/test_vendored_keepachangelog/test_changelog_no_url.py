@@ -1,6 +1,5 @@
 from changelogmanager.vendor import keepachangelog
 
-
 changelog_as_text = """# Changelog
 All notable changes to this project will be documented in this file.
 
@@ -139,4 +138,3 @@ changelog_as_dict = {
 
 def test_changelog_dont_have_2_newline_at_eof():
     assert keepachangelog.from_dict(changelog_as_dict) == changelog_as_text
-

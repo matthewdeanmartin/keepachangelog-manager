@@ -474,9 +474,7 @@ class ChangelogReader:
                         f"Changed '## {content}' to '### {change_type}'"
                     ]
 
-                fixed_content, version_applied = self.__autofix_version_content(
-                    content
-                )
+                fixed_content, version_applied = self.__autofix_version_content(content)
                 if version_applied:
                     return f"## {fixed_content}{newline}", version_applied
 

@@ -99,7 +99,9 @@ def parse_version(version: str, scheme: str = "semver") -> VersionValue:
             parsed = Pep440Version(version)
         except InvalidVersion as exc:
             raise ValueError(version) from exc
-        return VersionValue(raw=str(parsed), scheme=scheme, parsed=parsed, sort_key=(parsed,))
+        return VersionValue(
+            raw=str(parsed), scheme=scheme, parsed=parsed, sort_key=(parsed,)
+        )
 
     match = CALVER_PATTERN.fullmatch(version)
     if match is None:
@@ -135,7 +137,9 @@ def version_metadata(version: VersionValue) -> dict[str, Any]:
                 "major": parsed.major,
                 "minor": parsed.minor,
                 "patch": parsed.patch,
-                "prerelease": ".".join(parsed.prerelease) if parsed.prerelease else None,
+                "prerelease": (
+                    ".".join(parsed.prerelease) if parsed.prerelease else None
+                ),
             }
         }
     if version.scheme == "pep440":
@@ -192,9 +196,15 @@ def bump_version(previous: VersionValue, bump_type: VersionCore) -> VersionValue
 
     today = date.today()
     parsed = previous.parsed
-    micro = parsed["micro"] + 1 if (parsed["year"], parsed["month"]) == (today.year, today.month) else 0
+    micro = (
+        parsed["micro"] + 1
+        if (parsed["year"], parsed["month"]) == (today.year, today.month)
+        else 0
+    )
     if parsed["day"]:
-        return parse_version(f"{today.year}.{today.month:02d}.{today.day:02d}.{micro}", previous.scheme)
+        return parse_version(
+            f"{today.year}.{today.month:02d}.{today.day:02d}.{micro}", previous.scheme
+        )
     return parse_version(f"{today.year}.{today.month:02d}.0.{micro}", previous.scheme)
 
 

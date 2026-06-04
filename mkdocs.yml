@@ -26,4 +26,5 @@ nav:
   - Generic CI: CI.md
   - GitHub automation: github.md
   - GitLab automation: gitlab.md
+  - Changelog: CHANGELOG.md
   - Contributing: contributing.md

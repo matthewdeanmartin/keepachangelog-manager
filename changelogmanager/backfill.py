@@ -86,7 +86,7 @@ GITMOJI_TO_KAC = {
     ":warning:": "deprecated",
 }
 GITMOJI_RE = re.compile(
-    r"^(?P<emoji>:\w[\w_+-]*:|[^\w\s])\s*(?P<subject>.+)$",
+    r"^(?P<emoji>:\w[\w_+-]*:|[^\w\s]+)\s*(?P<subject>.+)$",
     re.UNICODE,
 )
 
@@ -472,9 +472,7 @@ def plan_tag_backfill(
         since=since, until=until, versioning_scheme=versioning_scheme
     )
     existing_versions = {
-        str(version)
-        for version in changelog.get()
-        if str(version) != UNRELEASED_ENTRY
+        str(version) for version in changelog.get() if str(version) != UNRELEASED_ENTRY
     }
 
     planned: list[BackfillRelease] = []
@@ -560,9 +558,7 @@ def plan_backfill(
         )
 
     existing_versions = {
-        str(version)
-        for version in changelog.get()
-        if str(version) != UNRELEASED_ENTRY
+        str(version) for version in changelog.get() if str(version) != UNRELEASED_ENTRY
     }
     planned: list[BackfillRelease] = []
     added_versions: list[str] = []

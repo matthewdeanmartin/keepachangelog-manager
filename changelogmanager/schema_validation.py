@@ -75,8 +75,12 @@ def _metadata_schema() -> dict[str, Any]:
                             },
                         ]
                     },
-                    "post": {"oneOf": [{"type": "null"}, {"type": "integer", "minimum": 0}]},
-                    "dev": {"oneOf": [{"type": "null"}, {"type": "integer", "minimum": 0}]},
+                    "post": {
+                        "oneOf": [{"type": "null"}, {"type": "integer", "minimum": 0}]
+                    },
+                    "dev": {
+                        "oneOf": [{"type": "null"}, {"type": "integer", "minimum": 0}]
+                    },
                     "local": {"oneOf": [{"type": "null"}, {"type": "string"}]},
                 },
                 "additionalProperties": False,
@@ -86,9 +90,21 @@ def _metadata_schema() -> dict[str, Any]:
                 "required": ["year", "month", "day", "micro"],
                 "properties": {
                     "year": {"type": "integer", "minimum": 0},
-                    "month": {"oneOf": [{"type": "null"}, {"type": "integer", "minimum": 1, "maximum": 12}]},
-                    "day": {"oneOf": [{"type": "null"}, {"type": "integer", "minimum": 1, "maximum": 31}]},
-                    "micro": {"oneOf": [{"type": "null"}, {"type": "integer", "minimum": 0}]},
+                    "month": {
+                        "oneOf": [
+                            {"type": "null"},
+                            {"type": "integer", "minimum": 1, "maximum": 12},
+                        ]
+                    },
+                    "day": {
+                        "oneOf": [
+                            {"type": "null"},
+                            {"type": "integer", "minimum": 1, "maximum": 31},
+                        ]
+                    },
+                    "micro": {
+                        "oneOf": [{"type": "null"}, {"type": "integer", "minimum": 0}]
+                    },
                 },
                 "additionalProperties": False,
             },

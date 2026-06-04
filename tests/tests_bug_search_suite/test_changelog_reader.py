@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 import changelogmanager.llvm_diagnostics as logging
-from changelogmanager.vendor import keepachangelog
 from changelogmanager.changelog_reader import ChangelogReader
+from changelogmanager.vendor import keepachangelog
 
 # ---------------------------------------------------------------------------
 # Helpers

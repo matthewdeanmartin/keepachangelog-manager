@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 from contextlib import suppress
+from os import PathLike
 from pathlib import Path
 from typing import Any
 
@@ -94,14 +95,23 @@ def add_release(changes: dict[str, dict[str, Any]], line: str) -> dict[str, Any]
 
 def add_category(release: dict[str, Any], line: str) -> list[str]:
     category = line[4:].lower().strip()
-    return release.setdefault(category, [])
+    existing_category = release.get(category)
+    if existing_category is None:
+        new_category: list[str] = []
+        release[category] = new_category
+        return new_category
+    if not isinstance(existing_category, list):
+        raise TypeError(f"Expected list[str] category content for {category!r}")
+    return existing_category
 
 
 def add_information(category: list[str], line: str) -> None:
     category.append(line.lstrip(" *-").rstrip(" -"))
 
 
-def parse_to_dict(change_log: Iterable[str], show_unreleased: bool) -> dict[str, dict[str, Any]]:
+def parse_to_dict(
+    change_log: Iterable[str], show_unreleased: bool
+) -> dict[str, dict[str, Any]]:
     changes: dict[str, dict[str, Any]] = {}
     urls: dict[str, str] = {}
     current_release: dict[str, Any] = {}
@@ -140,15 +150,16 @@ def parse_to_dict(change_log: Iterable[str], show_unreleased: bool) -> dict[str,
 
 
 def to_dict(
-    changelog_path: str | Iterable[str], *, show_unreleased: bool = False
+    changelog_path: str | PathLike[str] | Iterable[str],
+    *,
+    show_unreleased: bool = False,
 ) -> dict[str, dict[str, Any]]:
     """Convert a Keep a Changelog markdown document into a dictionary."""
 
-    try:
+    if isinstance(changelog_path, (str, PathLike)):
         with Path(changelog_path).open(encoding="utf-8") as change_log:
             return parse_to_dict(change_log, show_unreleased)
-    except TypeError:
-        return parse_to_dict(changelog_path, show_unreleased)
+    return parse_to_dict(changelog_path, show_unreleased)
 
 
 def from_dict(changes: dict[str, dict[str, Any]]) -> str:

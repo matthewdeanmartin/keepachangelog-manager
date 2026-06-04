@@ -176,7 +176,9 @@ def test_apply_backfill_plan_writes_valid_changelog(monkeypatch, tmp_path):
     assert ChangelogReader(file_path=str(changelog_file)).validate_layout() == 0
 
 
-def test_command_backfill_dry_run_reports_without_writing(monkeypatch, tmp_path, capsys):
+def test_command_backfill_dry_run_reports_without_writing(
+    monkeypatch, tmp_path, capsys
+):
     monkeypatch.setattr(
         backfill.subprocess,
         "run",

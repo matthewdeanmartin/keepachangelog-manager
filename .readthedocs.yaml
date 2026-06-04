@@ -9,6 +9,9 @@ build:
   os: ubuntu-24.04
   tools:
     python: "3.14"
+  jobs:
+    pre_build:
+      - python scripts/sync_docs_changelog.py
 
 # Build documentation with Mkdocs
 mkdocs:

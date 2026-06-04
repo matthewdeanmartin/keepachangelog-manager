@@ -264,14 +264,18 @@ class TestFormatFlag:
             "changelogmanager.cli.discover_formatter",
             return_value=make_formatter("\n<!-- formatted -->"),
         ):
-            rc, out = capture_output(["--input-file", p, "validate", "--fix", "--dry-run"])
+            rc, out = capture_output(
+                ["--input-file", p, "validate", "--fix", "--dry-run"]
+            )
         assert rc == 0
         assert "would fix" in out or "Dry run" in out
 
     def test_no_format_with_valid_file_reports_no_fixes(self, tmp_path):
         """--fix --no-format on an already-correct file should report no fixes."""
         p = write_changelog(tmp_path, CLEAN_CHANGELOG)
-        rc, out = capture_output(["--input-file", p, "validate", "--fix", "--no-format"])
+        rc, out = capture_output(
+            ["--input-file", p, "validate", "--fix", "--no-format"]
+        )
         assert rc == 0
         assert "No fixes required" in out
 

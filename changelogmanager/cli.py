@@ -504,9 +504,7 @@ def load_changelog(config: str | None, component: str, input_file: str) -> Chang
     )
 
 
-def resolve_changelog_file(
-    config: str | None, component: str, input_file: str
-) -> str:
+def resolve_changelog_file(config: str | None, component: str, input_file: str) -> str:
     """Returns the changelog path for the current config/component selection."""
 
     if config:
@@ -520,7 +518,9 @@ def resolve_versioning_scheme(config: str | None, file_path: str) -> str:
 
     if config:
         return get_versioning_scheme(config)
-    return detect_versioning_scheme_from_file(file_path) or get_versioning_scheme(config)
+    return detect_versioning_scheme_from_file(file_path) or get_versioning_scheme(
+        config
+    )
 
 
 def load_changelog_for_validate_fix(
@@ -1179,6 +1179,7 @@ def command_gitlab_release(args: argparse.Namespace, ctx: CliContext) -> None:
 # from-commits
 # ----------------------------------------------------------------------
 
+
 def git_executable() -> str:
     git = shutil.which("git")
     if git is None:
@@ -1506,8 +1507,8 @@ def run_validate_all(  # pylint: disable=too-many-locals
                     post = cl.render(formatter=formatter, format_options=fmt_options)
                     if post != pre:
                         format_entry = f"formatted {path} with mdformat"
-                all_applied = raw_applied + applied + (
-                    [format_entry] if format_entry else []
+                all_applied = (
+                    raw_applied + applied + ([format_entry] if format_entry else [])
                 )
                 if all_applied and not args.dry_run:
                     cl.write_to_file(

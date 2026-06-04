@@ -3,7 +3,7 @@ PACKAGE = changelogmanager
 BUILD_DIR = build
 PYLINT_TEMPLATE = {path}:{line}: [{msg_id}({symbol}),{obj}] {msg}
 
-.PHONY: help sync clean format format-check test flake8 pylint mypy bandit lint quality check build validate ruff gha-validate gha-pin gha-upgrade
+.PHONY: help sync clean format format-check test flake8 pylint mypy bandit lint quality check build validate ruff docs-sync gha-validate gha-pin gha-upgrade
 
 help:
 	@echo Available targets:
@@ -19,6 +19,7 @@ help:
 	@echo   lint          Run flake8, pylint, mypy and ruff
 	@echo   quality       Run format, lint, bandit, test, and changelog validation checks
 	@echo   check         Alias for quality
+	@echo   docs-sync     Copy CHANGELOG.md into docs/ for documentation builds
 	@echo   build         Build source and wheel distributions with uv
 	@echo   validate      Validate CHANGELOG.md with changelogmanager
 	@echo   gha-validate  Validate GitHub Actions workflow safety checks
@@ -69,7 +70,10 @@ quality: format-check lint bandit test validate
 
 check: quality
 
-build:
+docs-sync:
+	$(UV) run python scripts/sync_docs_changelog.py
+
+build: docs-sync
 	$(UV) build --no-sources
 
 validate:
