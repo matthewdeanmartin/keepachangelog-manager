@@ -6,118 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- Backfill `--strategy merge` additively fills entries into existing versions while preserving existing text (idempotent on re-runs)
-
-### Changed
-- Backfill `--strategy replace` is now an explicit unsupported error: changelog entries have no stable identity, so replacing them is unsafe
-
-## [11.0.0] - 2026-06-04
-### Removed
-- Removed thing
-
-## [10.2.0] - 2026-06-04
-### Added
-- Feature 1
-
-## [10.1.0] - 2026-06-04
-### Added
-- New feature
-
-## [10.0.0] - 2026-06-04
-### Fixed
-- A bug fix
-- A fixed entry
-
-### Added
-- A added entry
-
-### Changed
-- A changed entry
-
-### Deprecated
-- A deprecated entry
-
-### Removed
-- A removed entry
-
-### Security
-- A security entry
-
-## [9.0.0] - 2026-06-04
-### Removed
-- Removed thing
-
-## [8.2.0] - 2026-06-04
-### Added
-- Feature 1
-
-## [8.1.0] - 2026-06-04
-### Added
-- New feature
-
-## [8.0.0] - 2026-06-04
-### Fixed
-- A bug fix
-- A fixed entry
-
-### Added
-- A added entry
-
-### Changed
-- A changed entry
-
-### Deprecated
-- A deprecated entry
-
-### Removed
-- A removed entry
-
-### Security
-- A security entry
-
-## [7.0.0] - 2026-06-04
-### Removed
-- Removed thing
-
-## [6.2.0] - 2026-06-04
-### Added
-- Feature 1
-
-## [6.1.0] - 2026-06-04
-### Added
-- New feature
-
-## [6.0.0] - 2026-06-04
-### Added
 - Support for pep440 and calver
 - Implemented backfill
 - Interactive (inquirer) prompts for remove, edit, github-release, github-pr, and gitlab-release when required arguments are omitted in a TTY
 - backfill --include-unreleased seeds [Unreleased] from commits since the latest release tag
 - from-commits --all routes commits to components by the files they touch, using per-component match globs
 - Configuration in [tool.changelogmanager] (pyproject.toml) or a standalone changelogmanager.toml; [defaults]/[github]/[gitlab] tables back CLI flag defaults (flag > env > config > built-in default)
-- A added entry
 
 ### Changed
 - Configuration is now TOML-only; YAML config files are no longer read or written
 - config command now displays the effective configuration as TOML
-- A changed entry
+- Backfill `--strategy replace` is now an explicit unsupported error: changelog entries have no stable identity, so replacing them is unsafe
+- Backfill `--strategy merge` additively fills entries into existing versions while preserving existing text (idempotent on re-runs)
 
 ### Removed
 - to-yaml export command (use to-json or to-html)
 - pyyaml runtime dependency
 - Unused commits.style configuration key and the never-implemented component-is-substring option
-- A removed entry
 
 ### Fixed
 - config init --config <new-path> no longer crashes when the target config file does not exist yet
-- A bug fix
-- A fixed entry
-
-### Deprecated
-- A deprecated entry
-
-### Security
-- A security entry
 
 ## [5.2.0] - 2026-05-30
 ### Added
