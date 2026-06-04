@@ -1,4 +1,0 @@
-project:
-  components:
-    - name: Service Component
-      changelog: __CHANGELOG_PATH__

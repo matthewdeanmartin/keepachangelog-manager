@@ -29,7 +29,12 @@ from changelogmanager.versioning import detect_versioning_scheme_from_file
 logger = get_logger(__name__)
 
 
-def load_changelog(config: str | None, component: str, input_file: str) -> Changelog:
+DEFAULT_CHANGELOG_FILE = "CHANGELOG.md"
+
+
+def load_changelog(
+    config: str | None, component: str, input_file: str | None
+) -> Changelog:
     """Loads the changelog configured for this invocation."""
 
     logger.info(
@@ -60,13 +65,28 @@ def load_changelog(config: str | None, component: str, input_file: str) -> Chang
     )
 
 
-def resolve_changelog_file(config: str | None, component: str, input_file: str) -> str:
-    """Returns the changelog path for the current config/component selection."""
+def resolve_changelog_file(
+    config: str | None, component: str, input_file: str | None
+) -> str:
+    """Returns the changelog path for the current config/component selection.
 
+    Precedence (consistent with the rest of the CLI: flag > config > built-in
+    default): an explicit ``--input-file`` always wins so a command can target a
+    specific file even when a config (including auto-detected ambient config such as
+    a ``[tool.changelogmanager]`` table in the cwd's ``pyproject.toml``) is present.
+    Only when no explicit ``--input-file`` was given do we fall back to the
+    config/component changelog, and finally to the built-in default.
+    """
+
+    if input_file is not None:
+        # Explicit CLI flag wins over any config/component changelog path.
+        return input_file
     if config:
         component_config = get_component_from_config(config=config, component=component)
-        return str(component_config.get("changelog", input_file))
-    return input_file
+        changelog = component_config.get("changelog")
+        if changelog:
+            return str(changelog)
+    return DEFAULT_CHANGELOG_FILE
 
 
 def resolve_versioning_scheme(config: str | None, file_path: str) -> str:

@@ -94,10 +94,11 @@ def test_load_changelog_uses_component_config_when_present(monkeypatch):
     monkeypatch.setattr(cli.loaders, "get_versioning_scheme", lambda config: "semver")
     monkeypatch.setattr(cli.loaders, "ChangelogReader", FakeReader)
 
+    # No explicit --input-file (None): the config/component changelog is used.
     changelog = cli.load_changelog(
         config="components.yml",
         component="api",
-        input_file="IGNORED.md",
+        input_file=None,
     )
 
     assert seen["file_path"] == "docs/COMPONENT_CHANGELOG.md"
@@ -105,6 +106,65 @@ def test_load_changelog_uses_component_config_when_present(monkeypatch):
     assert changelog.get()["1.0.0"]["metadata"]["version"] == "1.0.0"
     assert seen["preamble_keywords"] == ("keep a changelog", "semantic versioning")
     assert seen["versioning_scheme"] == "semver"
+
+
+def test_explicit_input_file_overrides_component_config(monkeypatch):
+    """An explicit --input-file must win over a config/component changelog path.
+
+    This guards against ambient config (e.g. a ``[tool.changelogmanager]`` table in
+    the cwd's ``pyproject.toml``) silently redirecting an explicit ``--input-file`` to
+    the wrong file — which previously let tests/scripts clobber the repo's own
+    CHANGELOG.md.
+    """
+
+    seen = {}
+
+    class FakeReader:
+        def __init__(self, file_path, **_kwargs):
+            seen["file_path"] = file_path
+
+        def read(self):
+            return {}
+
+    monkeypatch.setattr(
+        cli.loaders,
+        "get_component_from_config",
+        lambda config, component: {"changelog": "docs/COMPONENT_CHANGELOG.md"},
+    )
+    monkeypatch.setattr(
+        cli.loaders, "get_preamble_keywords", lambda config: ()
+    )
+    monkeypatch.setattr(cli.loaders, "get_versioning_scheme", lambda config: "semver")
+    monkeypatch.setattr(cli.loaders, "ChangelogReader", FakeReader)
+
+    changelog = cli.load_changelog(
+        config="components.yml",
+        component="api",
+        input_file="EXPLICIT.md",
+    )
+
+    assert seen["file_path"] == "EXPLICIT.md"
+    assert changelog.get_file_path() == "EXPLICIT.md"
+
+
+def test_resolve_changelog_file_precedence():
+    """flag > config component changelog > built-in default."""
+
+    from changelogmanager.cli.loaders import (
+        DEFAULT_CHANGELOG_FILE,
+        resolve_changelog_file,
+    )
+
+    # No config, no explicit flag -> built-in default.
+    assert (
+        resolve_changelog_file(config=None, component="default", input_file=None)
+        == DEFAULT_CHANGELOG_FILE
+    )
+    # Explicit flag, no config -> the flag.
+    assert (
+        resolve_changelog_file(config=None, component="default", input_file="a.md")
+        == "a.md"
+    )
 
 
 def test_prompt_for_missing_add_arguments_uses_existing_values_without_prompt(

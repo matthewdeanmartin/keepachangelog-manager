@@ -113,7 +113,7 @@ def main(  # pylint: disable=too-many-return-statements
             )
             context = CliContext(
                 changelog=Changelog(
-                    file_path=args.input_file,
+                    file_path=args.input_file or "CHANGELOG.md",
                     versioning_scheme=versioning_scheme,
                 ),
                 quiet=args.quiet,

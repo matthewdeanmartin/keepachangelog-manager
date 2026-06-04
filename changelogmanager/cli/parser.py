@@ -46,7 +46,12 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         help="Type of formatting to apply to error messages",
     )
     parser.add_argument(
-        "--input-file", default="CHANGELOG.md", help="Changelog file to work with"
+        # Default is None (not "CHANGELOG.md") so the loader can distinguish an
+        # explicit --input-file from the built-in default. An explicit flag must win
+        # over a config/component-derived changelog path; see resolve_changelog_file.
+        "--input-file",
+        default=None,
+        help="Changelog file to work with (default: CHANGELOG.md)",
     )
     parser.add_argument(
         "--info",

@@ -63,21 +63,24 @@ assert_before() {
 cd "${ROOT_DIR}"
 rm -rf "${TMP_DIR}"
 trap 'rm -rf "${TMP_DIR}"' EXIT
-mkdir -p "${TMP_DIR}/"{create,add,release,json,component,yaml,html,remove,edit,validate,skill,gitrepo}
+mkdir -p "${TMP_DIR}/"{create,add,release,json,component,html,remove,edit,validate,skill,gitrepo}
 
 cp "${FIXTURES_DIR}/sample-changelog.md" "${TMP_DIR}/add/CHANGELOG.md"
 cp "${FIXTURES_DIR}/sample-changelog.md" "${TMP_DIR}/release/CHANGELOG.md"
 cp "${FIXTURES_DIR}/sample-changelog.md" "${TMP_DIR}/json/CHANGELOG.md"
-cp "${FIXTURES_DIR}/sample-changelog.md" "${TMP_DIR}/yaml/CHANGELOG.md"
 cp "${FIXTURES_DIR}/sample-changelog.md" "${TMP_DIR}/html/CHANGELOG.md"
 cp "${FIXTURES_DIR}/sample-changelog.md" "${TMP_DIR}/remove/CHANGELOG.md"
 cp "${FIXTURES_DIR}/sample-changelog.md" "${TMP_DIR}/edit/CHANGELOG.md"
 cp "${FIXTURES_DIR}/sample-changelog.md" "${TMP_DIR}/component/CHANGELOG.md"
 sed "s#__CHANGELOG_PATH__#${TMP_DIR}/component/CHANGELOG.md#" \
-    "${FIXTURES_DIR}/component-config.template.yml" > "${TMP_DIR}/component/config.yml"
+    "${FIXTURES_DIR}/component-config.template.toml" > "${TMP_DIR}/component/config.toml"
 
 cat > "${TMP_DIR}/validate/CHANGELOG.md" <<'EOF'
 # Changelog
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 ### Added
@@ -94,6 +97,10 @@ EOF
 
 cat > "${TMP_DIR}/gitrepo/CHANGELOG.md" <<'EOF'
 # Changelog
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.0.0] - 2024-01-01
 ### Added
@@ -113,7 +120,7 @@ assert_contains "${TMP_DIR}/add/CHANGELOG.md" "- Integration entry"
 current_version="$(uv run changelogmanager --input-file "${TMP_DIR}/add/CHANGELOG.md" version)"
 previous_version="$(uv run changelogmanager --input-file "${TMP_DIR}/add/CHANGELOG.md" version --reference previous)"
 future_version="$(uv run changelogmanager --input-file "${TMP_DIR}/add/CHANGELOG.md" version --reference future)"
-component_version="$(uv run changelogmanager --config "${TMP_DIR}/component/config.yml" --component "Service Component" version)"
+component_version="$(uv run changelogmanager --config "${TMP_DIR}/component/config.toml" --component "Service Component" version)"
 
 assert_equals "${current_version}" "1.0.0"
 assert_equals "${previous_version}" "0.9.4"
@@ -123,10 +130,6 @@ assert_equals "${component_version}" "1.0.0"
 run uv run changelogmanager --input-file "${TMP_DIR}/json/CHANGELOG.md" to-json --file-name "${TMP_DIR}/json/CHANGELOG.json"
 assert_exists "${TMP_DIR}/json/CHANGELOG.json"
 assert_contains "${TMP_DIR}/json/CHANGELOG.json" '"version": "unreleased"'
-
-run uv run changelogmanager --input-file "${TMP_DIR}/yaml/CHANGELOG.md" to-yaml --file-name "${TMP_DIR}/yaml/CHANGELOG.yaml"
-assert_exists "${TMP_DIR}/yaml/CHANGELOG.yaml"
-assert_contains "${TMP_DIR}/yaml/CHANGELOG.yaml" "version: unreleased"
 
 run uv run changelogmanager --input-file "${TMP_DIR}/html/CHANGELOG.md" to-html --file-name "${TMP_DIR}/html/CHANGELOG.html"
 assert_exists "${TMP_DIR}/html/CHANGELOG.html"
