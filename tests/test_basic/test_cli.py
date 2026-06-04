@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import changelogmanager.cli.entry as cli_main_module
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager import cli
 from changelogmanager.change_types import UNRELEASED_ENTRY
@@ -81,17 +82,17 @@ def test_load_changelog_uses_component_config_when_present(monkeypatch):
             return {"1.0.0": {"metadata": {"version": "1.0.0"}}}
 
     monkeypatch.setattr(
-        cli,
+        cli.loaders,
         "get_component_from_config",
         lambda config, component: {"changelog": "docs/COMPONENT_CHANGELOG.md"},
     )
     monkeypatch.setattr(
-        cli,
+        cli.loaders,
         "get_preamble_keywords",
         lambda config: ("keep a changelog", "semantic versioning"),
     )
-    monkeypatch.setattr(cli, "get_versioning_scheme", lambda config: "semver")
-    monkeypatch.setattr(cli, "ChangelogReader", FakeReader)
+    monkeypatch.setattr(cli.loaders, "get_versioning_scheme", lambda config: "semver")
+    monkeypatch.setattr(cli.loaders, "ChangelogReader", FakeReader)
 
     changelog = cli.load_changelog(
         config="components.yml",
@@ -165,7 +166,7 @@ def test_command_release_add_and_to_json_respect_dry_run_and_confirmation(
     assert "Dry run: would release CHANGELOG.md" in capsys.readouterr().out
 
     monkeypatch.setattr(
-        cli,
+        cli.prompts,
         "prompt_for_missing_add_arguments",
         lambda change_type, message: {
             "change_type": "fixed",
@@ -223,7 +224,7 @@ def test_command_github_release_supports_dry_run_and_real_execution(
     assert ("suggest_future_version",) in changelog.calls
     assert "published GitHub release v1.2.3 in owner/repo" in dry_run_output
 
-    monkeypatch.setattr(cli, "GitHub", FakeGitHub)
+    monkeypatch.setattr(cli.commands, "GitHub", FakeGitHub)
     cli.command_github_release(
         make_args(
             dry_run=False,
@@ -296,11 +297,11 @@ def test_main_config_command_skips_changelog_loading(monkeypatch):
         def parse_args(self, argv):
             return args
 
-    monkeypatch.setattr(cli, "build_parser", lambda: FakeParser())
-    monkeypatch.setattr(cli, "configure_logging", lambda error_format: None)
-    monkeypatch.setattr(cli, "resolve_config", lambda config: None)
+    monkeypatch.setattr(cli_main_module, "build_parser", lambda: FakeParser())
+    monkeypatch.setattr(cli_main_module, "configure_logging", lambda error_format: None)
+    monkeypatch.setattr(cli_main_module, "resolve_config", lambda config: None)
     monkeypatch.setattr(
-        cli,
+        cli_main_module,
         "load_changelog",
         lambda **kwargs: pytest.fail("config should not load a changelog"),
     )
@@ -332,11 +333,11 @@ def test_main_skill_command_skips_changelog_loading(monkeypatch):
         def parse_args(self, argv):
             return args
 
-    monkeypatch.setattr(cli, "build_parser", lambda: FakeParser())
-    monkeypatch.setattr(cli, "configure_logging", lambda error_format: None)
-    monkeypatch.setattr(cli, "resolve_config", lambda config: None)
+    monkeypatch.setattr(cli_main_module, "build_parser", lambda: FakeParser())
+    monkeypatch.setattr(cli_main_module, "configure_logging", lambda error_format: None)
+    monkeypatch.setattr(cli_main_module, "resolve_config", lambda config: None)
     monkeypatch.setattr(
-        cli,
+        cli_main_module,
         "load_changelog",
         lambda **kwargs: pytest.fail("skill should not load a changelog"),
     )
@@ -375,10 +376,12 @@ def test_main_returns_expected_exit_codes_for_exceptions(
         def parse_args(self, argv):
             return args
 
-    monkeypatch.setattr(cli, "build_parser", lambda: FakeParser())
-    monkeypatch.setattr(cli, "configure_logging", lambda error_format: None)
-    monkeypatch.setattr(cli, "resolve_config", lambda config: None)
-    monkeypatch.setattr(cli, "load_changelog", lambda **kwargs: DummyChangelog())
+    monkeypatch.setattr(cli_main_module, "build_parser", lambda: FakeParser())
+    monkeypatch.setattr(cli_main_module, "configure_logging", lambda error_format: None)
+    monkeypatch.setattr(cli_main_module, "resolve_config", lambda config: None)
+    monkeypatch.setattr(
+        cli_main_module, "load_changelog", lambda **kwargs: DummyChangelog()
+    )
 
     assert cli.main([]) == expected
 
@@ -404,10 +407,12 @@ def test_main_returns_zero_for_successful_execution(monkeypatch):
         def parse_args(self, argv):
             return args
 
-    monkeypatch.setattr(cli, "build_parser", lambda: FakeParser())
-    monkeypatch.setattr(cli, "configure_logging", lambda error_format: None)
-    monkeypatch.setattr(cli, "resolve_config", lambda config: None)
-    monkeypatch.setattr(cli, "load_changelog", lambda **kwargs: DummyChangelog())
+    monkeypatch.setattr(cli_main_module, "build_parser", lambda: FakeParser())
+    monkeypatch.setattr(cli_main_module, "configure_logging", lambda error_format: None)
+    monkeypatch.setattr(cli_main_module, "resolve_config", lambda config: None)
+    monkeypatch.setattr(
+        cli_main_module, "load_changelog", lambda **kwargs: DummyChangelog()
+    )
 
     assert cli.main([]) == 0
     assert isinstance(seen["context"], cli.CliContext)

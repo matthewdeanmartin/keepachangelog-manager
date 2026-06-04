@@ -233,8 +233,10 @@ class TestFormatFlag:
     def test_format_flag_errors_when_no_formatter(self, tmp_path):
         """--format raises an error when neither mdformat import nor executable is available."""
         p = write_changelog(tmp_path)
-        # cli.py imports discover_formatter directly, so patch at the cli module level
-        with patch("changelogmanager.cli.discover_formatter", return_value=None):
+        # loaders.resolve_formatter calls discover_formatter, so patch it there
+        with patch(
+            "changelogmanager.cli.loaders.discover_formatter", return_value=None
+        ):
             rc = main(["--input-file", p, "validate", "--fix", "--format"])
         assert rc == 1
 
@@ -249,7 +251,7 @@ class TestFormatFlag:
         p = write_changelog(tmp_path, UNORDERED_CHANGELOG)
         original = Path(p).read_text(encoding="utf-8")
         with patch(
-            "changelogmanager.cli.discover_formatter",
+            "changelogmanager.cli.loaders.discover_formatter",
             return_value=make_formatter("  "),
         ):
             rc = main(["--input-file", p, "validate", "--fix", "--dry-run"])
@@ -261,7 +263,7 @@ class TestFormatFlag:
         """Dry-run with a formatter that changes text reports 'would fix'."""
         p = write_changelog(tmp_path, UNORDERED_CHANGELOG)
         with patch(
-            "changelogmanager.cli.discover_formatter",
+            "changelogmanager.cli.loaders.discover_formatter",
             return_value=make_formatter("\n<!-- formatted -->"),
         ):
             rc, out = capture_output(
@@ -300,12 +302,12 @@ class TestJsonPayload:
         """A file with no structural fixes and no format changes → formatted: False."""
         p = write_changelog(tmp_path, CLEAN_CHANGELOG)
         # Use an identity formatter that returns the text unchanged.
-        # Patch at the cli module level (cli imports discover_formatter directly).
+        # Patch in loaders, where resolve_formatter looks up discover_formatter.
         identity_fmt = (
             make_formatter()
         )  # appends "" — truly no-op on already-serialized text
         with patch(
-            "changelogmanager.cli.discover_formatter", return_value=identity_fmt
+            "changelogmanager.cli.loaders.discover_formatter", return_value=identity_fmt
         ):
             rc, out = capture_output(["--json", "--input-file", p, "validate", "--fix"])
         assert rc == 0
@@ -316,7 +318,9 @@ class TestJsonPayload:
         """formatted: true when the format pass changes the serialized text."""
         p = write_changelog(tmp_path, UNORDERED_CHANGELOG)
         marking_fmt = make_formatter("\n<!-- mdformat -->")
-        with patch("changelogmanager.cli.discover_formatter", return_value=marking_fmt):
+        with patch(
+            "changelogmanager.cli.loaders.discover_formatter", return_value=marking_fmt
+        ):
             rc, out = capture_output(["--json", "--input-file", p, "validate", "--fix"])
         assert rc == 0
         payload = json.loads(out)
@@ -416,7 +420,9 @@ class TestValidateAllWithFormat:
 
         marking_fmt = make_formatter("\n<!-- mdformat -->")
         # Patch at the cli module level (cli imports discover_formatter directly)
-        with patch("changelogmanager.cli.discover_formatter", return_value=marking_fmt):
+        with patch(
+            "changelogmanager.cli.loaders.discover_formatter", return_value=marking_fmt
+        ):
             rc = main(["--config", str(cfg), "validate", "--all", "--fix"])
         assert rc == 0
         text = cl.read_text(encoding="utf-8")

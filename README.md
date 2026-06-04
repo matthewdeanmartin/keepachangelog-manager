@@ -7,6 +7,10 @@ Fork of `keepachangelog-manager`, originally mostly written by KevinDeJong at To
 
 ![gif](https://raw.githubusercontent.com/matthewdeanmartin/keepachangelog-manager/main/resources/usage.gif)
 
+and gui
+
+![gui](https://raw.githubusercontent.com/matthewdeanmartin/keepachangelog-manager/main/resources/gui_edit_page.png)
+
 ## Install
 
 ```sh
@@ -60,7 +64,6 @@ Commands and global flags for scripting and exporting structured data.
 ```text
 version       Print previous/current/future version
 to-json       Export the changelog as JSON
-to-yaml       Export the changelog as YAML
 to-html       Export the changelog as HTML
 skill export  Export the bundled CLI skill for Copilot or Claude
 
@@ -145,7 +148,6 @@ Export structured output:
 
 ```sh
 changelogmanager to-json
-changelogmanager to-yaml
 changelogmanager to-html
 ```
 

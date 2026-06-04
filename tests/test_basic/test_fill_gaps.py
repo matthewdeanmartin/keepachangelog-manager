@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 import changelogmanager.llvm_diagnostics as logging
-from changelogmanager import backfill, cli
+from changelogmanager import backfill, cli, services
 
 
 def make_args(**kwargs):
@@ -71,9 +71,9 @@ def test_config_init_with_missing_explicit_config_does_not_crash(monkeypatch, tm
         assert config != str(target)
         return "semver"
 
-    monkeypatch.setattr(cli, "get_versioning_scheme", fake_versioning)
+    monkeypatch.setattr(cli.entry, "get_versioning_scheme", fake_versioning)
     monkeypatch.setattr(
-        cli,
+        cli.prompts,
         "prompt_for_config_init",
         lambda config, *, default_format, prompt_for_format: {
             "config_format": "yaml",
@@ -108,7 +108,7 @@ def test_main_config_command_with_missing_explicit_config_errors_cleanly():
 
 
 def test_resolve_entry_selection_returns_explicit_args_without_prompt(monkeypatch):
-    monkeypatch.setattr(cli, "interactive_enabled", lambda: True)
+    monkeypatch.setattr(cli.prompts, "interactive_enabled", lambda: True)
     monkeypatch.setattr(
         cli.inquirer, "prompt", lambda prompts: pytest.fail("unexpected prompt")
     )
@@ -123,7 +123,7 @@ def test_resolve_entry_selection_prompts_when_missing(monkeypatch):
     changelog = DummyChangelog(
         unreleased_entries=[("added", 0, "A feature"), ("fixed", 0, "A bug")]
     )
-    monkeypatch.setattr(cli, "interactive_enabled", lambda: True)
+    monkeypatch.setattr(cli.prompts, "interactive_enabled", lambda: True)
 
     captured = {}
 
@@ -140,7 +140,7 @@ def test_resolve_entry_selection_prompts_when_missing(monkeypatch):
 
 
 def test_resolve_entry_selection_errors_when_non_interactive(monkeypatch):
-    monkeypatch.setattr(cli, "interactive_enabled", lambda: False)
+    monkeypatch.setattr(cli.prompts, "interactive_enabled", lambda: False)
     args = make_args(change_type=None, index=None)
     with pytest.raises(logging.Error, match="--change-type and --index are required"):
         cli.resolve_entry_selection(args, DummyChangelog(), action="removed")
@@ -148,9 +148,9 @@ def test_resolve_entry_selection_errors_when_non_interactive(monkeypatch):
 
 def test_command_remove_uses_interactive_picker(monkeypatch):
     changelog = DummyChangelog(unreleased_entries=[("fixed", 0, "A bug")])
-    monkeypatch.setattr(cli, "interactive_enabled", lambda: True)
+    monkeypatch.setattr(cli.prompts, "interactive_enabled", lambda: True)
     monkeypatch.setattr(
-        cli, "prompt_for_unreleased_entry", lambda cl, *, action: ("fixed", 0)
+        cli.prompts, "prompt_for_unreleased_entry", lambda cl, *, action: ("fixed", 0)
     )
 
     cli.command_remove(
@@ -163,11 +163,13 @@ def test_command_remove_uses_interactive_picker(monkeypatch):
 
 def test_command_edit_prompts_for_entry_and_message(monkeypatch):
     changelog = DummyChangelog(unreleased_entries=[("added", 0, "Old text")])
-    monkeypatch.setattr(cli, "interactive_enabled", lambda: True)
+    monkeypatch.setattr(cli.prompts, "interactive_enabled", lambda: True)
     monkeypatch.setattr(
-        cli, "prompt_for_unreleased_entry", lambda cl, *, action: ("added", 0)
+        cli.prompts, "prompt_for_unreleased_entry", lambda cl, *, action: ("added", 0)
     )
-    monkeypatch.setattr(cli, "prompt_text", lambda message, default=None: "New text")
+    monkeypatch.setattr(
+        cli.prompts, "prompt_text", lambda message, default=None: "New text"
+    )
 
     cli.command_edit(
         make_args(
@@ -184,7 +186,7 @@ def test_command_edit_prompts_for_entry_and_message(monkeypatch):
 
 def test_command_edit_non_interactive_still_requires_change(monkeypatch):
     changelog = DummyChangelog(unreleased_entries=[("added", 0, "Old text")])
-    monkeypatch.setattr(cli, "interactive_enabled", lambda: False)
+    monkeypatch.setattr(cli.prompts, "interactive_enabled", lambda: False)
     with pytest.raises(logging.Error, match="--change-type and --index are required"):
         cli.command_edit(
             make_args(
@@ -204,7 +206,7 @@ def test_command_edit_non_interactive_still_requires_change(monkeypatch):
 
 
 def test_resolve_required_value_prefers_explicit(monkeypatch):
-    monkeypatch.setattr(cli, "interactive_enabled", lambda: True)
+    monkeypatch.setattr(cli.prompts, "interactive_enabled", lambda: True)
     monkeypatch.setattr(
         cli.inquirer, "prompt", lambda prompts: pytest.fail("unexpected prompt")
     )
@@ -216,7 +218,7 @@ def test_resolve_required_value_prefers_explicit(monkeypatch):
 
 def test_resolve_required_value_uses_env(monkeypatch):
     monkeypatch.setenv("MY_TOKEN", "from-env")
-    monkeypatch.setattr(cli, "interactive_enabled", lambda: True)
+    monkeypatch.setattr(cli.prompts, "interactive_enabled", lambda: True)
     monkeypatch.setattr(
         cli.inquirer, "prompt", lambda prompts: pytest.fail("unexpected prompt")
     )
@@ -228,8 +230,10 @@ def test_resolve_required_value_uses_env(monkeypatch):
 
 def test_resolve_required_value_prompts_interactively(monkeypatch):
     monkeypatch.delenv("MY_TOKEN", raising=False)
-    monkeypatch.setattr(cli, "interactive_enabled", lambda: True)
-    monkeypatch.setattr(cli, "prompt_text", lambda message, default=None: "typed")
+    monkeypatch.setattr(cli.prompts, "interactive_enabled", lambda: True)
+    monkeypatch.setattr(
+        cli.prompts, "prompt_text", lambda message, default=None: "typed"
+    )
     assert (
         cli.resolve_required_value(None, env_var="MY_TOKEN", message="Token") == "typed"
     )
@@ -237,16 +241,18 @@ def test_resolve_required_value_prompts_interactively(monkeypatch):
 
 def test_resolve_required_value_non_interactive_returns_none(monkeypatch):
     monkeypatch.delenv("MY_TOKEN", raising=False)
-    monkeypatch.setattr(cli, "interactive_enabled", lambda: False)
+    monkeypatch.setattr(cli.prompts, "interactive_enabled", lambda: False)
     assert cli.resolve_required_value(None, env_var="MY_TOKEN", message="Token") is None
 
 
 def test_command_github_release_prompts_for_repository(monkeypatch):
     changelog = DummyChangelog(has_unreleased=True)
-    monkeypatch.setattr(cli, "interactive_enabled", lambda: True)
+    monkeypatch.setattr(cli.prompts, "interactive_enabled", lambda: True)
 
     prompts = iter(["owner/repo", "secret-token"])
-    monkeypatch.setattr(cli, "prompt_text", lambda message, default=None: next(prompts))
+    monkeypatch.setattr(
+        cli.prompts, "prompt_text", lambda message, default=None: next(prompts)
+    )
 
     args = make_args(
         repository=None,
@@ -263,10 +269,12 @@ def test_command_github_release_prompts_for_repository(monkeypatch):
 
 def test_command_gitlab_release_prompts_for_project(monkeypatch):
     changelog = DummyChangelog(has_unreleased=True)
-    monkeypatch.setattr(cli, "interactive_enabled", lambda: True)
+    monkeypatch.setattr(cli.prompts, "interactive_enabled", lambda: True)
 
     prompts = iter(["group/project", "glpat-token"])
-    monkeypatch.setattr(cli, "prompt_text", lambda message, default=None: next(prompts))
+    monkeypatch.setattr(
+        cli.prompts, "prompt_text", lambda message, default=None: next(prompts)
+    )
     monkeypatch.delenv("GITLAB_TOKEN", raising=False)
     monkeypatch.delenv("CI_JOB_TOKEN", raising=False)
 
@@ -322,7 +330,7 @@ def test_plan_unreleased_backfill_filters_existing(monkeypatch):
 def test_command_backfill_include_unreleased_adds_entries(monkeypatch):
     changelog = DummyChangelog()
     monkeypatch.setattr(
-        cli,
+        services,
         "plan_unreleased_backfill",
         lambda cl, *, since, commit_schema: [
             backfill.BackfillEntry(
@@ -353,7 +361,7 @@ def test_command_backfill_include_unreleased_adds_entries(monkeypatch):
 def test_command_backfill_include_unreleased_dry_run(monkeypatch, capsys):
     changelog = DummyChangelog()
     monkeypatch.setattr(
-        cli,
+        services,
         "plan_unreleased_backfill",
         lambda cl, *, since, commit_schema: [
             backfill.BackfillEntry(change_type="fixed", text="a fix", source="commits")

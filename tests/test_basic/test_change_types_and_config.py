@@ -3,10 +3,17 @@ import pytest
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import CATEGORIES, TYPES_OF_CHANGE, VersionCore
 from changelogmanager.config import (
+    auto_detect_config,
     get_component_from_config,
     get_effective_configuration,
+    get_format_options,
+    get_github_options,
+    get_gitlab_options,
     get_preamble_keywords,
     get_versioning_scheme,
+    get_versioning_label,
+    replace_pyproject_section,
+    serialize_config_toml,
     validate_configuration,
     write_configuration,
 )
@@ -127,3 +134,103 @@ def test_preamble_keywords_follow_configured_versioning(tmp_path):
         "keep a changelog",
         "calendar versioning",
     )
+
+
+def test_serialize_config_toml_includes_optional_tables_and_match_globs():
+    config = {
+        "project": {
+            "components": [
+                {
+                    "name": "api",
+                    "changelog": "docs/API_CHANGELOG.md",
+                    "match": ["api/**", "shared/*"],
+                }
+            ],
+            "validation": {
+                "enforce_preamble": True,
+                "format": "auto",
+            },
+            "versioning": {"scheme": "calver"},
+            "defaults": {"error_format": "github", "bump_versions": True},
+            "github": {"repository": "octo/example"},
+            "gitlab": {"project": 123, "url": "https://gitlab.example.com"},
+        }
+    }
+
+    rendered = serialize_config_toml(config, prefix="")
+
+    assert '[versioning]\nscheme = "calver"' in rendered
+    assert "[validation]\nenforce_preamble = true\nformat = \"auto\"" in rendered
+    assert '[defaults]\nerror_format = "github"\nbump_versions = true' in rendered
+    assert '[github]\nrepository = "octo/example"' in rendered
+    assert '[gitlab]\nproject = 123\nurl = "https://gitlab.example.com"' in rendered
+    assert 'match = ["api/**", "shared/*"]' in rendered
+
+
+def test_replace_pyproject_section_replaces_only_changelogmanager_block():
+    content = (
+        "[build-system]\n"
+        "requires = [\"hatchling\"]\n\n"
+        "[tool.changelogmanager]\n"
+        "old = true\n\n"
+        "[tool.ruff]\n"
+        "line-length = 160\n"
+    )
+    section = (
+        "[tool.changelogmanager]\n"
+        "\n"
+        "[tool.changelogmanager.versioning]\n"
+        'scheme = "pep440"\n'
+    )
+
+    updated = replace_pyproject_section(content, section)
+
+    assert "old = true" not in updated
+    assert "[build-system]" in updated
+    assert "[tool.ruff]" in updated
+    assert updated.count("[tool.changelogmanager]") == 1
+    assert 'scheme = "pep440"' in updated
+
+
+def test_config_helpers_read_optional_tables_and_invalid_versioning(tmp_path):
+    config_path = tmp_path / "changelogmanager.toml"
+    config_path.write_text(
+        "[versioning]\n"
+        'scheme = "not-a-scheme"\n'
+        "\n"
+        "[validation]\n"
+        "enforce_preamble = false\n"
+        'format = "auto"\n'
+        'formatter = "mdformat"\n'
+        "\n"
+        "[defaults]\n"
+        'error_format = "github"\n'
+        "\n"
+        "[github]\n"
+        'repository = "octo/example"\n'
+        "\n"
+        "[gitlab]\n"
+        'project = "group/project"\n'
+        "\n"
+        "[[components]]\n"
+        'name = "default"\n'
+        'changelog = "CHANGELOG.md"\n',
+        encoding="utf-8",
+    )
+
+    assert get_versioning_scheme(str(config_path)) == "semver"
+    assert get_versioning_label("bogus") == "Semantic Versioning"
+    assert get_format_options(str(config_path)) == {
+        "format": "auto",
+        "formatter": "mdformat",
+        "mdformat_options": {},
+    }
+    assert get_github_options(str(config_path)) == {"repository": "octo/example"}
+    assert get_gitlab_options(str(config_path)) == {"project": "group/project"}
+
+
+def test_auto_detect_config_ignores_invalid_pyproject(tmp_path):
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text("[tool.changelogmanager\nbroken = true\n", encoding="utf-8")
+
+    assert auto_detect_config(tmp_path) is None
