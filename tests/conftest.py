@@ -10,15 +10,16 @@ pytest is launched. Tests that need their own working directory still call
 """
 
 import os
+from pathlib import Path
 
 import pytest
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path_factory):
+def _isolate_cwd(tmp_path_factory: pytest.TempPathFactory) -> None:
     """Run each test from a clean temp directory with no ambient config."""
 
-    original = os.getcwd()
+    original = Path.cwd()
     workdir = tmp_path_factory.mktemp("cwd")
     os.chdir(workdir)
     try:

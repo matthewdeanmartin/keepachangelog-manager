@@ -28,7 +28,7 @@ class Formatter(Protocol):
 
 class InProcessFormatter:
     def __call__(self, text: str, options: dict[str, Any]) -> str:
-        import mdformat
+        import mdformat  # type: ignore[import-not-found]
 
         wrap = options.get("wrap", "keep")
         number = options.get("number", False)
@@ -55,7 +55,7 @@ def discover_formatter() -> Formatter | None:
     """Returns the best available Formatter, or None if none is installed."""
     try:
         # pylint: disable=unused-import
-        import mdformat  # noqa: F401
+        import mdformat  # noqa: F401 # type: ignore[import-not-found]
 
         logger.log(VERBOSE, "mdformat available in-process; using in-process formatter")
         return InProcessFormatter()

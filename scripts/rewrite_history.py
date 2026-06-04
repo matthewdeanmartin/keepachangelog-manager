@@ -23,10 +23,10 @@ import sys
 # Commit-message map  (original subject  →  new full message)
 # ---------------------------------------------------------------------------
 # Rules:
-#   Added:   new files, features, content
-#   Changed: edits to existing files, restructuring, config tweaks
-#   Fixed:   bug fixes, broken-build corrections
-#   Removed: deletions
+#   - Added:   new files, features, content
+#   - Changed: edits to existing files, restructuring, config tweaks
+#   - Fixed:   bug fixes, broken-build corrections
+#   - Removed: deletions
 # ---------------------------------------------------------------------------
 
 COMMIT_MAP: dict[str, str] = {
@@ -55,7 +55,7 @@ def build_callback_script() -> str:
     map_lines.append("}\n")
     map_str = "".join(map_lines)
 
-    callback = (
+    return (
         "import re\n"
         "COAUTHOR_RE = re.compile(\n"
         r'    r"\n?^Co-[Aa]uthored?-[Bb]y:.*$",'
@@ -88,7 +88,6 @@ cleaned = cleaned.rstrip() + "\\n"
 commit.message = cleaned.encode("utf-8")
 """
     )
-    return callback
 
 
 def check_prerequisites() -> None:

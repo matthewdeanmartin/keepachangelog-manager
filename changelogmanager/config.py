@@ -98,10 +98,10 @@ def wrap_unwrapped_schema(config: Mapping[str, Any]) -> dict[str, Any]:
 
     # Legacy form: already wrapped under "project". Flatten by lifting it out.
     if "project" in config and isinstance(config["project"], Mapping):
-        project = dict(config["project"])
+        legacy_project = dict(config["project"])
         # A legacy config may still carry the dead "commits" table; drop it.
-        project.pop("commits", None)
-        return {"project": project}
+        legacy_project.pop("commits", None)
+        return {"project": legacy_project}
 
     project: dict[str, Any] = {}
     for table in UNWRAPPED_TABLES:
