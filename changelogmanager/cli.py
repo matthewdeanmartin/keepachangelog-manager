@@ -27,6 +27,7 @@ from changelogmanager.backfill import (
     apply_backfill_plan,
     classify_commit_subject,
     plan_backfill,
+    plan_unreleased_backfill,
 )
 from changelogmanager.change_types import TYPES_OF_CHANGE, UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
@@ -922,6 +923,89 @@ def command_add(args: argparse.Namespace, ctx: CliContext) -> None:
         changelog.write_to_file()
 
 
+def interactive_enabled() -> bool:
+    """Returns True when prompting the user for missing input is appropriate."""
+
+    return sys.stdin.isatty()
+
+
+def prompt_for_unreleased_entry(
+    changelog: Changelog, *, action: str
+) -> tuple[str, int]:
+    """Lets the user pick an [Unreleased] entry, returning (change_type, index)."""
+
+    entries = changelog.list_unreleased()
+    if not entries:
+        raise logging.Error(
+            file_path=changelog.get_file_path(),
+            message="No [Unreleased] entries to choose from",
+        )
+
+    choices: list[str] = []
+    choice_map: dict[str, tuple[str, int]] = {}
+    for change_type, index, message in entries:
+        label = f"[{change_type}] {index}: {message}"
+        choices.append(label)
+        choice_map[label] = (change_type, index)
+
+    answers = inquirer.prompt(
+        [
+            inquirer.List(
+                "entry",
+                message=f"Which entry should be {action}?",
+                choices=choices,
+            )
+        ]
+    )
+    if not answers:
+        raise logging.Info(
+            file_path=changelog.get_file_path(),
+            message=f"{action.capitalize()} cancelled by user",
+        )
+    return choice_map[str(answers["entry"])]
+
+
+def resolve_entry_selection(
+    args: argparse.Namespace, changelog: Changelog, *, action: str
+) -> tuple[str, int]:
+    """Returns (change_type, index), prompting interactively when both are absent."""
+
+    if args.change_type and args.index is not None:
+        return args.change_type, args.index
+    if interactive_enabled():
+        return prompt_for_unreleased_entry(changelog, action=action)
+    raise logging.Error(
+        file_path=changelog.get_file_path(),
+        message="--change-type and --index are required",
+    )
+
+
+def prompt_text(message: str, *, default: str | None = None) -> str:
+    """Prompts for a single line of text, returning the stripped answer."""
+
+    answers = inquirer.prompt(
+        [inquirer.Text("value", message=message, default=default or "")]
+    )
+    if not answers:
+        raise logging.Info(message=f"{message} cancelled by user")
+    return str(answers.get("value", "")).strip()
+
+
+def resolve_required_value(
+    provided: str | None, *, env_var: str | None, message: str
+) -> str | None:
+    """Returns ``provided``/env value, prompting interactively when both are blank."""
+
+    if provided:
+        return provided
+    env_value = os.environ.get(env_var, "").strip() if env_var else ""
+    if env_value:
+        return env_value
+    if interactive_enabled():
+        return prompt_text(message) or None
+    return None
+
+
 def command_remove(args: argparse.Namespace, ctx: CliContext) -> None:
     """Removes an entry from [Unreleased]."""
 
@@ -941,13 +1025,14 @@ def command_remove(args: argparse.Namespace, ctx: CliContext) -> None:
         ctx.json_payload["entries"] = payload
         return
 
-    if not args.change_type or args.index is None:
+    if (not args.change_type or args.index is None) and not interactive_enabled():
         raise logging.Error(
             file_path=changelog.get_file_path(),
             message="--change-type and --index are required (or use --list)",
         )
 
-    removed = changelog.remove(change_type=args.change_type, index=args.index)
+    change_type, index = resolve_entry_selection(args, changelog, action="removed")
+    removed = changelog.remove(change_type=change_type, index=index)
     if args.dry_run:
         print_dry_run(ctx, f"would remove '{removed}' from {changelog.get_file_path()}")
         ctx.json_payload["removed"] = removed
@@ -962,23 +1047,24 @@ def command_edit(args: argparse.Namespace, ctx: CliContext) -> None:
 
     logger.info("Running edit command for %s", ctx.changelog.get_file_path())
     changelog = ctx.changelog
-    if args.index is None or not args.change_type:
-        raise logging.Error(
-            file_path=changelog.get_file_path(),
-            message="--change-type and --index are required",
-        )
+    change_type, index = resolve_entry_selection(args, changelog, action="edited")
 
-    if not args.message and not args.new_change_type:
-        raise logging.Error(
-            file_path=changelog.get_file_path(),
-            message="Provide --message and/or --new-change-type",
-        )
+    new_message = args.message
+    new_change_type = args.new_change_type
+    if not new_message and not new_change_type:
+        if interactive_enabled():
+            new_message = prompt_text("Replacement message") or None
+        if not new_message and not new_change_type:
+            raise logging.Error(
+                file_path=changelog.get_file_path(),
+                message="Provide --message and/or --new-change-type",
+            )
 
     changelog.edit(
-        change_type=args.change_type,
-        index=args.index,
-        new_message=args.message,
-        new_change_type=args.new_change_type,
+        change_type=change_type,
+        index=index,
+        new_message=new_message,
+        new_change_type=new_change_type,
     )
 
     if args.dry_run:
@@ -992,12 +1078,20 @@ def command_edit(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_github_release(args: argparse.Namespace, ctx: CliContext) -> None:
     """Creates or updates a GitHub release from the changelog."""
 
+    changelog = ctx.changelog
+    repository = resolve_required_value(
+        args.repository, env_var=None, message="GitHub repository (owner/repo)"
+    )
+    if not repository:
+        raise logging.Error(
+            message="GitHub repository required: pass --repository (owner/repo)",
+        )
+    args.repository = repository
     logger.info(
         "Running github-release command for %s against %s",
         ctx.changelog.get_file_path(),
-        args.repository,
+        repository,
     )
-    changelog = ctx.changelog
 
     if not changelog.has_unreleased():
         # Nothing staged for release (e.g. the push right after a release landed).
@@ -1014,7 +1108,11 @@ def command_github_release(args: argparse.Namespace, ctx: CliContext) -> None:
         )
         return
 
-    token = args.github_token or os.environ.get("GITHUB_TOKEN", "").strip()
+    token = resolve_required_value(
+        args.github_token,
+        env_var="GITHUB_TOKEN",
+        message="GitHub token",
+    )
     if not token:
         raise logging.Error(
             message=("GitHub token required: pass --github-token or set GITHUB_TOKEN"),
@@ -1057,6 +1155,29 @@ def command_github_release(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_github_pr(args: argparse.Namespace, ctx: CliContext) -> None:
     """Opens (or updates) a GitHub pull request for the changelog update."""
 
+    args.repository = resolve_required_value(
+        args.repository, env_var=None, message="GitHub repository (owner/repo)"
+    )
+    args.head = resolve_required_value(
+        args.head, env_var=None, message="Head branch (PR source)"
+    )
+    args.base = resolve_required_value(
+        args.base, env_var=None, message="Base branch (PR target)"
+    )
+    missing = [
+        name
+        for name, value in (
+            ("--repository", args.repository),
+            ("--head", args.head),
+            ("--base", args.base),
+        )
+        if not value
+    ]
+    if missing:
+        raise logging.Error(
+            message=f"GitHub PR requires: {', '.join(missing)}",
+        )
+
     logger.info(
         "Running github-pr command repository=%s head=%s base=%s",
         args.repository,
@@ -1064,7 +1185,9 @@ def command_github_pr(args: argparse.Namespace, ctx: CliContext) -> None:
         args.base,
     )
 
-    token = args.github_token or os.environ.get("GITHUB_TOKEN", "").strip()
+    token = resolve_required_value(
+        args.github_token, env_var="GITHUB_TOKEN", message="GitHub token"
+    )
     if not token:
         raise logging.Error(
             message="GitHub token required: pass --github-token or set GITHUB_TOKEN",
@@ -1111,12 +1234,20 @@ def command_github_pr(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_gitlab_release(args: argparse.Namespace, ctx: CliContext) -> None:
     """Creates or updates a GitLab release from the changelog."""
 
+    changelog = ctx.changelog
+    project = resolve_required_value(
+        args.project, env_var=None, message="GitLab project (id or group/project)"
+    )
+    if not project:
+        raise logging.Error(
+            message="GitLab project required: pass --project (id or group/project)",
+        )
+    args.project = project
     logger.info(
         "Running gitlab-release command for %s against %s",
         ctx.changelog.get_file_path(),
-        args.project,
+        project,
     )
-    changelog = ctx.changelog
 
     if not changelog.has_unreleased():
         emit(
@@ -1135,6 +1266,8 @@ def command_gitlab_release(args: argparse.Namespace, ctx: CliContext) -> None:
         or os.environ.get("GITLAB_TOKEN", "").strip()
         or os.environ.get("CI_JOB_TOKEN", "").strip()
     )
+    if not token and interactive_enabled():
+        token = prompt_text("GitLab token") or None
     if not token:
         raise logging.Error(
             message=(
@@ -1301,6 +1434,47 @@ def command_from_commits(  # pylint: disable=too-many-locals,too-many-branches
         emit(ctx, text=f"added: [{entry['change_type']}] {entry['message']}")
 
 
+def backfill_unreleased(args: argparse.Namespace, ctx: CliContext) -> None:
+    """Seeds [Unreleased] from commits since the latest release tag."""
+
+    changelog = ctx.changelog
+    entries = plan_unreleased_backfill(
+        changelog,
+        since=args.since,
+        commit_schema=getattr(args, "commit_schema", "auto"),
+    )
+
+    added = [
+        {"change_type": entry.change_type, "message": entry.text} for entry in entries
+    ]
+    ctx.json_payload["unreleased_added"] = added
+    ctx.json_payload["since"] = args.since
+
+    if not added:
+        emit(
+            ctx,
+            text="No new [Unreleased] entries from commits",
+            json_key="unreleased_added",
+            json_value=[],
+        )
+        return
+
+    if args.dry_run:
+        for entry in added:
+            emit(ctx, text=f"would add: [{entry['change_type']}] {entry['message']}")
+        print_dry_run(
+            ctx,
+            f"would seed {len(added)} [Unreleased] entr"
+            f"{'y' if len(added) == 1 else 'ies'} in {changelog.get_file_path()}",
+        )
+        return
+
+    for entry in added:
+        changelog.add(change_type=entry["change_type"], message=entry["message"])
+        emit(ctx, text=f"added: [{entry['change_type']}] {entry['message']}")
+    changelog.write_to_file()
+
+
 def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
     """Backfills missing changelog versions from existing release history."""
 
@@ -1328,10 +1502,10 @@ def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
         raise logging.Error(
             message="Backfill for existing versions is reserved for a future phase",
         )
+
     if args.include_unreleased:
-        raise logging.Error(
-            message="Backfill --include-unreleased is reserved for a future phase",
-        )
+        backfill_unreleased(args, ctx)
+        return
 
     plan = plan_backfill(
         ctx.changelog,
@@ -1794,15 +1968,15 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         "-t",
         "--change-type",
         choices=TYPES_OF_CHANGE,
-        required=True,
-        help="Type of the change to edit",
+        default=None,
+        help="Type of the change to edit (prompted interactively if omitted)",
     )
     edit_parser.add_argument(
         "-i",
         "--index",
         type=int,
-        required=True,
-        help="0-based index within the change-type list",
+        default=None,
+        help="0-based index within the change-type list (prompted if omitted)",
     )
     edit_parser.add_argument("-m", "--message", help="Replacement message")
     edit_parser.add_argument(
@@ -1819,7 +1993,10 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         help="Deletes draft GitHub releases and creates a new one",
     )
     github_release_parser.add_argument(
-        "-r", "--repository", required=True, help="Repository"
+        "-r",
+        "--repository",
+        default=None,
+        help="Repository (prompted interactively if omitted)",
     )
     github_release_parser.add_argument(
         "-t",
@@ -1848,13 +2025,20 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         help="Opens or updates a GitHub pull request for a changelog branch",
     )
     github_pr_parser.add_argument(
-        "-r", "--repository", required=True, help="Repository (owner/repo)"
+        "-r",
+        "--repository",
+        default=None,
+        help="Repository (owner/repo); prompted interactively if omitted",
     )
     github_pr_parser.add_argument(
-        "--head", required=True, help="Head branch (the PR source branch)"
+        "--head",
+        default=None,
+        help="Head branch (the PR source branch); prompted if omitted",
     )
     github_pr_parser.add_argument(
-        "--base", required=True, help="Base branch (the PR target branch)"
+        "--base",
+        default=None,
+        help="Base branch (the PR target branch); prompted if omitted",
     )
     github_pr_parser.add_argument("--title", default=None, help="PR title")
     github_pr_parser.add_argument("--body", default=None, help="PR body")
@@ -1908,7 +2092,10 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         "--include-unreleased",
         action="store_true",
         default=False,
-        help="Seed [Unreleased] from changes since latest release (future phase)",
+        help=(
+            "Seed [Unreleased] from commits since the latest release tag "
+            "instead of adding past version sections"
+        ),
     )
     backfill_parser.add_argument(
         "--strategy",
@@ -1935,8 +2122,11 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     gitlab_release_parser.add_argument(
         "-p",
         "--project",
-        required=True,
-        help="GitLab project ID or path (e.g. group/project)",
+        default=None,
+        help=(
+            "GitLab project ID or path (e.g. group/project); "
+            "prompted interactively if omitted"
+        ),
     )
     gitlab_release_parser.add_argument(
         "-t",
@@ -2053,8 +2243,18 @@ def main(  # pylint: disable=too-many-return-statements
             return exit_code
 
         if args.command in {"config", "skill"}:
+            # `config` / `config init` may legitimately point --config at a path
+            # that does not exist yet (the init handler creates it). Only resolve
+            # the versioning scheme from a config file that is actually present;
+            # otherwise fall back to defaults so dispatch does not crash before the
+            # handler can create the file.
+            existing_config = (
+                resolved_config
+                if resolved_config and Path(resolved_config).is_file()
+                else None
+            )
             versioning_scheme = (
-                get_versioning_scheme(resolved_config)
+                get_versioning_scheme(existing_config)
                 if args.command == "config"
                 else "semver"
             )

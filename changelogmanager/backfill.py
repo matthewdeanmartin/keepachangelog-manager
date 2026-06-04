@@ -581,6 +581,69 @@ def plan_backfill(
     )
 
 
+def latest_release_tag(
+    *, cwd: str | None = None, versioning_scheme: str = "semver"
+) -> str | None:
+    """Returns the most recent scheme-compatible tag, or None when there is none."""
+
+    tags = discover_tags(cwd=cwd)
+    compatible: list[GitTag] = []
+    for tag in tags:
+        try:
+            parse_version(tag.version, versioning_scheme)
+        except ValueError:
+            continue
+        compatible.append(tag)
+    if not compatible:
+        return None
+    compatible.sort(key=lambda tag: parse_version(tag.version, versioning_scheme))
+    return compatible[-1].tag
+
+
+def plan_unreleased_backfill(
+    changelog: Changelog,
+    *,
+    since: str | None = None,
+    commit_schema: str = "auto",
+    cwd: str | None = None,
+) -> list[BackfillEntry]:
+    """Returns new [Unreleased] entries derived from commits since the latest release.
+
+    Entries already present in the changelog's [Unreleased] section (matched on
+    change type + normalized text) are filtered out so the plan is additive only.
+    """
+
+    versioning_scheme = changelog.get_versioning_scheme()
+    boundary = since or latest_release_tag(
+        cwd=cwd, versioning_scheme=versioning_scheme
+    )
+    commits = git_log_between(boundary, "HEAD", cwd=cwd)
+    candidates = entries_from_commits(commits, commit_schema=commit_schema)
+
+    existing: set[tuple[str, str]] = set()
+    unreleased = changelog.get().get(UNRELEASED_ENTRY, {})
+    if isinstance(unreleased, dict):
+        for change_type, messages in unreleased.items():
+            if change_type == "metadata" or not isinstance(messages, list):
+                continue
+            for message in messages:
+                existing.add((change_type, str(message).strip().lower()))
+
+    planned: list[BackfillEntry] = []
+    for entry in candidates:
+        key = (entry.change_type, entry.text.strip().lower())
+        if key in existing:
+            continue
+        existing.add(key)
+        planned.append(entry)
+    logger.info(
+        "Planned %d new [Unreleased] entr(y/ies) from commits since %s",
+        len(planned),
+        boundary or "<root>",
+    )
+    return planned
+
+
 def release_to_changelog_entry(release: BackfillRelease) -> dict[str, Any]:
     entry: dict[str, Any] = {
         "metadata": {
