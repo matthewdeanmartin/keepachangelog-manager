@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import shutil
 import subprocess  # nosec
 import sys
@@ -24,7 +23,11 @@ import inquirer  # type: ignore
 import yaml
 
 import changelogmanager.llvm_diagnostics as logging
-from changelogmanager.backfill import apply_backfill_plan, plan_tag_backfill
+from changelogmanager.backfill import (
+    apply_backfill_plan,
+    classify_commit_subject,
+    plan_backfill,
+)
 from changelogmanager.change_types import TYPES_OF_CHANGE, UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
 from changelogmanager.changelog_reader import ChangelogReader
@@ -1176,31 +1179,6 @@ def command_gitlab_release(args: argparse.Namespace, ctx: CliContext) -> None:
 # from-commits
 # ----------------------------------------------------------------------
 
-CONVENTIONAL_RE = re.compile(
-    r"^(?P<type>[a-zA-Z]+)(?:\([^)]+\))?(?P<breaking>!)?:\s*(?P<subject>.+)$"
-)
-CONVENTIONAL_TO_KAC = {
-    "feat": "added",
-    "feature": "added",
-    "fix": "fixed",
-    "bug": "fixed",
-    "perf": "changed",
-    "refactor": "changed",
-    "docs": "changed",
-    "style": "changed",
-    "test": "changed",
-    "tests": "changed",
-    "build": "changed",
-    "ci": "changed",
-    "chore": "changed",
-    "revert": "changed",
-    "deprecate": "deprecated",
-    "remove": "removed",
-    "security": "security",
-    "sec": "security",
-}
-
-
 def git_executable() -> str:
     git = shutil.which("git")
     if git is None:
@@ -1249,20 +1227,7 @@ def classify_commit(subject: str) -> tuple[str, str] | None:
     """Maps a commit subject onto (change_type, message). Returns None to skip."""
 
     logger.log(VERBOSE, "Classifying commit subject: %s", subject)
-    match = CONVENTIONAL_RE.match(subject)
-    if not match:
-        return None
-    cc_type = match.group("type").lower()
-    breaking = bool(match.group("breaking"))
-    body = match.group("subject").strip()
-
-    if breaking:
-        return ("removed", body)
-    return (
-        (CONVENTIONAL_TO_KAC.get(cc_type, "changed"), body)
-        if cc_type in CONVENTIONAL_TO_KAC
-        else ("changed", body)
-    )
+    return classify_commit_subject(subject, schema="auto")
 
 
 def command_from_commits(  # pylint: disable=too-many-locals,too-many-branches
@@ -1283,10 +1248,12 @@ def command_from_commits(  # pylint: disable=too-many-locals,too-many-branches
     classified: list[tuple[str, str]] = []
     skipped = 0
     for subject in subjects:
-        result = classify_commit(subject)
+        result = classify_commit_subject(
+            subject, schema=getattr(args, "commit_schema", "auto")
+        )
         if result is None:
             if args.strict:
-                emit(ctx, text=f"skip (non-conventional): {subject}")
+                emit(ctx, text=f"skip (non-matching schema): {subject}")
                 skipped += 1
                 continue
             classified.append(("changed", subject))
@@ -1341,11 +1308,11 @@ def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
         ctx.changelog.get_file_path(),
         args.source,
     )
-    if args.source not in {"tags", "all"}:
+    if args.source not in {"tags", "commits", "all"}:
         raise logging.Error(
             message=(
                 f"Backfill source '{args.source}' is not implemented yet; "
-                "Phase 1 supports local tags"
+                "local sources are tags, commits, and all"
             ),
         )
     if args.strategy == "replace":
@@ -1365,12 +1332,14 @@ def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
             message="Backfill --include-unreleased is reserved for a future phase",
         )
 
-    plan = plan_tag_backfill(
+    plan = plan_backfill(
         ctx.changelog,
+        source=args.source,
         since=args.since,
         until=args.until,
         missing_only=args.missing_only,
         dry_run=args.dry_run,
+        commit_schema=getattr(args, "commit_schema", "auto"),
     )
     ctx.json_payload.update(plan.to_json())
 
@@ -1378,6 +1347,21 @@ def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
     for version in plan.added_versions:
         release = next(item for item in plan.releases if item.version == version)
         tag = release.tag or version
+        source_text = release.sources[0].name if release.sources else "unknown"
+        if source_text == "commits":
+            commit_entries = [
+                entry for entry in release.entries if entry.source == "commits"
+            ]
+            if commit_entries:
+                emit(
+                    ctx,
+                    text=(
+                        f"  add {version} from {len(commit_entries)} "
+                        f"commit{'s' if len(commit_entries) != 1 else ''} "
+                        f"through tag {tag}"
+                    ),
+                )
+                continue
         emit(ctx, text=f"  add {version} from tag {tag}")
     for version in plan.skipped_versions:
         emit(ctx, text=f"  skip {version} already present")
@@ -1931,6 +1915,15 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         default="conservative",
         help="How to handle versions already present",
     )
+    backfill_parser.add_argument(
+        "--commit-schema",
+        choices=["auto", "conventional", "gitmoji", "keepachangelog"],
+        default="auto",
+        help=(
+            "Commit message schema for commit-derived entries; auto tries "
+            "Conventional Commits, gitmoji, and Keep a Changelog flavored subjects"
+        ),
+    )
     add_dry_run_argument(backfill_parser)
     backfill_parser.set_defaults(handler=command_backfill)
 
@@ -1982,7 +1975,16 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         "--strict",
         action="store_true",
         default=False,
-        help="Skip commits that don't match the Conventional Commit format",
+        help="Skip commits that don't match the selected commit schema",
+    )
+    from_commits_parser.add_argument(
+        "--commit-schema",
+        choices=["auto", "conventional", "gitmoji", "keepachangelog"],
+        default="auto",
+        help=(
+            "Commit message schema; auto tries Conventional Commits, gitmoji, "
+            "and Keep a Changelog flavored subjects"
+        ),
     )
     add_dry_run_argument(from_commits_parser)
     from_commits_parser.set_defaults(handler=command_from_commits)

@@ -36,14 +36,14 @@ That interactive setup defaults to `pyproject.toml`, `Conventional Commits`, and
 
 ## Already have tagged releases?
 
-If you are adopting the tool in an existing repository, you can backfill missing released sections from local git tags before adding new unreleased entries:
+If you are adopting the tool in an existing repository, you can backfill missing released sections from local git history before adding new unreleased entries:
 
 ```sh
-changelogmanager backfill --source tags --dry-run
-changelogmanager backfill --source tags
+changelogmanager backfill --source all --dry-run
+changelogmanager backfill --source all
 ```
 
-Today the implemented backfill source is local tags. Each missing version gets a conservative placeholder entry under `Changed`, for example `Release notes unavailable; backfilled from tag \`v1.2.3\`.` Existing versions already present in `CHANGELOG.md` are left alone.
+Backfill uses local tags and can classify commit subjects between tag intervals using Conventional Commits, gitmoji, or Keep a Changelog flavored prefixes. If no richer commit entries are available, each missing version gets a conservative placeholder under `Changed`, for example `Release notes unavailable; backfilled from tag \`v1.2.3\`.` Existing versions already present in `CHANGELOG.md` are left alone.
 
 ## 3. Add a change
 

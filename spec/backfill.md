@@ -357,13 +357,13 @@ Later phases can expand this with per-entry provenance.
 ## Open questions
 
 - Should placeholders be enabled by default, or should tag-only backfill create
-  empty version sections with warnings?
-- Should PR-derived entries include links by default, or only PR numbers?
+  empty version sections with warnings? Placeholders.
+- Should PR-derived entries include links by default, or only PR numbers? PR number + title + link in trailer
 - Should `backfill` support GitLab Releases and merge requests in the first
-  public version, or follow after the GitHub path proves out?
-- Should PyPI pre-releases be skipped by default even for PEP 440 projects?
+  public version, or follow after the GitHub path proves out? Answer ASAP.
+- Should PyPI pre-releases be skipped by default even for PEP 440 projects? No. A pre-release is a release.
 - Should source adapters live behind optional extras to keep dependencies small,
-  or use only stdlib HTTP like the existing GitHub helper?
+  or use only stdlib HTTP like the existing GitHub helper? Yes, for now.
 
 ## Out of scope for the first implementation
 

@@ -111,11 +111,11 @@ Seed `[Unreleased]` from commit history:
 changelogmanager from-commits
 ```
 
-Backfill an existing repo from git tags:
+Backfill an existing repo from local git history:
 
 ```sh
-changelogmanager backfill --source tags --dry-run
-changelogmanager backfill --source tags
+changelogmanager backfill --source all --dry-run
+changelogmanager backfill --source all
 ```
 
 Validate and autofix common issues:

@@ -371,16 +371,19 @@ changelogmanager backfill [OPTIONS]
 | `--no-missing-only`     |                 | Reserved for future merge/replace phases                   |
 | `--include-unreleased`  | `false`         | Reserved for a future phase                                |
 | `--strategy`            | `conservative`  | How to handle versions already present                     |
+| `--commit-schema`       | `auto`          | Commit schema for commit-derived entries                   |
 | `--dry-run`             |                 | Preview without writing                                    |
 
 Current behavior:
 
 - `--source tags` is implemented
-- `--source all` currently resolves to the same local-tag backfill
-- other sources (`github-releases`, `github-prs`, `pypi`, `commits`) are parsed but fail fast because they are not implemented yet
+- `--source commits` fills tag intervals from local commit subjects
+- `--source all` uses local commits when they produce entries and falls back to tag placeholders
+- `--commit-schema auto` tries Conventional Commits, gitmoji, and Keep a Changelog flavored subjects such as `Fixed: repair parser`
+- remote sources (`github-releases`, `github-prs`, `pypi`) are parsed but fail fast because they are not implemented yet
 - `--strategy merge`, `--strategy replace`, `--no-missing-only`, and `--include-unreleased` are reserved for future phases
 
-For each imported version, the tool adds a conservative placeholder entry under `Changed`, for example:
+For tag-only imports, or commit intervals with no richer local messages, the tool adds a conservative placeholder entry under `Changed`, for example:
 
 ```markdown
 ### Changed
@@ -425,7 +428,8 @@ changelogmanager from-commits [OPTIONS]
 |-----------------|---------------------|-------------------------------------------------------------------|
 | `--since TEXT`  | _(last tag if any)_ | Git ref to start from                                             |
 | `--all-history` | `false`             | Walk full history instead of starting at the last tag             |
-| `--strict`      | `false`             | Skip commit subjects that do not match Conventional Commit format |
+| `--strict`      | `false`             | Skip commit subjects that do not match the selected schema        |
+| `--commit-schema` | `auto`            | Commit schema: `auto`, `conventional`, `gitmoji`, or `keepachangelog` |
 | `--dry-run`     |                     | Preview without writing                                           |
 
 Commit type mapping:

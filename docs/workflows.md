@@ -100,14 +100,18 @@ ______________________________________________________________________
 
 ## Backfilling historical releases
 
-### Backfill missing version sections from local tags
+### Backfill missing version sections from local history
 
 ```sh
+changelogmanager backfill --source all --dry-run
+changelogmanager backfill --source all
 changelogmanager backfill --source tags --dry-run
 changelogmanager backfill --source tags
 ```
 
-This is aimed at repositories that already have release tags but either no `CHANGELOG.md` yet or gaps in the released sections. The command discovers local git tags, normalizes a leading `v`, filters them through the changelog's active versioning scheme, and adds only versions that are missing.
+This is aimed at repositories that already have release tags but either no `CHANGELOG.md` yet or gaps in the released sections. The command discovers local git tags, normalizes a leading `v`, filters them through the changelog's active versioning scheme, and adds only versions that are missing. With `--source all` or `--source commits`, it also reads commit subjects between tag intervals before falling back to tag placeholders.
+
+Commit parsing supports `--commit-schema auto`, `conventional`, `gitmoji`, and `keepachangelog`. Auto tries all built-in schemas, so subjects like `feat: add export`, `:bug: fix parser`, and `Fixed: restore ordering` can all become typed changelog entries.
 
 For each imported version, the tool uses an intentionally honest placeholder:
 
@@ -130,7 +134,7 @@ changelogmanager backfill --source tags --since v1.0.0 --until v2.0.0
 ### What happens today
 
 - `--source tags` is the implemented path
-- `--source all` currently resolves to the same local-tag backfill plan
+- `--source commits` and `--source all` are local-only and use commits grouped by tag interval
 - existing versions are skipped by default via `--missing-only`
 - non-version tags are reported and skipped
 - `--strategy merge`, `--strategy replace`, `--include-unreleased`, and the remote backfill sources are reserved for future phases

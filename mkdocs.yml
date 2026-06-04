@@ -18,12 +18,12 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Generic CI: CI.md
-  - GitHub automation: github.md
-  - GitLab automation: gitlab.md
   - Quick start: quickstart.md
   - Installation: installation.md
   - Key Workflows: workflows.md
   - CLI reference: cli.md
   - Desktop GUI: gui.md
+  - Generic CI: CI.md
+  - GitHub automation: github.md
+  - GitLab automation: gitlab.md
   - Contributing: contributing.md
