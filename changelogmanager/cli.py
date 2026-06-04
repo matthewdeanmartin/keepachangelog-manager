@@ -131,11 +131,7 @@ def configure_logging(error_format: str) -> None:
     """Configures diagnostic formatting."""
 
     logger.log(VERBOSE, "Configuring diagnostic formatter: %s", error_format)
-    logging.config(
-        logging.formatters.Llvm()
-        if error_format == "llvm"
-        else logging.formatters.GitHub()
-    )
+    logging.config(logging.formatters.Llvm() if error_format == "llvm" else logging.formatters.GitHub())
 
 
 def resolve_config(config: str | None) -> str | None:
@@ -221,10 +217,8 @@ def component_defaults(config: Mapping[str, Any]) -> tuple[str, str]:
 def skill_location_choices() -> tuple[list[str], dict[str, Path]]:
     cwd = Path.cwd()
     mapping = {
-        f"GitHub Copilot project ({cwd / COPILOT_SKILLS_DIR})": cwd
-        / COPILOT_SKILLS_DIR,
-        f"Claude project ({cwd / CLAUDE_PROJECT_SKILLS_DIR})": cwd
-        / CLAUDE_PROJECT_SKILLS_DIR,
+        f"GitHub Copilot project ({cwd / COPILOT_SKILLS_DIR})": cwd / COPILOT_SKILLS_DIR,
+        f"Claude project ({cwd / CLAUDE_PROJECT_SKILLS_DIR})": cwd / CLAUDE_PROJECT_SKILLS_DIR,
         f"Claude personal ({CLAUDE_PERSONAL_SKILLS_DIR})": CLAUDE_PERSONAL_SKILLS_DIR,
         f"Current directory ({cwd})": cwd,
         "Other path": Path(),
@@ -289,14 +283,10 @@ def prompt_for_config_init(  # pylint: disable=too-many-locals
 
     logger.info("Prompting for configuration initialization values")
     prompts: list[inquirer.questions.Question] = []
-    version_choices, version_reverse = config_prompt_choices(
-        {scheme: data["label"] for scheme, data in VERSIONING_SCHEMES.items()}
-    )
+    version_choices, version_reverse = config_prompt_choices({scheme: data["label"] for scheme, data in VERSIONING_SCHEMES.items()})
     component_name, changelog_path = component_defaults(config)
     components = config.get("project", {}).get("components", []) or []
-    versioning_scheme = str(
-        config.get("project", {}).get("versioning", {}).get("scheme", "semver")
-    )
+    versioning_scheme = str(config.get("project", {}).get("versioning", {}).get("scheme", "semver"))
 
     standalone_label = "changelogmanager.toml"
     if prompt_for_format:
@@ -305,11 +295,7 @@ def prompt_for_config_init(  # pylint: disable=too-many-locals
                 "config_format",
                 message="Where should the config live?",
                 choices=["pyproject.toml", standalone_label],
-                default=(
-                    "pyproject.toml"
-                    if default_format == "pyproject"
-                    else standalone_label
-                ),
+                default=("pyproject.toml" if default_format == "pyproject" else standalone_label),
             )
         )
     prompts.extend(
@@ -318,23 +304,13 @@ def prompt_for_config_init(  # pylint: disable=too-many-locals
                 "versioning_scheme",
                 message="Which versioning scheme should the changelog mention?",
                 choices=version_choices,
-                default=VERSIONING_SCHEMES.get(
-                    versioning_scheme, VERSIONING_SCHEMES["semver"]
-                )["label"],
+                default=VERSIONING_SCHEMES.get(versioning_scheme, VERSIONING_SCHEMES["semver"])["label"],
             ),
             inquirer.List(
                 "enforce_preamble",
                 message="Require the canonical changelog preamble during validation?",
                 choices=["No", "Yes"],
-                default=(
-                    "Yes"
-                    if bool(
-                        config.get("project", {})
-                        .get("validation", {})
-                        .get("enforce_preamble", False)
-                    )
-                    else "No"
-                ),
+                default=("Yes" if bool(config.get("project", {}).get("validation", {}).get("enforce_preamble", False)) else "No"),
             ),
         ]
     )
@@ -358,11 +334,7 @@ def prompt_for_config_init(  # pylint: disable=too-many-locals
     if not answers:
         raise logging.Info(message="Config init cancelled by user")
 
-    selected_format = (
-        "pyproject"
-        if answers.get("config_format", "pyproject.toml") == "pyproject.toml"
-        else "toml"
-    )
+    selected_format = "pyproject" if answers.get("config_format", "pyproject.toml") == "pyproject.toml" else "toml"
     selected_version_label = str(answers["versioning_scheme"])
 
     return {
@@ -375,9 +347,7 @@ def prompt_for_config_init(  # pylint: disable=too-many-locals
     }
 
 
-def build_updated_config(
-    base_config: Mapping[str, Any], answers: Mapping[str, Any]
-) -> dict[str, Any]:
+def build_updated_config(base_config: Mapping[str, Any], answers: Mapping[str, Any]) -> dict[str, Any]:
     logger.log(VERBOSE, "Building updated configuration from prompt answers")
     updated = deepcopy(dict(base_config))
     project = dict(updated.get("project", {}) or {})
@@ -409,13 +379,9 @@ def command_config(args: argparse.Namespace, ctx: CliContext) -> None:
     resolved_config = resolved_config_path(args)
     config_arg = args.config if isinstance(args.config, str) else None
     if config_arg and not Path(config_arg).is_file():
-        raise logging.Error(
-            file_path=config_arg, message="Configuration file not found"
-        )
+        raise logging.Error(file_path=config_arg, message="Configuration file not found")
 
-    active_path = (
-        resolved_config if resolved_config and Path(resolved_config).is_file() else None
-    )
+    active_path = resolved_config if resolved_config and Path(resolved_config).is_file() else None
     config = get_effective_configuration(active_path)
     source = config_source_text(args, active_path)
     emit(ctx, text=f"Config source: {source}")
@@ -436,9 +402,7 @@ def command_config_init(args: argparse.Namespace, ctx: CliContext) -> None:
     logger.info("Running config init command")
     resolved_config = resolved_config_path(args)
     config_arg = args.config if isinstance(args.config, str) else None
-    existing_path = (
-        resolved_config if resolved_config and Path(resolved_config).is_file() else None
-    )
+    existing_path = resolved_config if resolved_config and Path(resolved_config).is_file() else None
     existing_config = get_effective_configuration(existing_path)
     if config_arg:
         default_format = config_format_from_path(config_arg)
@@ -456,17 +420,14 @@ def command_config_init(args: argparse.Namespace, ctx: CliContext) -> None:
         if config_arg
         else (
             existing_path
-            if existing_path
-            and config_format_from_path(existing_path) == answers["config_format"]
+            if existing_path and config_format_from_path(existing_path) == answers["config_format"]
             else default_config_path_for_format(str(answers["config_format"]))
         )
     )
     updated = build_updated_config(existing_config, answers)
     write_configuration(str(target_path), updated)
 
-    action = (
-        "Updated" if existing_path and str(target_path) == existing_path else "Wrote"
-    )
+    action = "Updated" if existing_path and str(target_path) == existing_path else "Wrote"
     emit(
         ctx,
         text=f"{action} config: {target_path}",
@@ -517,9 +478,7 @@ def load_changelog(config: str | None, component: str, input_file: str) -> Chang
     )
     file_path = resolve_changelog_file(config, component, input_file)
 
-    enforce_preamble = bool(
-        get_validation_options(config).get("enforce_preamble", False)
-    )
+    enforce_preamble = bool(get_validation_options(config).get("enforce_preamble", False))
     preamble_keywords = get_preamble_keywords(config)
     versioning_scheme = resolve_versioning_scheme(config, file_path)
 
@@ -551,20 +510,14 @@ def resolve_versioning_scheme(config: str | None, file_path: str) -> str:
 
     if config:
         return get_versioning_scheme(config)
-    return detect_versioning_scheme_from_file(file_path) or get_versioning_scheme(
-        config
-    )
+    return detect_versioning_scheme_from_file(file_path) or get_versioning_scheme(config)
 
 
-def load_changelog_for_validate_fix(
-    args: argparse.Namespace, config: str | None
-) -> Changelog:
+def load_changelog_for_validate_fix(args: argparse.Namespace, config: str | None) -> Changelog:
     """Loads a changelog after applying raw-text validate --fix repairs."""
 
     file_path = resolve_changelog_file(config, args.component, args.input_file)
-    enforce_preamble = bool(
-        get_validation_options(config).get("enforce_preamble", False)
-    )
+    enforce_preamble = bool(get_validation_options(config).get("enforce_preamble", False))
     preamble_keywords = get_preamble_keywords(config)
     versioning_scheme = resolve_versioning_scheme(config, file_path)
 
@@ -619,9 +572,7 @@ def command_create(args: argparse.Namespace, ctx: CliContext) -> None:
     changelog = ctx.changelog
 
     if changelog.exists():
-        raise logging.Info(
-            file_path=changelog.get_file_path(), message="File already exists"
-        )
+        raise logging.Info(file_path=changelog.get_file_path(), message="File already exists")
 
     if args.dry_run:
         print_dry_run(ctx, f"would create {changelog.get_file_path()}")
@@ -651,9 +602,7 @@ def command_version(args: argparse.Namespace, ctx: CliContext) -> None:
     ctx.json_payload["reference"] = args.reference
 
 
-def resolve_formatter(
-    args: argparse.Namespace, config: Any
-) -> tuple[Any, dict[str, Any]]:
+def resolve_formatter(args: argparse.Namespace, config: Any) -> tuple[Any, dict[str, Any]]:
     """Returns (formatter_or_None, mdformat_options) honouring CLI flags and config."""
 
     format_opts = get_format_options(config)
@@ -669,9 +618,7 @@ def resolve_formatter(
 
     formatter: Formatter | None = discover_formatter()
 
-    if (
-        force_format or config_format is True or config_format == "true"
-    ) and formatter is None:
+    if (force_format or config_format is True or config_format == "true") and formatter is None:
         raise logging.Error(
             message=(
                 "Markdown format pass requested (--format or format: true) "
@@ -697,17 +644,13 @@ def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
 
     # --fix mode: re-read with autofix, normalise, and write back.
     config = resolved_config_path(args)
-    enforce_preamble = bool(
-        get_validation_options(config).get("enforce_preamble", False)
-    )
+    enforce_preamble = bool(get_validation_options(config).get("enforce_preamble", False))
     preamble_keywords = get_preamble_keywords(config)
     reader = ChangelogReader(
         file_path=ctx.changelog.get_file_path(),
         enforce_preamble=enforce_preamble,
         preamble_keywords=preamble_keywords,
-        versioning_scheme=resolve_versioning_scheme(
-            config, ctx.changelog.get_file_path()
-        ),
+        versioning_scheme=resolve_versioning_scheme(config, ctx.changelog.get_file_path()),
     )
     fixed_data, applied = reader.autofix(dict(ctx.changelog.get()))
 
@@ -719,9 +662,7 @@ def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
     if formatter is not None:
         ctx.changelog.set_data(fixed_data)
         pre_format = ctx.changelog.render()
-        post_format = ctx.changelog.render(
-            formatter=formatter, format_options=fmt_options
-        )
+        post_format = ctx.changelog.render(formatter=formatter, format_options=fmt_options)
         if post_format != pre_format:
             format_entry = f"formatted {ctx.changelog.get_file_path()} with mdformat"
         else:
@@ -766,12 +707,7 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
     pyproject_only: bool = bool(getattr(args, "pyproject_only", False))
 
     if bump_versions and not jiggle_available():
-        raise logging.Error(
-            message=(
-                "--bump-versions requires jiggle-version. "
-                "Install it with: pip install 'keepachangelog-manager-fork[jiggle]'"
-            )
-        )
+        raise logging.Error(message=("--bump-versions requires jiggle-version. Install it with: pip install 'keepachangelog-manager-fork[jiggle]'"))
 
     changelog.release(args.override_version)
     new_version = str(next(iter(changelog.get())))
@@ -782,8 +718,7 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
         if bump_versions:
             print_dry_run(
                 ctx,
-                f"would bump version to {new_version} in pyproject.toml"
-                + ("" if pyproject_only else " and Python source files"),
+                f"would bump version to {new_version} in pyproject.toml" + ("" if pyproject_only else " and Python source files"),
             )
             ctx.json_payload["bumped_version"] = new_version
         return
@@ -792,16 +727,9 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
         if ctx.json_output or ctx.quiet or not sys.stdin.isatty():
             raise logging.Error(
                 file_path=changelog.get_file_path(),
-                message=(
-                    "Refusing to release without --yes (non-interactive). "
-                    "Pass --yes to confirm or --dry-run to preview."
-                ),
+                message=("Refusing to release without --yes (non-interactive). Pass --yes to confirm or --dry-run to preview."),
             )
-        answer = (
-            input(f"Release {new_version} to {changelog.get_file_path()}? [y/N] ")
-            .strip()
-            .lower()
-        )
+        answer = input(f"Release {new_version} to {changelog.get_file_path()}? [y/N] ").strip().lower()
         if answer not in {"y", "yes"}:
             raise logging.Info(
                 file_path=changelog.get_file_path(),
@@ -870,9 +798,7 @@ def command_to_html(args: argparse.Namespace, ctx: CliContext) -> None:
     ctx.json_payload["output"] = output
 
 
-def prompt_for_missing_add_arguments(
-    change_type: str | None, message: str | None
-) -> dict[str, str]:
+def prompt_for_missing_add_arguments(change_type: str | None, message: str | None) -> dict[str, str]:
     """Prompts for any missing add arguments."""
 
     logger.log(
@@ -894,9 +820,7 @@ def prompt_for_missing_add_arguments(
         )
 
     if not message:
-        prompts.append(
-            inquirer.Text("message", message="Message of the changelog entry to add")
-        )
+        prompts.append(inquirer.Text("message", message="Message of the changelog entry to add"))
 
     if prompts:
         prompts.append(
@@ -921,14 +845,10 @@ def command_add(args: argparse.Namespace, ctx: CliContext) -> None:
     """Command to add a new message to the CHANGELOG.md."""
 
     logger.info("Running add command for %s", ctx.changelog.get_file_path())
-    changelog_entry = prompt_for_missing_add_arguments(
-        change_type=args.change_type, message=args.message
-    )
+    changelog_entry = prompt_for_missing_add_arguments(change_type=args.change_type, message=args.message)
 
     changelog = ctx.changelog
-    changelog.add(
-        change_type=changelog_entry["change_type"], message=changelog_entry["message"]
-    )
+    changelog.add(change_type=changelog_entry["change_type"], message=changelog_entry["message"])
 
     if changelog_entry["confirm"] == "Yes":
         if args.dry_run:
@@ -944,9 +864,7 @@ def interactive_enabled() -> bool:
     return sys.stdin.isatty()
 
 
-def prompt_for_unreleased_entry(
-    changelog: Changelog, *, action: str
-) -> tuple[str, int]:
+def prompt_for_unreleased_entry(changelog: Changelog, *, action: str) -> tuple[str, int]:
     """Lets the user pick an [Unreleased] entry, returning (change_type, index)."""
 
     entries = changelog.list_unreleased()
@@ -980,9 +898,7 @@ def prompt_for_unreleased_entry(
     return choice_map[str(answers["entry"])]
 
 
-def resolve_entry_selection(
-    args: argparse.Namespace, changelog: Changelog, *, action: str
-) -> tuple[str, int]:
+def resolve_entry_selection(args: argparse.Namespace, changelog: Changelog, *, action: str) -> tuple[str, int]:
     """Returns (change_type, index), prompting interactively when both are absent."""
 
     if args.change_type and args.index is not None:
@@ -998,17 +914,13 @@ def resolve_entry_selection(
 def prompt_text(message: str, *, default: str | None = None) -> str:
     """Prompts for a single line of text, returning the stripped answer."""
 
-    answers = inquirer.prompt(
-        [inquirer.Text("value", message=message, default=default or "")]
-    )
+    answers = inquirer.prompt([inquirer.Text("value", message=message, default=default or "")])
     if not answers:
         raise logging.Info(message=f"{message} cancelled by user")
     return str(answers.get("value", "")).strip()
 
 
-def resolve_required_value(
-    provided: str | None, *, env_var: str | None, message: str
-) -> str | None:
+def resolve_required_value(provided: str | None, *, env_var: str | None, message: str) -> str | None:
     """Returns ``provided``/env value, prompting interactively when both are blank."""
 
     if provided:
@@ -1034,9 +946,7 @@ def command_remove(args: argparse.Namespace, ctx: CliContext) -> None:
         payload = []
         for change_type, index, message in entries:
             emit(ctx, text=f"  [{change_type}] {index}: {message}")
-            payload.append(
-                {"change_type": change_type, "index": index, "message": message}
-            )
+            payload.append({"change_type": change_type, "index": index, "message": message})
         ctx.json_payload["entries"] = payload
         return
 
@@ -1094,9 +1004,7 @@ def command_github_release(args: argparse.Namespace, ctx: CliContext) -> None:
     """Creates or updates a GitHub release from the changelog."""
 
     changelog = ctx.changelog
-    repository = resolve_required_value(
-        args.repository, env_var=None, message="GitHub repository (owner/repo)"
-    )
+    repository = resolve_required_value(args.repository, env_var=None, message="GitHub repository (owner/repo)")
     if not repository:
         raise logging.Error(
             message="GitHub repository required: pass --repository (owner/repo)",
@@ -1114,10 +1022,7 @@ def command_github_release(args: argparse.Namespace, ctx: CliContext) -> None:
         # not a silent green success that quietly did nothing.
         emit(
             ctx,
-            text=(
-                f"Skipping GitHub release: no [Unreleased] entries in "
-                f"{changelog.get_file_path()}"
-            ),
+            text=(f"Skipping GitHub release: no [Unreleased] entries in {changelog.get_file_path()}"),
             json_key="skipped",
             json_value="no_unreleased_entries",
         )
@@ -1138,8 +1043,7 @@ def command_github_release(args: argparse.Namespace, ctx: CliContext) -> None:
         release_state = "draft" if args.draft else "published"
         print_dry_run(
             ctx,
-            "would create or update "
-            f"{release_state} GitHub release v{future_version} in {args.repository}",
+            f"would create or update {release_state} GitHub release v{future_version} in {args.repository}",
         )
         ctx.json_payload["release_state"] = release_state
         ctx.json_payload["version"] = str(future_version)
@@ -1170,15 +1074,9 @@ def command_github_release(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_github_pr(args: argparse.Namespace, ctx: CliContext) -> None:
     """Opens (or updates) a GitHub pull request for the changelog update."""
 
-    args.repository = resolve_required_value(
-        args.repository, env_var=None, message="GitHub repository (owner/repo)"
-    )
-    args.head = resolve_required_value(
-        args.head, env_var=None, message="Head branch (PR source)"
-    )
-    args.base = resolve_required_value(
-        args.base, env_var=None, message="Base branch (PR target)"
-    )
+    args.repository = resolve_required_value(args.repository, env_var=None, message="GitHub repository (owner/repo)")
+    args.head = resolve_required_value(args.head, env_var=None, message="Head branch (PR source)")
+    args.base = resolve_required_value(args.base, env_var=None, message="Base branch (PR target)")
     missing = [
         name
         for name, value in (
@@ -1200,9 +1098,7 @@ def command_github_pr(args: argparse.Namespace, ctx: CliContext) -> None:
         args.base,
     )
 
-    token = resolve_required_value(
-        args.github_token, env_var="GITHUB_TOKEN", message="GitHub token"
-    )
+    token = resolve_required_value(args.github_token, env_var="GITHUB_TOKEN", message="GitHub token")
     if not token:
         raise logging.Error(
             message="GitHub token required: pass --github-token or set GITHUB_TOKEN",
@@ -1214,12 +1110,9 @@ def command_github_pr(args: argparse.Namespace, ctx: CliContext) -> None:
     if args.dry_run:
         print_dry_run(
             ctx,
-            f"would open or update PR head={args.head} base={args.base} "
-            f"in {args.repository}",
+            f"would open or update PR head={args.head} base={args.base} in {args.repository}",
         )
-        ctx.json_payload.update(
-            {"repository": args.repository, "head": args.head, "base": args.base}
-        )
+        ctx.json_payload.update({"repository": args.repository, "head": args.head, "base": args.base})
         return
 
     github = GitHub(repository=args.repository, token=token)
@@ -1250,9 +1143,7 @@ def command_gitlab_release(args: argparse.Namespace, ctx: CliContext) -> None:
     """Creates or updates a GitLab release from the changelog."""
 
     changelog = ctx.changelog
-    project = resolve_required_value(
-        args.project, env_var=None, message="GitLab project (id or group/project)"
-    )
+    project = resolve_required_value(args.project, env_var=None, message="GitLab project (id or group/project)")
     if not project:
         raise logging.Error(
             message="GitLab project required: pass --project (id or group/project)",
@@ -1267,36 +1158,25 @@ def command_gitlab_release(args: argparse.Namespace, ctx: CliContext) -> None:
     if not changelog.has_unreleased():
         emit(
             ctx,
-            text=(
-                f"Skipping GitLab release: no [Unreleased] entries in "
-                f"{changelog.get_file_path()}"
-            ),
+            text=(f"Skipping GitLab release: no [Unreleased] entries in {changelog.get_file_path()}"),
             json_key="skipped",
             json_value="no_unreleased_entries",
         )
         return
 
-    token = (
-        args.gitlab_token
-        or os.environ.get("GITLAB_TOKEN", "").strip()
-        or os.environ.get("CI_JOB_TOKEN", "").strip()
-    )
+    token = args.gitlab_token or os.environ.get("GITLAB_TOKEN", "").strip() or os.environ.get("CI_JOB_TOKEN", "").strip()
     if not token and interactive_enabled():
         token = prompt_text("GitLab token") or None
     if not token:
         raise logging.Error(
-            message=(
-                "GitLab token required: pass --gitlab-token or set "
-                "GITLAB_TOKEN / CI_JOB_TOKEN"
-            ),
+            message=("GitLab token required: pass --gitlab-token or set GITLAB_TOKEN / CI_JOB_TOKEN"),
         )
 
     if args.dry_run:
         future_version = changelog.suggest_future_version()
         print_dry_run(
             ctx,
-            f"would create or update GitLab release v{future_version} "
-            f"in {args.project}",
+            f"would create or update GitLab release v{future_version} in {args.project}",
         )
         ctx.json_payload["version"] = str(future_version)
         ctx.json_payload["project"] = args.project
@@ -1305,11 +1185,7 @@ def command_gitlab_release(args: argparse.Namespace, ctx: CliContext) -> None:
     gitlab = GitLab(project=args.project, token=token, gitlab_url=args.gitlab_url)
     release = gitlab.create_release(changelog=changelog, ref=args.ref)
     tag_name = str(release.get("tag_name", ""))
-    web_url = str(
-        release.get("_links", {}).get("self", "")
-        if isinstance(release.get("_links"), Mapping)
-        else ""
-    ).strip()
+    web_url = str(release.get("_links", {}).get("self", "") if isinstance(release.get("_links"), Mapping) else "").strip()
     message = f"Created GitLab release {tag_name} in {args.project}"
     if web_url:
         message += f": {web_url}"
@@ -1401,9 +1277,7 @@ def command_from_commits(  # pylint: disable=too-many-locals,too-many-branches
     classified: list[tuple[str, str]] = []
     skipped = 0
     for subject in subjects:
-        result = classify_commit_subject(
-            subject, schema=getattr(args, "commit_schema", "auto")
-        )
+        result = classify_commit_subject(subject, schema=getattr(args, "commit_schema", "auto"))
         if result is None:
             if args.strict:
                 emit(ctx, text=f"skip (non-matching schema): {subject}")
@@ -1448,9 +1322,7 @@ def existing_unreleased_keys(changelog: Changelog) -> set[tuple[str, str]]:
     return existing
 
 
-def apply_classified_to_changelog(
-    changelog: Changelog, classified: Sequence[tuple[str, str]]
-) -> list[dict[str, str]]:
+def apply_classified_to_changelog(changelog: Changelog, classified: Sequence[tuple[str, str]]) -> list[dict[str, str]]:
     """Adds classified (change_type, message) pairs, skipping existing dupes."""
 
     existing = existing_unreleased_keys(changelog)
@@ -1465,18 +1337,13 @@ def apply_classified_to_changelog(
     return added
 
 
-def from_commits_all(
-    args: argparse.Namespace, ctx: CliContext, since: str | None
-) -> None:
+def from_commits_all(args: argparse.Namespace, ctx: CliContext, since: str | None) -> None:
     """Routes commits to components by touched files and seeds each [Unreleased]."""
 
     config_path = resolved_config_path(args)
     if not config_path:
         raise logging.Error(
-            message=(
-                "--all requires a configuration file "
-                "(use --config or place changelogmanager.toml in cwd)"
-            ),
+            message=("--all requires a configuration file (use --config or place changelogmanager.toml in cwd)"),
         )
     components = get_components_from_config(config_path)
     validate_routing_components(components, config_path=config_path)
@@ -1488,15 +1355,11 @@ def from_commits_all(
 
     schema = getattr(args, "commit_schema", "auto")
     versioning_scheme = get_versioning_scheme(config_path)
-    enforce_preamble = bool(
-        get_validation_options(config_path).get("enforce_preamble", False)
-    )
+    enforce_preamble = bool(get_validation_options(config_path).get("enforce_preamble", False))
     preamble_keywords = get_preamble_keywords(config_path)
 
     # Bucket classified entries per component name.
-    per_component: dict[str, list[tuple[str, str]]] = {
-        str(component.get("name")): [] for component in components
-    }
+    per_component: dict[str, list[tuple[str, str]]] = {str(component.get("name")): [] for component in components}
     skipped = 0
     for commit in commits:
         classified = classify_commit_subject(commit.subject, schema=schema)
@@ -1539,9 +1402,7 @@ def from_commits_all(
     ctx.json_payload["since"] = since
     if args.dry_run:
         total = sum(len(s["added"]) for s in summaries)
-        print_dry_run(
-            ctx, f"would add {total} entries across {len(summaries)} components"
-        )
+        print_dry_run(ctx, f"would add {total} entries across {len(summaries)} components")
 
 
 def backfill_unreleased(args: argparse.Namespace, ctx: CliContext) -> None:
@@ -1554,9 +1415,7 @@ def backfill_unreleased(args: argparse.Namespace, ctx: CliContext) -> None:
         commit_schema=getattr(args, "commit_schema", "auto"),
     )
 
-    added = [
-        {"change_type": entry.change_type, "message": entry.text} for entry in entries
-    ]
+    added = [{"change_type": entry.change_type, "message": entry.text} for entry in entries]
     ctx.json_payload["unreleased_added"] = added
     ctx.json_payload["since"] = args.since
 
@@ -1574,8 +1433,7 @@ def backfill_unreleased(args: argparse.Namespace, ctx: CliContext) -> None:
             emit(ctx, text=f"would add: [{entry['change_type']}] {entry['message']}")
         print_dry_run(
             ctx,
-            f"would seed {len(added)} [Unreleased] entr"
-            f"{'y' if len(added) == 1 else 'ies'} in {changelog.get_file_path()}",
+            f"would seed {len(added)} [Unreleased] entr{'y' if len(added) == 1 else 'ies'} in {changelog.get_file_path()}",
         )
         return
 
@@ -1595,22 +1453,19 @@ def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
     )
     if args.source not in {"tags", "commits", "all"}:
         raise logging.Error(
-            message=(
-                f"Backfill source '{args.source}' is not implemented yet; "
-                "local sources are tags, commits, and all"
-            ),
+            message=(f"Backfill source '{args.source}' is not implemented yet; local sources are tags, commits, and all"),
         )
     if args.strategy == "replace":
         raise logging.Error(
-            message="Backfill strategy 'replace' is reserved for a future phase",
+            message=(
+                "Backfill strategy 'replace' is not supported: changelog entries "
+                "have no stable identity, so replacing them is unsafe. Use "
+                "'merge' to additively fill gaps in existing versions."
+            ),
         )
-    if args.strategy == "merge" and not args.missing_only:
+    if not args.missing_only and args.strategy != "merge":
         raise logging.Error(
-            message="Backfill merge into existing versions is reserved for a future phase",
-        )
-    if not args.missing_only:
-        raise logging.Error(
-            message="Backfill for existing versions is reserved for a future phase",
+            message=("Backfill into existing versions requires --strategy merge; the conservative strategy only adds missing versions"),
         )
 
     if args.include_unreleased:
@@ -1625,6 +1480,7 @@ def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
         missing_only=args.missing_only,
         dry_run=args.dry_run,
         commit_schema=getattr(args, "commit_schema", "auto"),
+        strategy=args.strategy,
     )
     ctx.json_payload.update(plan.to_json())
 
@@ -1634,36 +1490,35 @@ def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
         tag = release.tag or version
         source_text = release.sources[0].name if release.sources else "unknown"
         if source_text == "commits":
-            commit_entries = [
-                entry for entry in release.entries if entry.source == "commits"
-            ]
+            commit_entries = [entry for entry in release.entries if entry.source == "commits"]
             if commit_entries:
                 emit(
                     ctx,
-                    text=(
-                        f"  add {version} from {len(commit_entries)} "
-                        f"commit{'s' if len(commit_entries) != 1 else ''} "
-                        f"through tag {tag}"
-                    ),
+                    text=(f"  add {version} from {len(commit_entries)} commit{'s' if len(commit_entries) != 1 else ''} through tag {tag}"),
                 )
                 continue
         emit(ctx, text=f"  add {version} from tag {tag}")
+    for version in plan.merged_versions:
+        release = next(item for item in plan.releases if item.version == version)
+        count = len(release.entries)
+        emit(
+            ctx,
+            text=(f"  merge {count} new entr{'y' if count == 1 else 'ies'} into {version}"),
+        )
     for version in plan.skipped_versions:
         emit(ctx, text=f"  skip {version} already present")
     for tag in plan.skipped_tags:
         emit(
             ctx,
-            text=(
-                f"  skip {tag} not "
-                f"{version_scheme_label(ctx.changelog.get_versioning_scheme())} compatible"
-            ),
+            text=(f"  skip {tag} not {version_scheme_label(ctx.changelog.get_versioning_scheme())} compatible"),
         )
 
     if args.dry_run:
-        message = (
-            f"would update {ctx.changelog.get_file_path()} with "
-            f"{len(plan.added_versions)} version sections"
-        )
+        added = len(plan.added_versions)
+        merged = len(plan.merged_versions)
+        message = f"would update {ctx.changelog.get_file_path()} with {added} version section{'' if added == 1 else 's'}"
+        if merged:
+            message += f" and merge into {merged} existing version{'' if merged == 1 else 's'}"
         logger.info("Dry-run: %s", message)
         emit(
             ctx,
@@ -1674,7 +1529,7 @@ def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
         return
 
     apply_backfill_plan(ctx.changelog, plan)
-    if plan.added_versions:
+    if plan.added_versions or plan.merged_versions:
         ctx.changelog.write_to_file()
 
 
@@ -1721,9 +1576,7 @@ def run_validate_all(  # pylint: disable=too-many-locals
 
     failures = 0
     summaries: list[dict[str, Any]] = []
-    enforce_preamble = bool(
-        get_validation_options(config_path).get("enforce_preamble", False)
-    )
+    enforce_preamble = bool(get_validation_options(config_path).get("enforce_preamble", False))
     preamble_keywords = get_preamble_keywords(config_path)
     versioning_scheme = get_versioning_scheme(config_path)
     formatter, fmt_options = resolve_formatter(args, config_path)
@@ -1791,9 +1644,7 @@ def run_validate_all(  # pylint: disable=too-many-locals
                     post = cl.render(formatter=formatter, format_options=fmt_options)
                     if post != pre:
                         format_entry = f"formatted {path} with mdformat"
-                all_applied = (
-                    raw_applied + applied + ([format_entry] if format_entry else [])
-                )
+                all_applied = raw_applied + applied + ([format_entry] if format_entry else [])
                 if all_applied and not args.dry_run:
                     cl.write_to_file(
                         formatter=formatter if format_entry else None,
@@ -1806,9 +1657,7 @@ def run_validate_all(  # pylint: disable=too-many-locals
                         emit(ctx, text=f"[{name}] would fix: {entry}")
             summaries.append({"component": name, "path": path, "status": "ok"})
         except logging.Error as err:
-            logger.error(
-                "Component validation failed for %s at %s: %s", name, path, err.message
-            )
+            logger.error("Component validation failed for %s at %s: %s", name, path, err.message)
             err.report()
             failures += 1
             summaries.append(
@@ -1839,9 +1688,7 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         description="(Keep a) Changelog Manager",
     )
     parser.add_argument("--config", default=None, help="Configuration file")
-    parser.add_argument(
-        "--component", default="default", help="Name of the component to update"
-    )
+    parser.add_argument("--component", default="default", help="Name of the component to update")
     parser.add_argument(
         "-f",
         "--error-format",
@@ -1849,9 +1696,7 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         default="llvm",
         help="Type of formatting to apply to error messages",
     )
-    parser.add_argument(
-        "--input-file", default="CHANGELOG.md", help="Changelog file to work with"
-    )
+    parser.add_argument("--input-file", default="CHANGELOG.md", help="Changelog file to work with")
     parser.add_argument(
         "--info",
         action="store_true",
@@ -1879,27 +1724,19 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    create_parser = subparsers.add_parser(
-        "create", help="Command to create a new (empty) CHANGELOG.md"
-    )
+    create_parser = subparsers.add_parser("create", help="Command to create a new (empty) CHANGELOG.md")
     add_dry_run_argument(create_parser)
     create_parser.set_defaults(handler=command_create)
 
-    config_parser = subparsers.add_parser(
-        "config", help="Show or initialize changelogmanager configuration"
-    )
+    config_parser = subparsers.add_parser("config", help="Show or initialize changelogmanager configuration")
     config_parser.set_defaults(handler=command_config)
     config_subparsers = config_parser.add_subparsers(dest="config_command")
-    config_init_parser = config_subparsers.add_parser(
-        "init", help="Create or update configuration interactively"
-    )
+    config_init_parser = config_subparsers.add_parser("init", help="Create or update configuration interactively")
     config_init_parser.set_defaults(handler=command_config_init)
 
     skill_parser = subparsers.add_parser("skill", help="Export bundled AI skill files")
     skill_subparsers = skill_parser.add_subparsers(dest="skill_command", required=True)
-    skill_export_parser = skill_subparsers.add_parser(
-        "export", help="Export the bundled changelogmanager skill"
-    )
+    skill_export_parser = skill_subparsers.add_parser("export", help="Export the bundled changelogmanager skill")
     skill_export_parser.add_argument(
         "--path",
         default=None,
@@ -1908,9 +1745,7 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     add_dry_run_argument(skill_export_parser)
     skill_export_parser.set_defaults(handler=command_skill_export)
 
-    version_parser = subparsers.add_parser(
-        "version", help="Command to retrieve versions from a CHANGELOG.md"
-    )
+    version_parser = subparsers.add_parser("version", help="Command to retrieve versions from a CHANGELOG.md")
     version_parser.add_argument(
         "-r",
         "--reference",
@@ -1921,9 +1756,7 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     add_dry_run_argument(version_parser)
     version_parser.set_defaults(handler=command_version)
 
-    validate_parser = subparsers.add_parser(
-        "validate", help="Command to validate the CHANGELOG.md for inconsistencies"
-    )
+    validate_parser = subparsers.add_parser("validate", help="Command to validate the CHANGELOG.md for inconsistencies")
     validate_parser.add_argument(
         "--fix",
         action="store_true",
@@ -1962,9 +1795,7 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     add_dry_run_argument(validate_parser)
     validate_parser.set_defaults(handler=command_validate)
 
-    release_parser = subparsers.add_parser(
-        "release", help="Release changes added to [Unreleased] block"
-    )
+    release_parser = subparsers.add_parser("release", help="Release changes added to [Unreleased] block")
     release_parser.add_argument(
         "--override-version",
         default=None,
@@ -1982,30 +1813,20 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         dest="bump_versions",
         action="store_true",
         default=False,
-        help=(
-            "Bump the version in pyproject.toml (and Python source __version__ vars) "
-            "to match the released version. Requires jiggle-version."
-        ),
+        help=("Bump the version in pyproject.toml (and Python source __version__ vars) to match the released version. Requires jiggle-version."),
     )
     release_parser.add_argument(
         "--pyproject-only",
         dest="pyproject_only",
         action="store_true",
         default=False,
-        help=(
-            "When --bump-versions is set, only update pyproject.toml; "
-            "skip Python source files containing __version__."
-        ),
+        help=("When --bump-versions is set, only update pyproject.toml; skip Python source files containing __version__."),
     )
     add_dry_run_argument(release_parser)
     release_parser.set_defaults(handler=command_release)
 
-    to_json_parser = subparsers.add_parser(
-        "to-json", help="Exports the contents of the CHANGELOG.md to a JSON file"
-    )
-    to_json_parser.add_argument(
-        "--file-name", default="CHANGELOG.json", help="Filename of the JSON output"
-    )
+    to_json_parser = subparsers.add_parser("to-json", help="Exports the contents of the CHANGELOG.md to a JSON file")
+    to_json_parser.add_argument("--file-name", default="CHANGELOG.json", help="Filename of the JSON output")
     to_json_parser.add_argument(
         "--schema-version",
         choices=SCHEMA_VERSIONS,
@@ -2015,18 +1836,12 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     add_dry_run_argument(to_json_parser)
     to_json_parser.set_defaults(handler=command_to_json)
 
-    to_html_parser = subparsers.add_parser(
-        "to-html", help="Exports the contents of the CHANGELOG.md to an HTML file"
-    )
-    to_html_parser.add_argument(
-        "--file-name", default="CHANGELOG.html", help="Filename of the HTML output"
-    )
+    to_html_parser = subparsers.add_parser("to-html", help="Exports the contents of the CHANGELOG.md to an HTML file")
+    to_html_parser.add_argument("--file-name", default="CHANGELOG.html", help="Filename of the HTML output")
     add_dry_run_argument(to_html_parser)
     to_html_parser.set_defaults(handler=command_to_html)
 
-    add_parser = subparsers.add_parser(
-        "add", help="Command to add a new message to the CHANGELOG.md"
-    )
+    add_parser = subparsers.add_parser("add", help="Command to add a new message to the CHANGELOG.md")
     add_parser.add_argument(
         "-t",
         "--change-type",
@@ -2037,9 +1852,7 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     add_dry_run_argument(add_parser)
     add_parser.set_defaults(handler=command_add)
 
-    remove_parser = subparsers.add_parser(
-        "remove", help="Removes an entry from [Unreleased]"
-    )
+    remove_parser = subparsers.add_parser("remove", help="Removes an entry from [Unreleased]")
     remove_parser.add_argument(
         "-t",
         "--change-type",
@@ -2062,9 +1875,7 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     add_dry_run_argument(remove_parser)
     remove_parser.set_defaults(handler=command_remove)
 
-    edit_parser = subparsers.add_parser(
-        "edit", help="Edits an existing entry in [Unreleased]"
-    )
+    edit_parser = subparsers.add_parser("edit", help="Edits an existing entry in [Unreleased]")
     edit_parser.add_argument(
         "-t",
         "--change-type",
@@ -2187,31 +1998,29 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         dest="missing_only",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Only add versions missing from the changelog",
+        help=("Only add versions missing from the changelog; pass --no-missing-only with --strategy merge to also backfill entries into existing versions"),
     )
     backfill_parser.add_argument(
         "--include-unreleased",
         action="store_true",
         default=False,
-        help=(
-            "Seed [Unreleased] from commits since the latest release tag "
-            "instead of adding past version sections"
-        ),
+        help=("Seed [Unreleased] from commits since the latest release tag instead of adding past version sections"),
     )
     backfill_parser.add_argument(
         "--strategy",
         choices=["conservative", "merge", "replace"],
         default="conservative",
-        help="How to handle versions already present",
+        help=(
+            "How to handle versions already present: conservative skips them, "
+            "merge additively fills in missing entries; replace is unsupported "
+            "because changelog entries have no stable identity"
+        ),
     )
     backfill_parser.add_argument(
         "--commit-schema",
         choices=["auto", "conventional", "gitmoji", "keepachangelog"],
         default="auto",
-        help=(
-            "Commit message schema for commit-derived entries; auto tries "
-            "Conventional Commits, gitmoji, and Keep a Changelog flavored subjects"
-        ),
+        help=("Commit message schema for commit-derived entries; auto tries Conventional Commits, gitmoji, and Keep a Changelog flavored subjects"),
     )
     add_dry_run_argument(backfill_parser)
     backfill_parser.set_defaults(handler=command_backfill)
@@ -2224,10 +2033,7 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         "-p",
         "--project",
         default=None,
-        help=(
-            "GitLab project ID or path (e.g. group/project); "
-            "prompted interactively if omitted"
-        ),
+        help=("GitLab project ID or path (e.g. group/project); prompted interactively if omitted"),
     )
     gitlab_release_parser.add_argument(
         "-t",
@@ -2268,10 +2074,7 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         dest="all_components",
         action="store_true",
         default=False,
-        help=(
-            "Route commits to every configured component by the files they touch "
-            "(uses each component's 'match' globs; requires a config file)"
-        ),
+        help=("Route commits to every configured component by the files they touch (uses each component's 'match' globs; requires a config file)"),
     )
     from_commits_parser.add_argument(
         "--strict",
@@ -2283,10 +2086,7 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         "--commit-schema",
         choices=["auto", "conventional", "gitmoji", "keepachangelog"],
         default="auto",
-        help=(
-            "Commit message schema; auto tries Conventional Commits, gitmoji, "
-            "and Keep a Changelog flavored subjects"
-        ),
+        help=("Commit message schema; auto tries Conventional Commits, gitmoji, and Keep a Changelog flavored subjects"),
     )
     add_dry_run_argument(from_commits_parser)
     from_commits_parser.set_defaults(handler=command_from_commits)
@@ -2333,11 +2133,7 @@ def main(  # pylint: disable=too-many-return-statements
         # Apply config-backed flag defaults (flag > env > config > built-in default)
         # before consuming any defaulted flag such as --error-format. Skip when the
         # explicit config path does not exist yet (e.g. `config init --config new`).
-        config_for_defaults = (
-            resolved_config
-            if resolved_config and Path(resolved_config).is_file()
-            else None
-        )
+        config_for_defaults = resolved_config if resolved_config and Path(resolved_config).is_file() else None
         apply_config_defaults(args, config_for_defaults)
         configure_logging(args.error_format)
 
@@ -2345,10 +2141,7 @@ def main(  # pylint: disable=too-many-return-statements
         if args.command == "validate" and getattr(args, "all_components", False):
             if not resolved_config:
                 raise logging.Error(
-                    message=(
-                        "--all requires a configuration file "
-                        "(use --config or place changelogmanager.toml in cwd)"
-                    ),
+                    message=("--all requires a configuration file (use --config or place changelogmanager.toml in cwd)"),
                 )
             ctx = CliContext(
                 changelog=Changelog(file_path="<all>"),
@@ -2358,9 +2151,7 @@ def main(  # pylint: disable=too-many-return-statements
             exit_code = run_validate_all(args, ctx, resolved_config)
             if args.json:
                 print(json.dumps(ctx.json_payload, indent=2))
-            logger.info(
-                "Finished CLI command %s with exit code %d", args.command, exit_code
-            )
+            logger.info("Finished CLI command %s with exit code %d", args.command, exit_code)
             return exit_code
 
         # from-commits --all routes commits across components; no single load.
@@ -2382,16 +2173,8 @@ def main(  # pylint: disable=too-many-return-statements
             # the versioning scheme from a config file that is actually present;
             # otherwise fall back to defaults so dispatch does not crash before the
             # handler can create the file.
-            existing_config = (
-                resolved_config
-                if resolved_config and Path(resolved_config).is_file()
-                else None
-            )
-            versioning_scheme = (
-                get_versioning_scheme(existing_config)
-                if args.command == "config"
-                else "semver"
-            )
+            existing_config = resolved_config if resolved_config and Path(resolved_config).is_file() else None
+            versioning_scheme = get_versioning_scheme(existing_config) if args.command == "config" else "semver"
             context = CliContext(
                 changelog=Changelog(
                     file_path=args.input_file,
@@ -2426,9 +2209,7 @@ def main(  # pylint: disable=too-many-return-statements
         logger.info("Finished CLI command %s successfully", args.command)
         return 0
     except (logging.Info, logging.Warning) as exc_info:
-        logger.info(
-            "CLI command completed with non-error diagnostic: %s", exc_info.message
-        )
+        logger.info("CLI command completed with non-error diagnostic: %s", exc_info.message)
         exc_info.report()
         return 0
     except logging.Error as exc_info:

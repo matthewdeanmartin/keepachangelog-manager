@@ -136,8 +136,10 @@ changelogmanager backfill --source tags --since v1.0.0 --until v2.0.0
 - `--source tags` is the implemented path
 - `--source commits` and `--source all` are local-only and use commits grouped by tag interval
 - existing versions are skipped by default via `--missing-only`
+- `--strategy merge --no-missing-only` additively backfills entries into existing versions while preserving their text; it is idempotent on re-runs
+- `--include-unreleased` seeds `[Unreleased]` from commits since the latest release tag
 - non-version tags are reported and skipped
-- `--strategy merge`, `--strategy replace`, `--include-unreleased`, and the remote backfill sources are reserved for future phases
+- `--strategy replace` and the remote backfill sources (`github-releases`, `github-prs`, `pypi`) are not implemented; `replace` is intentionally unsupported because changelog entries have no stable identity
 
 ______________________________________________________________________
 

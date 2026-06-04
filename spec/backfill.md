@@ -65,9 +65,12 @@ changelogmanager backfill --source all --dry-run
 ```
 
 `--strategy conservative` adds only missing versions and never changes existing
-sections. `--strategy merge` may add missing entries to existing versions while
-preserving existing text. `--strategy replace` is reserved for explicit future
-work because it is destructive enough to need extra safeguards.
+sections. `--strategy merge` (implemented) additively adds missing entries to
+existing versions while preserving existing text; matching is on change type plus
+normalized message, so re-runs are idempotent. `--strategy replace` is
+intentionally **not** supported: changelog entries have no stable identity, so
+replacing them has no well-defined meaning. It fast-fails with an explanatory
+message and is not a deferred phase.
 
 ## Data model
 

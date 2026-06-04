@@ -368,8 +368,8 @@ changelogmanager backfill [OPTIONS]
 | `--since TEXT` | | Earliest version/tag/ref to consider |
 | `--until TEXT` | | Latest version/tag/ref to consider |
 | `--missing-only` | `true` | Only add versions missing from the changelog |
-| `--no-missing-only` | | Reserved for future merge/replace phases |
-| `--include-unreleased` | `false` | Reserved for a future phase |
+| `--no-missing-only` | | With `--strategy merge`, also backfill entries into existing versions |
+| `--include-unreleased` | `false` | Seed `[Unreleased]` from commits since the latest release tag |
 | `--strategy` | `conservative` | How to handle versions already present |
 | `--commit-schema` | `auto` | Commit schema for commit-derived entries |
 | `--dry-run` | | Preview without writing |
@@ -381,7 +381,9 @@ Current behavior:
 - `--source all` uses local commits when they produce entries and falls back to tag placeholders
 - `--commit-schema auto` tries Conventional Commits, gitmoji, and Keep a Changelog flavored subjects such as `Fixed: repair parser`
 - remote sources (`github-releases`, `github-prs`, `pypi`) are parsed but fail fast because they are not implemented yet
-- `--strategy merge`, `--strategy replace`, `--no-missing-only`, and `--include-unreleased` are reserved for future phases
+- `--strategy conservative` (default) only adds versions missing from the changelog and never touches existing sections
+- `--strategy merge --no-missing-only` additively fills entries into versions already present, preserving existing text and metadata; matching is on change type plus normalized message, so re-running is idempotent. (With the default `--missing-only`, merge still only adds absent versions.)
+- `--strategy replace` is intentionally unsupported: changelog entries have no stable identity, so replacing them is unsafe. Use `merge` to fill gaps instead.
 
 For tag-only imports, or commit intervals with no richer local messages, the tool adds a conservative placeholder entry under `Changed`, for example:
 

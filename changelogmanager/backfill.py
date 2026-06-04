@@ -7,8 +7,8 @@ from __future__ import annotations
 import re
 import subprocess  # nosec
 from collections import OrderedDict
-from collections.abc import Sequence
-from dataclasses import dataclass, field
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -22,9 +22,7 @@ logger = get_logger(__name__)
 
 CommitParser = Callable[[str], Optional[tuple[str, str]]]
 
-CONVENTIONAL_RE = re.compile(
-    r"^(?P<type>[a-zA-Z]+)(?:\([^)]+\))?(?P<breaking>!)?:\s*(?P<subject>.+)$"
-)
+CONVENTIONAL_RE = re.compile(r"^(?P<type>[a-zA-Z]+)(?:\([^)]+\))?(?P<breaking>!)?:\s*(?P<subject>.+)$")
 CONVENTIONAL_TO_KAC = {
     "added": "added",
     "feat": "added",
@@ -126,7 +124,7 @@ class BackfillRelease:
 
 @dataclass(frozen=True)
 class BackfillPlan:
-    """A conservative plan describing what backfill will add or skip."""
+    """A conservative plan describing what backfill will add, merge, or skip."""
 
     changelog_path: str
     releases: list[BackfillRelease]
@@ -135,17 +133,21 @@ class BackfillPlan:
     skipped_tags: list[str]
     sources: list[str]
     dry_run: bool
+    merged_versions: list[str] = field(default_factory=list)
 
     def to_json(self) -> dict[str, Any]:
         """Returns the Phase 1 JSON report shape."""
 
-        return {
+        report = {
             "added_versions": self.added_versions,
             "skipped_versions": self.skipped_versions,
             "skipped_tags": self.skipped_tags,
             "sources": self.sources,
             "dry_run": self.dry_run,
         }
+        if self.merged_versions:
+            report["merged_versions"] = self.merged_versions
+        return report
 
 
 @dataclass(frozen=True)
@@ -171,9 +173,7 @@ def normalize_tag_version(tag: str) -> str:
     return tag[1:] if tag.startswith("v") else tag
 
 
-def classify_commit_subject(
-    subject: str, *, schema: str = "auto"
-) -> tuple[str, str] | None:
+def classify_commit_subject(subject: str, *, schema: str = "auto") -> tuple[str, str] | None:
     """Maps a commit subject onto (change_type, message) using a parser registry."""
 
     parsers = commit_parsers_for_schema(schema)
@@ -324,10 +324,7 @@ def discover_tag_releases(
                 entries=[
                     BackfillEntry(
                         change_type="changed",
-                        text=(
-                            "Release notes unavailable; backfilled from tag "
-                            f"`{tag.tag}`."
-                        ),
+                        text=(f"Release notes unavailable; backfilled from tag `{tag.tag}`."),
                         source="tags",
                         confidence="low",
                     )
@@ -398,9 +395,7 @@ def discover_commit_releases(
     return releases, skipped
 
 
-def git_log_between(
-    previous_ref: str | None, current_ref: str, *, cwd: str | None = None
-) -> list[GitCommit]:
+def git_log_between(previous_ref: str | None, current_ref: str, *, cwd: str | None = None) -> list[GitCommit]:
     """Returns non-merge commits reachable in a release interval."""
 
     revision = f"{previous_ref}..{current_ref}" if previous_ref else current_ref
@@ -426,9 +421,7 @@ def git_log_between(
     return commits
 
 
-def entries_from_commits(
-    commits: Sequence[GitCommit], *, commit_schema: str = "auto"
-) -> list[BackfillEntry]:
+def entries_from_commits(commits: Sequence[GitCommit], *, commit_schema: str = "auto") -> list[BackfillEntry]:
     """Converts commits into deduplicated backfill entries."""
 
     entries: list[BackfillEntry] = []
@@ -468,12 +461,8 @@ def plan_tag_backfill(
     """Builds a conservative local tag backfill plan."""
 
     versioning_scheme = changelog.get_versioning_scheme()
-    releases, skipped_tags = discover_tag_releases(
-        since=since, until=until, versioning_scheme=versioning_scheme
-    )
-    existing_versions = {
-        str(version) for version in changelog.get() if str(version) != UNRELEASED_ENTRY
-    }
+    releases, skipped_tags = discover_tag_releases(since=since, until=until, versioning_scheme=versioning_scheme)
+    existing_versions = {str(version) for version in changelog.get() if str(version) != UNRELEASED_ENTRY}
 
     planned: list[BackfillRelease] = []
     added_versions: list[str] = []
@@ -497,7 +486,12 @@ def plan_tag_backfill(
 
 
 def apply_backfill_plan(changelog: Changelog, plan: BackfillPlan) -> None:
-    """Applies a backfill plan to an in-memory changelog."""
+    """Applies a backfill plan to an in-memory changelog.
+
+    New versions are inserted as fresh sections. For versions already present
+    (merge strategy) the planned entries are appended to the existing section,
+    preserving its metadata and previously recorded entries.
+    """
 
     if not plan.releases:
         return
@@ -505,7 +499,11 @@ def apply_backfill_plan(changelog: Changelog, plan: BackfillPlan) -> None:
     current = OrderedDict(changelog.get())
     unreleased = current.pop(UNRELEASED_ENTRY, None)
     for release in plan.releases:
-        current[release.version] = release_to_changelog_entry(release)
+        existing = current.get(release.version)
+        if isinstance(existing, Mapping):
+            current[release.version] = merge_release_into_entry(existing, release)
+        else:
+            current[release.version] = release_to_changelog_entry(release)
 
     sorted_releases = sorted(
         current.items(),
@@ -530,8 +528,17 @@ def plan_backfill(
     missing_only: bool = True,
     dry_run: bool = False,
     commit_schema: str = "auto",
+    strategy: str = "conservative",
 ) -> BackfillPlan:
-    """Builds a conservative backfill plan from the selected local source set."""
+    """Builds a conservative backfill plan from the selected local source set.
+
+    Under ``strategy == "merge"`` together with ``missing_only=False`` versions
+    already present in the changelog are not skipped; instead they are kept in the
+    plan carrying only the entries that are not already recorded for that version.
+    The merge is strictly additive: existing entries are never rewritten or
+    removed. With the default ``missing_only=True`` only versions absent from the
+    changelog are planned, regardless of strategy.
+    """
 
     versioning_scheme = changelog.get_versioning_scheme()
     if source == "tags":
@@ -551,24 +558,29 @@ def plan_backfill(
         sources = ["commits"] if source == "commits" else ["tags", "commits"]
     else:
         raise logging.Error(
-            message=(
-                f"Backfill source '{source}' is not implemented yet; "
-                "local sources are tags, commits, and all"
-            ),
+            message=(f"Backfill source '{source}' is not implemented yet; local sources are tags, commits, and all"),
         )
 
-    existing_versions = {
-        str(version) for version in changelog.get() if str(version) != UNRELEASED_ENTRY
-    }
+    merging = strategy == "merge" and not missing_only
+    existing = {str(version): release for version, release in changelog.get().items() if str(version) != UNRELEASED_ENTRY}
     planned: list[BackfillRelease] = []
     added_versions: list[str] = []
+    merged_versions: list[str] = []
     skipped_versions: list[str] = []
     for release in releases:
-        if missing_only and release.version in existing_versions:
+        if release.version not in existing:
+            planned.append(release)
+            added_versions.append(release.version)
+            continue
+        if not merging:
             skipped_versions.append(release.version)
             continue
-        planned.append(release)
-        added_versions.append(release.version)
+        new_entries = filter_existing_entries(release.entries, existing[release.version])
+        if not new_entries:
+            skipped_versions.append(release.version)
+            continue
+        planned.append(replace(release, entries=new_entries))
+        merged_versions.append(release.version)
 
     return BackfillPlan(
         changelog_path=changelog.get_file_path(),
@@ -578,12 +590,36 @@ def plan_backfill(
         skipped_tags=skipped_tags,
         sources=sources,
         dry_run=dry_run,
+        merged_versions=merged_versions,
     )
 
 
-def latest_release_tag(
-    *, cwd: str | None = None, versioning_scheme: str = "semver"
-) -> str | None:
+def filter_existing_entries(entries: Sequence[BackfillEntry], existing_release: Any) -> list[BackfillEntry]:
+    """Drops entries already recorded in an existing changelog version section.
+
+    Matching is on (change type, normalized text), the same key used to
+    deduplicate commit-derived entries, so re-running merge is idempotent.
+    """
+
+    recorded: set[tuple[str, str]] = set()
+    if isinstance(existing_release, Mapping):
+        for change_type, messages in existing_release.items():
+            if change_type == "metadata" or not isinstance(messages, list):
+                continue
+            for message in messages:
+                recorded.add((change_type, str(message).strip().lower()))
+
+    kept: list[BackfillEntry] = []
+    for entry in entries:
+        key = (entry.change_type, entry.text.strip().lower())
+        if key in recorded:
+            continue
+        recorded.add(key)
+        kept.append(entry)
+    return kept
+
+
+def latest_release_tag(*, cwd: str | None = None, versioning_scheme: str = "semver") -> str | None:
     """Returns the most recent scheme-compatible tag, or None when there is none."""
 
     tags = discover_tags(cwd=cwd)
@@ -654,9 +690,27 @@ def release_to_changelog_entry(release: BackfillRelease) -> dict[str, Any]:
     return entry
 
 
-def filter_tag_rows(
-    rows: Sequence[list[str]], *, since: str | None, until: str | None
-) -> list[list[str]]:
+def merge_release_into_entry(existing: Mapping[str, Any], release: BackfillRelease) -> dict[str, Any]:
+    """Appends a backfilled release's entries to an existing version section.
+
+    Existing metadata and entries are preserved verbatim; backfilled entries are
+    only appended to the corresponding change-type bucket. A missing release date
+    in the existing metadata is filled from the backfilled release when known.
+    """
+
+    merged: dict[str, Any] = {key: list(value) if isinstance(value, list) else value for key, value in existing.items()}
+    metadata = dict(merged.get("metadata") or {})
+    metadata.setdefault("version", release.version)
+    if not metadata.get("release_date") and release.date:
+        metadata["release_date"] = release.date
+    merged["metadata"] = metadata
+
+    for backfill_entry in release.entries:
+        merged.setdefault(backfill_entry.change_type, []).append(backfill_entry.text)
+    return merged
+
+
+def filter_tag_rows(rows: Sequence[list[str]], *, since: str | None, until: str | None) -> list[list[str]]:
     start = find_tag_boundary(rows, since) if since else 0
     end = find_tag_boundary(rows, until) if until else len(rows) - 1
     if start > end:
