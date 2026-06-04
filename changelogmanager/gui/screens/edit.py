@@ -30,7 +30,9 @@ from changelogmanager.vendor.keepachangelog import PREAMBLE
 logger = get_logger(__name__)
 
 
-class EditScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-many-ancestors
+class EditScreen(
+    Screen
+):  # pylint: disable=too-many-instance-attributes,too-many-ancestors
     """Full editor for the [Unreleased] section plus read-only history."""
 
     title = "Edit"
@@ -85,8 +87,8 @@ class EditScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-ma
         """Rebuilds the editor widgets from the shared model."""
 
         changelog = self.app_state.changelog
-        self._set_text(self.prologue, self._current_prologue(), editable=True)
-        self._set_text(self.links, self._derived_links(), editable=False)
+        self.set_text(self.prologue, self.current_prologue(), editable=True)
+        self.set_text(self.links, self.derived_links(), editable=False)
 
         self.sections.clear()
         if changelog is None:
@@ -114,11 +116,11 @@ class EditScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-ma
             rows = by_type.get(change_type)
             if not rows:
                 continue
-            self._build_section(change_type, rows)
+            self.build_section(change_type, rows)
 
-        self._build_history(changelog)
+        self.build_history(changelog)
 
-    def _build_section(self, change_type: str, rows: list[tuple[int, str]]) -> None:
+    def build_section(self, change_type: str, rows: list[tuple[int, str]]) -> None:
         frame = ttk.LabelFrame(self.sections.body, text=change_type.capitalize())
         frame.pack(fill=tk.X, padx=4, pady=4)
         count = len(rows)
@@ -133,13 +135,13 @@ class EditScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-ma
                 row,
                 text="Save",
                 width=5,
-                command=partial(self._edit_entry_from, change_type, index, var),
+                command=partial(self.edit_entry_from, change_type, index, var),
             ).pack(side=tk.LEFT)
             up = ttk.Button(
                 row,
                 text="↑",
                 width=2,
-                command=partial(self._move_entry, change_type, index, -1),
+                command=partial(self.move_entry, change_type, index, -1),
             )
             up.pack(side=tk.LEFT, padx=(4, 0))
             if position == 0:
@@ -148,7 +150,7 @@ class EditScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-ma
                 row,
                 text="↓",
                 width=2,
-                command=partial(self._move_entry, change_type, index, 1),
+                command=partial(self.move_entry, change_type, index, 1),
             )
             down.pack(side=tk.LEFT)
             if position == count - 1:
@@ -157,10 +159,10 @@ class EditScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-ma
                 row,
                 text="✕",
                 width=2,
-                command=partial(self._remove_entry, change_type, index),
+                command=partial(self.remove_entry, change_type, index),
             ).pack(side=tk.LEFT, padx=(4, 0))
 
-    def _build_history(self, changelog: Changelog) -> None:
+    def build_history(self, changelog: Changelog) -> None:
         data = changelog.get()
         released = [v for v in data if v != UNRELEASED_ENTRY]
         if not released:
@@ -187,14 +189,14 @@ class EditScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-ma
     # ------------------------------------------------------------------
     # Model mutations
     # ------------------------------------------------------------------
-    def _require_changelog(self) -> Changelog | None:
+    def require_changelog(self) -> Changelog | None:
         changelog = self.app_state.changelog
         if changelog is None:
             messagebox.showerror("No changelog", "No changelog is loaded.")
         return changelog
 
     def add_entry(self) -> None:
-        changelog = self._require_changelog()
+        changelog = self.require_changelog()
         if changelog is None:
             return
         message = self.add_message_var.get().strip()
@@ -206,15 +208,13 @@ class EditScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-ma
         self.status(f"Added [{self.add_type_var.get()}] entry (unsaved).")
         self.refresh()
 
-    def _edit_entry_from(
-        self, change_type: str, index: int, var: tk.StringVar
-    ) -> None:
+    def edit_entry_from(self, change_type: str, index: int, var: tk.StringVar) -> None:
         """Saves the edited entry, reading the row's current text at click time."""
 
-        self._edit_entry(change_type, index, var.get())
+        self.edit_entry(change_type, index, var.get())
 
-    def _edit_entry(self, change_type: str, index: int, message: str) -> None:
-        changelog = self._require_changelog()
+    def edit_entry(self, change_type: str, index: int, message: str) -> None:
+        changelog = self.require_changelog()
         if changelog is None:
             return
         message = message.strip()
@@ -229,8 +229,8 @@ class EditScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-ma
         self.status("Entry updated (unsaved).")
         self.refresh()
 
-    def _remove_entry(self, change_type: str, index: int) -> None:
-        changelog = self._require_changelog()
+    def remove_entry(self, change_type: str, index: int) -> None:
+        changelog = self.require_changelog()
         if changelog is None:
             return
         try:
@@ -241,10 +241,10 @@ class EditScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-ma
         self.status(f"Removed: {removed} (unsaved).")
         self.refresh()
 
-    def _move_entry(self, change_type: str, index: int, delta: int) -> None:
+    def move_entry(self, change_type: str, index: int, delta: int) -> None:
         """Reorders an entry within its change-type bucket in the live model."""
 
-        changelog = self._require_changelog()
+        changelog = self.require_changelog()
         if changelog is None:
             return
         data = changelog.get()
@@ -262,12 +262,12 @@ class EditScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-ma
     # Persistence
     # ------------------------------------------------------------------
     def save(self) -> None:
-        changelog = self._require_changelog()
+        changelog = self.require_changelog()
         if changelog is None:
             return
         try:
             text = changelog.render()
-            text = self._apply_prologue(text)
+            text = self.apply_prologue(text)
             Path(changelog.get_file_path()).write_text(text, encoding="utf-8")
         except Exception as exc:  # pylint: disable=broad-exception-caught
             messagebox.showerror("Save failed", str(getattr(exc, "message", exc)))
@@ -280,9 +280,9 @@ class EditScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-ma
         """Re-reads the file through the reader and reports diagnostics."""
 
         self.save()
-        from changelogmanager.gui.cli_runner import (  # pylint: disable=import-outside-toplevel
+        from changelogmanager.gui.cli_runner import (
             run_cli,
-        )
+        )  # pylint: disable=import-outside-toplevel
 
         argv: list[str] = []
         if self.app_state.config_path:
@@ -299,7 +299,7 @@ class EditScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-ma
             messagebox.showinfo("Validate", output.strip())
 
     def release(self) -> None:
-        changelog = self._require_changelog()
+        changelog = self.require_changelog()
         if changelog is None:
             return
         if not changelog.has_unreleased():
@@ -316,7 +316,7 @@ class EditScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-ma
             return
         try:
             changelog.release(None)
-            text = self._apply_prologue(changelog.render())
+            text = self.apply_prologue(changelog.render())
             Path(changelog.get_file_path()).write_text(text, encoding="utf-8")
         except Exception as exc:  # pylint: disable=broad-exception-caught
             messagebox.showerror("Release failed", str(getattr(exc, "message", exc)))
@@ -327,7 +327,7 @@ class EditScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-ma
     # ------------------------------------------------------------------
     # Prologue / links helpers
     # ------------------------------------------------------------------
-    def _current_prologue(self) -> str:
+    def current_prologue(self) -> str:
         """Returns the prologue: the model's preamble, or the on-disk header."""
 
         raw = self.app_state.raw_text()
@@ -342,7 +342,7 @@ class EditScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-ma
                 return rendered[:marker].strip("\n")
         return PREAMBLE.strip("\n")
 
-    def _apply_prologue(self, rendered: str) -> str:
+    def apply_prologue(self, rendered: str) -> str:
         """Splices the (possibly edited) prologue ahead of the rendered body."""
 
         prologue = self.prologue.get("1.0", tk.END).rstrip("\n")
@@ -350,17 +350,19 @@ class EditScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-ma
         body = rendered[marker:] if marker != -1 else "\n" + rendered.lstrip("\n")
         return prologue + body if body.startswith("\n") else prologue + "\n" + body
 
-    def _derived_links(self) -> str:
+    def derived_links(self) -> str:
         changelog = self.app_state.changelog
         if changelog is None:
             return ""
         rendered = changelog.render()
         return "\n".join(
-            line for line in rendered.splitlines() if line.startswith("[") and "]: " in line
+            line
+            for line in rendered.splitlines()
+            if line.startswith("[") and "]: " in line
         )
 
     @staticmethod
-    def _set_text(widget: tk.Text, value: str, *, editable: bool) -> None:
+    def set_text(widget: tk.Text, value: str, *, editable: bool) -> None:
         widget.configure(state=tk.NORMAL)
         widget.delete("1.0", tk.END)
         widget.insert("1.0", value)

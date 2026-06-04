@@ -69,7 +69,9 @@ def test_app_state_reload_handles_missing_and_present_files(tmp_path, monkeypatc
     assert notifications == [None]
 
 
-def test_app_controller_builds_hidden_gui_and_switches_screens(gui_root, tmp_path, monkeypatch):
+def test_app_controller_builds_hidden_gui_and_switches_screens(
+    gui_root, tmp_path, monkeypatch
+):
     monkeypatch.chdir(tmp_path)
     write_changelog(tmp_path / "CHANGELOG.md")
 
@@ -85,7 +87,9 @@ def test_app_controller_builds_hidden_gui_and_switches_screens(gui_root, tmp_pat
     assert controller.current is controller.screens[ReleasesScreen.title]
 
 
-def test_backfill_screen_create_dry_run_does_not_write_file(gui_root, tmp_path, monkeypatch):
+def test_backfill_screen_create_dry_run_does_not_write_file(
+    gui_root, tmp_path, monkeypatch
+):
     monkeypatch.chdir(tmp_path)
     write_changelog(tmp_path / "CHANGELOG.md")
     target = tmp_path / "NEW_CHANGELOG.md"
@@ -104,7 +108,9 @@ def test_backfill_screen_create_dry_run_does_not_write_file(gui_root, tmp_path, 
     assert not target.exists()
 
 
-def test_releases_screen_github_release_dry_run_redacts_token(gui_root, tmp_path, monkeypatch):
+def test_releases_screen_github_release_dry_run_redacts_token(
+    gui_root, tmp_path, monkeypatch
+):
     monkeypatch.chdir(tmp_path)
     changelog_path = tmp_path / "CHANGELOG.md"
     original = VALID_CHANGELOG
@@ -127,7 +133,9 @@ def test_releases_screen_github_release_dry_run_redacts_token(gui_root, tmp_path
     assert changelog_path.read_text(encoding="utf-8") == original
 
 
-def test_components_screen_validate_all_lists_components_and_runs(gui_root, tmp_path, monkeypatch):
+def test_components_screen_validate_all_lists_components_and_runs(
+    gui_root, tmp_path, monkeypatch
+):
     monkeypatch.chdir(tmp_path)
     config_path = tmp_path / "changelogmanager.toml"
     config_path.write_text(

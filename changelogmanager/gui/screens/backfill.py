@@ -16,7 +16,9 @@ from changelogmanager.gui.cli_runner import run_cli
 from changelogmanager.gui.screens.base import Screen
 
 
-class BackfillScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-many-ancestors
+class BackfillScreen(
+    Screen
+):  # pylint: disable=too-many-instance-attributes,too-many-ancestors
     """Create a changelog and seed it from history."""
 
     title = "Initialize / Backfill"
@@ -39,12 +41,21 @@ class BackfillScreen(Screen):  # pylint: disable=too-many-instance-attributes,to
         self.include_unreleased_var = tk.BooleanVar(value=False)
         self.all_history_var = tk.BooleanVar(value=False)
 
-        self._combo(form, "Source:", self.source_var,
-                    ["tags", "github-releases", "github-prs", "pypi", "commits", "all"])
-        self._combo(form, "Strategy:", self.strategy_var,
-                    ["conservative", "merge", "replace"])
-        self._combo(form, "Commit schema:", self.commit_schema_var,
-                    ["auto", "conventional", "gitmoji", "keepachangelog"])
+        self.combo(
+            form,
+            "Source:",
+            self.source_var,
+            ["tags", "github-releases", "github-prs", "pypi", "commits", "all"],
+        )
+        self.combo(
+            form, "Strategy:", self.strategy_var, ["conservative", "merge", "replace"]
+        )
+        self.combo(
+            form,
+            "Commit schema:",
+            self.commit_schema_var,
+            ["auto", "conventional", "gitmoji", "keepachangelog"],
+        )
 
         row = ttk.Frame(form)
         row.pack(fill=tk.X, padx=4, pady=2)
@@ -55,23 +66,31 @@ class BackfillScreen(Screen):  # pylint: disable=too-many-instance-attributes,to
 
         checks = ttk.Frame(form)
         checks.pack(fill=tk.X, padx=4, pady=2)
-        ttk.Checkbutton(checks, text="Missing only", variable=self.missing_only_var).pack(side=tk.LEFT)
-        ttk.Checkbutton(checks, text="Include [Unreleased]", variable=self.include_unreleased_var).pack(side=tk.LEFT, padx=8)
-        ttk.Checkbutton(checks, text="All history (from-commits)", variable=self.all_history_var).pack(side=tk.LEFT, padx=8)
+        ttk.Checkbutton(
+            checks, text="Missing only", variable=self.missing_only_var
+        ).pack(side=tk.LEFT)
+        ttk.Checkbutton(
+            checks, text="Include [Unreleased]", variable=self.include_unreleased_var
+        ).pack(side=tk.LEFT, padx=8)
+        ttk.Checkbutton(
+            checks, text="All history (from-commits)", variable=self.all_history_var
+        ).pack(side=tk.LEFT, padx=8)
 
         out_frame = ttk.LabelFrame(self.work_area, text="Output")
         out_frame.pack(fill=tk.BOTH, expand=True)
         self.output = scrolledtext.ScrolledText(out_frame, wrap=tk.WORD, height=14)
         self.output.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
-    def _combo(self, parent, label, var, values) -> None:  # type: ignore[no-untyped-def]
+    def combo(self, parent, label, var, values) -> None:  # type: ignore[no-untyped-def]
         row = ttk.Frame(parent)
         row.pack(fill=tk.X, padx=4, pady=2)
         ttk.Label(row, text=label, width=14, anchor="w").pack(side=tk.LEFT)
-        ttk.Combobox(row, textvariable=var, values=values, width=18, state="readonly").pack(side=tk.LEFT, padx=4)
+        ttk.Combobox(
+            row, textvariable=var, values=values, width=18, state="readonly"
+        ).pack(side=tk.LEFT, padx=4)
 
     # ------------------------------------------------------------------
-    def _base_argv(self) -> list[str]:
+    def base_argv(self) -> list[str]:
         argv: list[str] = []
         if self.app_state.config_path:
             argv += ["--config", self.app_state.config_path]
@@ -81,7 +100,7 @@ class BackfillScreen(Screen):  # pylint: disable=too-many-instance-attributes,to
         argv += ["--input-file", self.app_state.input_file]
         return argv
 
-    def _run(self, argv: list[str]) -> None:
+    def run(self, argv: list[str]) -> None:
         self.output.insert(tk.END, f"$ changelogmanager {' '.join(argv)}\n")
         self.output.see(tk.END)
         self.output.update_idletasks()
@@ -92,10 +111,10 @@ class BackfillScreen(Screen):  # pylint: disable=too-many-instance-attributes,to
         self.controller.reload()
 
     def create(self) -> None:
-        argv = self._base_argv() + ["create"]
+        argv = self.base_argv() + ["create"]
         if self.app_state.dry_run:
             argv.append("--dry-run")
-        self._run(argv)
+        self.run(argv)
 
     def config_init(self) -> None:
         # config init is interactive (inquirer); point users at the Config window.
@@ -103,26 +122,32 @@ class BackfillScreen(Screen):  # pylint: disable=too-many-instance-attributes,to
         self.controller.open_config()
 
     def backfill(self) -> None:
-        argv = self._base_argv() + ["backfill", "--source", self.source_var.get()]
+        argv = self.base_argv() + ["backfill", "--source", self.source_var.get()]
         argv += ["--strategy", self.strategy_var.get()]
         argv += ["--commit-schema", self.commit_schema_var.get()]
         if self.since_var.get().strip():
             argv += ["--since", self.since_var.get().strip()]
         if self.until_var.get().strip():
             argv += ["--until", self.until_var.get().strip()]
-        argv.append("--missing-only" if self.missing_only_var.get() else "--no-missing-only")
+        argv.append(
+            "--missing-only" if self.missing_only_var.get() else "--no-missing-only"
+        )
         if self.include_unreleased_var.get():
             argv.append("--include-unreleased")
         if self.app_state.dry_run:
             argv.append("--dry-run")
-        self._run(argv)
+        self.run(argv)
 
     def from_commits(self) -> None:
-        argv = self._base_argv() + ["from-commits", "--commit-schema", self.commit_schema_var.get()]
+        argv = self.base_argv() + [
+            "from-commits",
+            "--commit-schema",
+            self.commit_schema_var.get(),
+        ]
         if self.since_var.get().strip():
             argv += ["--since", self.since_var.get().strip()]
         if self.all_history_var.get():
             argv.append("--all-history")
         if self.app_state.dry_run:
             argv.append("--dry-run")
-        self._run(argv)
+        self.run(argv)

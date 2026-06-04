@@ -45,7 +45,7 @@ def capture_output(tmp_path, monkeypatch, text):
     monkeypatch.setattr(
         logging.Error,
         "report",
-        lambda self, _sink=reported: _sink.append(self),
+        lambda self, sink=reported: sink.append(self),
     )
     count = reader.validate_layout()
     return reported, count

@@ -155,15 +155,10 @@ class TestDiscoverFormatterClean:
         monkeypatch.setattr("shutil.which", lambda _: "/usr/local/bin/mdformat")
         import sys
 
-        saved = sys.modules.pop("mdformat", None)
-        try:
-            result = discover_formatter()
-            # If mdformat is not installed, should be SubprocessFormatter
-            if saved is None:
-                assert isinstance(result, SubprocessFormatter)
-        finally:
-            if saved is not None:
-                sys.modules["mdformat"] = saved
+        # Mapping a module to None in sys.modules prevents it from being imported.
+        monkeypatch.setitem(sys.modules, "mdformat", None)
+        result = discover_formatter()
+        assert isinstance(result, SubprocessFormatter)
 
 
 # ---------------------------------------------------------------------------

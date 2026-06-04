@@ -16,8 +16,10 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 try:
-    from jiggle_version.discover import find_source_files  # type: ignore[import-not-found]
-    from jiggle_version.update import (  # type: ignore[import-not-found]
+    from jiggle_version.discover import (
+        find_source_files,
+    )
+    from jiggle_version.update import (
         update_pyproject_toml,
         update_python_file,
     )

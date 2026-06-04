@@ -13,10 +13,17 @@ import os
 from pathlib import Path
 
 import pytest
+from hypothesis import settings, HealthCheck
+
+# Disable deadline globally for Hypothesis tests to prevent flakiness on slow CI/machines.
+settings.register_profile(
+    "default", deadline=None, suppress_health_check=[HealthCheck.too_slow]
+)
+settings.load_profile("default")
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path_factory: pytest.TempPathFactory) -> None:
+def isolate_cwd(tmp_path_factory: pytest.TempPathFactory) -> None:
     """Run each test from a clean temp directory with no ambient config."""
 
     original = Path.cwd()

@@ -55,9 +55,9 @@ def run_gui() -> int:
         return 1
 
     # Imported lazily so the tkinter-missing path above stays import-safe.
-    from changelogmanager.gui.app import (  # pylint: disable=import-outside-toplevel
+    from changelogmanager.gui.app import (
         AppController,
-    )
+    )  # pylint: disable=import-outside-toplevel
 
     logger.info("Starting Tkinter main loop")
     AppController(root)

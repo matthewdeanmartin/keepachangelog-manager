@@ -554,7 +554,7 @@ def validate_components(
             )
             continue
         try:
-            applied = _validate_one_component(
+            applied = validate_one_component(
                 path=path,
                 fix=fix,
                 dry_run=dry_run,
@@ -585,7 +585,7 @@ def validate_components(
     return results
 
 
-def _validate_one_component(  # pylint: disable=too-many-locals
+def validate_one_component(  # pylint: disable=too-many-locals
     *,
     path: str,
     fix: bool,

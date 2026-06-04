@@ -42,7 +42,7 @@ format-check:
 
 test:
 	$(UV) run python -c "from pathlib import Path; Path('$(BUILD_DIR)').mkdir(exist_ok=True)"
-	$(UV) run pytest --cov=$(PACKAGE) --cov-report=html --cov-report=xml --junitxml=$(BUILD_DIR)/junit-test.xml -vv
+	$(UV) run pytest -n 4 --cov=$(PACKAGE) --cov-report=html --cov-report=xml --junitxml=$(BUILD_DIR)/junit-test.xml -vv
 	$(UV) run python -c "from pathlib import Path; Path('coverage.xml').replace('$(BUILD_DIR)/junit-coverage.xml')"
 
 flake8:

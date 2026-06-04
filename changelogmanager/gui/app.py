@@ -48,8 +48,8 @@ class AppController:  # pylint: disable=too-many-instance-attributes
         self.screens: dict[str, Screen] = {}
         self.current: Screen | None = None
 
-        self._build_menu()
-        self._build_top_panel()
+        self.build_menu()
+        self.build_top_panel()
 
         self.container = ttk.Frame(self.root)
         self.container.pack(fill=tk.BOTH, expand=True)
@@ -72,7 +72,7 @@ class AppController:  # pylint: disable=too-many-instance-attributes
     # ------------------------------------------------------------------
     # Menu / top panel
     # ------------------------------------------------------------------
-    def _build_menu(self) -> None:
+    def build_menu(self) -> None:
         menubar = tk.Menu(self.root)
 
         file_menu = tk.Menu(menubar, tearoff=0)
@@ -97,7 +97,7 @@ class AppController:  # pylint: disable=too-many-instance-attributes
 
         self.root.config(menu=menubar)
 
-    def _build_top_panel(self) -> None:
+    def build_top_panel(self) -> None:
         top = ttk.LabelFrame(self.root, text="Workspace")
         top.pack(side=tk.TOP, fill=tk.X, padx=6, pady=6)
 
@@ -111,7 +111,9 @@ class AppController:  # pylint: disable=too-many-instance-attributes
             side=tk.LEFT
         )
         ttk.Label(row, text="Config:").pack(side=tk.LEFT, padx=(12, 0))
-        ttk.Entry(row, textvariable=self.config_var, width=26).pack(side=tk.LEFT, padx=4)
+        ttk.Entry(row, textvariable=self.config_var, width=26).pack(
+            side=tk.LEFT, padx=4
+        )
         ttk.Button(row, text="Browse…", command=self.browse_config_file).pack(
             side=tk.LEFT
         )

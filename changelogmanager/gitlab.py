@@ -53,24 +53,24 @@ class GitLab:
         """
 
         # Numeric IDs are passed through; paths must be URL-encoded ("%2F").
-        self.__project = project if project.isdigit() else quote(project, safe="")
-        self.__base = gitlab_url.rstrip("/")
-        self.__headers = {
+        self.project = project if project.isdigit() else quote(project, safe="")
+        self.base = gitlab_url.rstrip("/")
+        self.headers = {
             "Content-Type": "application/json",
             "PRIVATE-TOKEN": token,
             "JOB-TOKEN": token,
         }
         logger.info(
-            "Initialized GitLab client for project %s at %s", project, self.__base
+            "Initialized GitLab client for project %s at %s", project, self.base
         )
 
-    def __gitlab_request(
+    def gitlab_request(
         self,
         api: str,
         method: HttpMethods,
         data: Optional[Mapping[str, Any]] = None,
     ) -> Optional[Any]:
-        url = f"{self.__base}/api/v4/projects/{self.__project}/{api}"
+        url = f"{self.base}/api/v4/projects/{self.project}/{api}"
         logger.info("Calling GitLab API %s %s", method.value, url)
         if data:
             logger.log(
@@ -81,7 +81,7 @@ class GitLab:
             method=method.value,
             url=url,
             data=json.dumps(data).encode() if data else None,
-            headers=self.__headers,
+            headers=self.headers,
         )
 
         try:
@@ -130,7 +130,7 @@ class GitLab:
     def get_release(self, tag_name: str) -> Optional[Mapping[str, Any]]:
         """Returns the release for ``tag_name`` or ``None`` if absent."""
         logger.info("Fetching GitLab release for tag %s", tag_name)
-        result = self.__gitlab_request(
+        result = self.gitlab_request(
             method=HttpMethods.GET,
             api=f"releases/{quote(tag_name, safe='')}",
         )
@@ -152,14 +152,14 @@ class GitLab:
         existing = self.get_release(version)
         if existing is not None:
             logger.info("Updating existing GitLab release %s", version)
-            response = self.__gitlab_request(
+            response = self.gitlab_request(
                 method=HttpMethods.PUT,
                 api=f"releases/{quote(version, safe='')}",
                 data={"name": name, "description": description},
             )
         else:
             logger.info("Creating new GitLab release %s (ref=%s)", version, ref)
-            response = self.__gitlab_request(
+            response = self.gitlab_request(
                 method=HttpMethods.POST,
                 api="releases",
                 data={

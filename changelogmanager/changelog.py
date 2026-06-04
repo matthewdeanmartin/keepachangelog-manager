@@ -63,23 +63,23 @@ class Changelog:
         versioning_scheme: str = "semver",
     ) -> None:
         """Constructor"""
-        self.__changelog_file_path = file_path
-        self.__changelog = changelog if changelog else {}
-        self.__versioning_scheme = normalize_scheme(versioning_scheme)
+        self.changelog_file_path = file_path
+        self.changelog = changelog if changelog else {}
+        self.versioning_scheme = normalize_scheme(versioning_scheme)
         logger.log(
             VERBOSE,
             "Initialized changelog object for %s with %d version entries",
-            self.__changelog_file_path,
-            len(self.__changelog),
+            self.changelog_file_path,
+            len(self.changelog),
         )
 
     def get_file_path(self) -> str:
         """Returns the path to the changelog file"""
-        return self.__changelog_file_path
+        return self.changelog_file_path
 
     def get_versioning_scheme(self) -> str:
         """Returns the configured versioning scheme for this changelog."""
-        return self.__versioning_scheme
+        return self.versioning_scheme
 
     def has_unreleased(self) -> bool:
         """Returns True when an [Unreleased] section with entries is present.
@@ -87,7 +87,7 @@ class Changelog:
         The metadata-only stub created by :meth:`add` does not count; there must
         be at least one change-type bucket holding entries.
         """
-        unreleased = self.__changelog.get(UNRELEASED_ENTRY)
+        unreleased = self.changelog.get(UNRELEASED_ENTRY)
         if not isinstance(unreleased, Mapping):
             return False
         return any(
@@ -99,20 +99,20 @@ class Changelog:
         """Replaces the in-memory changelog data (used by autofix)."""
         logger.info(
             "Replacing in-memory changelog data for %s with %d version entries",
-            self.__changelog_file_path,
+            self.changelog_file_path,
             len(data),
         )
-        self.__changelog = data
+        self.changelog = data
 
     def add(self, change_type: str, message: str) -> None:
         """Adds a new message to the specified change identifier in the Changelog"""
         logger.info(
             "Adding unreleased entry of type '%s' to %s",
             change_type,
-            self.__changelog_file_path,
+            self.changelog_file_path,
         )
 
-        changelog: OrderedDict[str, Any] = OrderedDict(self.__changelog.copy())
+        changelog: OrderedDict[str, Any] = OrderedDict(self.changelog.copy())
 
         changelog.setdefault(
             UNRELEASED_ENTRY,
@@ -129,15 +129,15 @@ class Changelog:
         # Ensure that the new entry is on top
         changelog.move_to_end(UNRELEASED_ENTRY, last=False)
 
-        self.__changelog = dict(changelog)
+        self.changelog = dict(changelog)
 
     def list_unreleased(self) -> list[tuple[str, int, str]]:
         """Lists every entry in [Unreleased] as (change_type, index, message)."""
 
         logger.log(
-            VERBOSE, "Listing unreleased entries for %s", self.__changelog_file_path
+            VERBOSE, "Listing unreleased entries for %s", self.changelog_file_path
         )
-        unreleased = self.__changelog.get(UNRELEASED_ENTRY, {})
+        unreleased = self.changelog.get(UNRELEASED_ENTRY, {})
         result: list[tuple[str, int, str]] = []
         for change_type, messages in unreleased.items():
             if change_type == "metadata":
@@ -154,15 +154,15 @@ class Changelog:
             "Removing unreleased entry %s[%d] from %s",
             change_type,
             index,
-            self.__changelog_file_path,
+            self.changelog_file_path,
         )
 
-        if UNRELEASED_ENTRY not in self.__changelog:
+        if UNRELEASED_ENTRY not in self.changelog:
             raise logging.Error(
                 file_path=self.get_file_path(),
                 message="Unable to remove without [Unreleased] section",
             )
-        unreleased = self.__changelog[UNRELEASED_ENTRY]
+        unreleased = self.changelog[UNRELEASED_ENTRY]
         entries = require_string_entries(
             unreleased.get(change_type),
             file_path=self.get_file_path(),
@@ -198,15 +198,15 @@ class Changelog:
             "Editing unreleased entry %s[%d] in %s",
             change_type,
             index,
-            self.__changelog_file_path,
+            self.changelog_file_path,
         )
 
-        if UNRELEASED_ENTRY not in self.__changelog:
+        if UNRELEASED_ENTRY not in self.changelog:
             raise logging.Error(
                 file_path=self.get_file_path(),
                 message="Unable to edit without [Unreleased] section",
             )
-        unreleased = self.__changelog[UNRELEASED_ENTRY]
+        unreleased = self.changelog[UNRELEASED_ENTRY]
         entries = require_string_entries(
             unreleased.get(change_type),
             file_path=self.get_file_path(),
@@ -243,11 +243,11 @@ class Changelog:
 
     def exists(self) -> bool:
         """Verifies if the Changelog file exists"""
-        exists = Path(self.__changelog_file_path).is_file()
+        exists = Path(self.changelog_file_path).is_file()
         logger.log(
             VERBOSE,
             "Checked whether changelog exists at %s: %s",
-            self.__changelog_file_path,
+            self.changelog_file_path,
             exists,
         )
         return exists
@@ -257,31 +257,31 @@ class Changelog:
         logger.log(
             VERBOSE,
             "Retrieving changelog data from %s for version %s",
-            self.__changelog_file_path,
+            self.changelog_file_path,
             version or "<all>",
         )
 
         if not version:
-            return self.__changelog
+            return self.changelog
 
-        if str(version) not in self.__changelog:
+        if str(version) not in self.changelog:
             raise logging.Warning(
                 file_path=self.get_file_path(),
                 message=f"Version '{version}' not available in the Changelog",
             )
 
-        res: Mapping[str, Any] = self.__changelog[str(version)]
+        res: Mapping[str, Any] = self.changelog[str(version)]
         return res
 
     def release(self, override_version: Optional[str] = None) -> None:
         """Releases the Unreleased version"""
         logger.info(
             "Preparing release for %s with override version %s",
-            self.__changelog_file_path,
+            self.changelog_file_path,
             override_version or "<auto>",
         )
 
-        if UNRELEASED_ENTRY not in self.__changelog:
+        if UNRELEASED_ENTRY not in self.changelog:
             raise logging.Error(
                 file_path=self.get_file_path(),
                 message="Unable to release without [Unreleased] section",
@@ -293,16 +293,16 @@ class Changelog:
 
         try:
             target_version = (
-                parse_version(override_version, self.__versioning_scheme)
+                parse_version(override_version, self.versioning_scheme)
                 if override_version
                 else self.suggest_future_version()
             )
         except ValueError as exc_info:
-            msg = f"Version '{override_version}' is not {version_scheme_label(self.__versioning_scheme)} compliant"
+            msg = f"Version '{override_version}' is not {version_scheme_label(self.versioning_scheme)} compliant"
             logger.error(
                 "Rejected invalid release version %s for %s",
                 override_version,
-                self.__changelog_file_path,
+                self.changelog_file_path,
             )
             raise logging.Error(message=msg) from exc_info
 
@@ -312,7 +312,7 @@ class Changelog:
                 message=f"Unable to release an already released version '{target_version}'",
             )
 
-        if not self.__has_only_unreleased_version() and target_version < self.version():
+        if not self.has_only_unreleased_version() and target_version < self.version():
             raise logging.Error(
                 file_path=self.get_file_path(),
                 message=(
@@ -338,64 +338,62 @@ class Changelog:
 
             return changelog_out
 
-        self.__changelog = dict(
-            update_unreleased_version(self.__changelog, target_version)
-        )
+        self.changelog = dict(update_unreleased_version(self.changelog, target_version))
         logger.info(
-            "Prepared release %s for %s", target_version, self.__changelog_file_path
+            "Prepared release %s for %s", target_version, self.changelog_file_path
         )
 
     def version(self) -> VersionValue:
         """Returns the last released version"""
         logger.log(
-            VERBOSE, "Calculating current version for %s", self.__changelog_file_path
+            VERBOSE, "Calculating current version for %s", self.changelog_file_path
         )
-        if len(self.__changelog) == 0:
+        if len(self.changelog) == 0:
             raise logging.Warning(
                 file_path=self.get_file_path(), message="No versions available"
             )
 
-        if UNRELEASED_ENTRY in self.__changelog:
-            if len(self.__changelog) <= 1:
+        if UNRELEASED_ENTRY in self.changelog:
+            if len(self.changelog) <= 1:
                 raise logging.Warning(
                     file_path=self.get_file_path(),
                     message="Only an Unreleased version is available",
                 )
 
-            return parse_version(list(self.__changelog)[1], self.__versioning_scheme)
+            return parse_version(list(self.changelog)[1], self.versioning_scheme)
 
-        return parse_version(list(self.__changelog)[0], self.__versioning_scheme)
+        return parse_version(list(self.changelog)[0], self.versioning_scheme)
 
     def previous_version(self) -> VersionValue:
         """Returns the previously released version"""
         logger.log(
             VERBOSE,
             "Calculating previous released version for %s",
-            self.__changelog_file_path,
+            self.changelog_file_path,
         )
 
-        if len(self.__changelog) <= 1:
+        if len(self.changelog) <= 1:
             raise logging.Warning(
                 file_path=self.get_file_path(), message="No previous versions available"
             )
 
-        if UNRELEASED_ENTRY in self.__changelog:
-            if len(self.__changelog) <= 2:
+        if UNRELEASED_ENTRY in self.changelog:
+            if len(self.changelog) <= 2:
                 raise logging.Warning(
                     file_path=self.get_file_path(),
                     message="No previous versions available",
                 )
 
-            return parse_version(list(self.__changelog)[2], self.__versioning_scheme)
+            return parse_version(list(self.changelog)[2], self.versioning_scheme)
 
-        return parse_version(list(self.__changelog)[1], self.__versioning_scheme)
+        return parse_version(list(self.changelog)[1], self.versioning_scheme)
 
     def suggest_future_version(self) -> VersionValue:
         """Suggests a future version based on the [Unreleased]-changes"""
-        logger.info("Suggesting future version for %s", self.__changelog_file_path)
+        logger.info("Suggesting future version for %s", self.changelog_file_path)
 
-        if self.__has_only_unreleased_version():
-            return initial_version(self.__versioning_scheme)
+        if self.has_only_unreleased_version():
+            return initial_version(self.versioning_scheme)
 
         def determine_version(
             unreleased: Mapping[str, Any], prev_version: VersionValue
@@ -416,9 +414,7 @@ class Changelog:
         schema_version: SchemaVersion = DEFAULT_SCHEMA_VERSION,
     ) -> None:
         """Stores the Changelog file in JSON format"""
-        logger.info(
-            "Writing JSON export for %s to %s", self.__changelog_file_path, file
-        )
+        logger.info("Writing JSON export for %s to %s", self.changelog_file_path, file)
 
         rendered = self.to_json(version=version, schema_version=schema_version)
         with Path(file).open("w", encoding="UTF-8") as file_handle:
@@ -433,7 +429,7 @@ class Changelog:
         logger.log(
             VERBOSE,
             "Rendering JSON export for %s (%s)",
-            self.__changelog_file_path,
+            self.changelog_file_path,
             version or "<all>",
         )
 
@@ -442,15 +438,13 @@ class Changelog:
         validate_changelog_export(
             json_data,
             schema_version=schema_version,
-            file_path=self.__changelog_file_path,
+            file_path=self.changelog_file_path,
         )
         return json.dumps(json_data, indent=4)
 
     def write_to_html(self, file: str, version: Optional[str] = None) -> None:
         """Stores the Changelog file in HTML format."""
-        logger.info(
-            "Writing HTML export for %s to %s", self.__changelog_file_path, file
-        )
+        logger.info("Writing HTML export for %s to %s", self.changelog_file_path, file)
 
         with Path(file).open("w", encoding="UTF-8") as file_handle:
             file_handle.write(self.to_html(version=version))
@@ -460,7 +454,7 @@ class Changelog:
         logger.log(
             VERBOSE,
             "Rendering HTML export for %s (%s)",
-            self.__changelog_file_path,
+            self.changelog_file_path,
             version or "<all>",
         )
 
@@ -511,37 +505,35 @@ class Changelog:
         format_options: "Optional[dict[str, Any]]" = None,
     ) -> None:
         """Updates CHANGELOG.md based on the Keep a Changelog standard."""
-        logger.info("Writing changelog file %s", self.__changelog_file_path)
+        logger.info("Writing changelog file %s", self.changelog_file_path)
 
-        with Path(self.__changelog_file_path).open(
-            "w", encoding="UTF-8"
-        ) as file_handle:
+        with Path(self.changelog_file_path).open("w", encoding="UTF-8") as file_handle:
             file_handle.write(
                 self.render(formatter=formatter, format_options=format_options)
             )
 
-    def __has_only_unreleased_version(self) -> bool:
+    def has_only_unreleased_version(self) -> bool:
         """Returns True when the changelog only contains an Unreleased version"""
-        return UNRELEASED_ENTRY in self.__changelog and len(self.__changelog) == 1
+        return UNRELEASED_ENTRY in self.changelog and len(self.changelog) == 1
 
     def __str__(self) -> str:
         """String representation"""
 
-        rendered = str(keepachangelog.from_dict(self.__changelog))
-        return self.__render_preamble(rendered)
+        rendered = str(keepachangelog.from_dict(self.changelog))
+        return self.render_preamble(rendered)
 
-    def __render_preamble(self, rendered: str) -> str:
-        if self.__versioning_scheme == "semver":
+    def render_preamble(self, rendered: str) -> str:
+        if self.versioning_scheme == "semver":
             return rendered
 
         logger.log(
             VERBOSE,
             "Rewriting Keep a Changelog preamble for versioning scheme %s",
-            self.__versioning_scheme,
+            self.versioning_scheme,
         )
         replacement = (
             "and this project adheres to "
-            f"{get_versioning_markdown(self.__versioning_scheme)}."
+            f"{get_versioning_markdown(self.versioning_scheme)}."
         )
         semver_preamble = (
             r"and this project adheres to "

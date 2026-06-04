@@ -51,7 +51,7 @@ class AppState:  # pylint: disable=too-many-instance-attributes
         self.load_error: str | None = None
 
         # Screens register here to be told when the model is reloaded.
-        self._listeners: list[Callable[[], None]] = []
+        self.listeners: list[Callable[[], None]] = []
 
         self.reload()
 
@@ -61,10 +61,10 @@ class AppState:  # pylint: disable=too-many-instance-attributes
     def add_listener(self, callback: Callable[[], None]) -> None:
         """Registers a callback fired after every successful (or failed) reload."""
 
-        self._listeners.append(callback)
+        self.listeners.append(callback)
 
-    def _notify(self) -> None:
-        for callback in self._listeners:
+    def notify(self) -> None:
+        for callback in self.listeners:
             callback()
 
     # ------------------------------------------------------------------
@@ -75,9 +75,8 @@ class AppState:  # pylint: disable=too-many-instance-attributes
 
         if self.config_path:
             return get_versioning_scheme(self.config_path)
-        return (
-            detect_versioning_scheme_from_file(file_path)
-            or get_versioning_scheme(self.config_path)
+        return detect_versioning_scheme_from_file(file_path) or get_versioning_scheme(
+            self.config_path
         )
 
     def reload(self) -> None:
@@ -94,7 +93,7 @@ class AppState:  # pylint: disable=too-many-instance-attributes
                 self.load_error = f"{path} does not exist yet"
                 self.changelog = Changelog(file_path=path)
                 logger.info("Changelog %s missing; using empty model", path)
-                self._notify()
+                self.notify()
                 return
 
             enforce_preamble = bool(
@@ -120,7 +119,7 @@ class AppState:  # pylint: disable=too-many-instance-attributes
             self.load_error = str(getattr(exc, "message", exc)) or repr(exc)
             self.changelog = Changelog(file_path=path)
             logger.warning("Failed to load changelog %s: %s", path, self.load_error)
-        self._notify()
+        self.notify()
 
     def raw_text(self) -> str:
         """Returns the raw on-disk changelog text, or '' when unreadable."""

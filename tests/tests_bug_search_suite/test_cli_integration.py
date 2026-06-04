@@ -313,12 +313,12 @@ class TestCommandToJson:
         assert Path(out).exists()
 
     def test_to_json_output_is_valid_json(self, tmp_path):
-        import json as _json
+        import json
 
         p = write_changelog(tmp_path)
         out = str(tmp_path / "changelog.json")
         main(["--input-file", p, "to-json", "--file-name", out])
-        data = _json.loads(Path(out).read_text(encoding="utf-8"))
+        data = json.loads(Path(out).read_text(encoding="utf-8"))
         assert isinstance(data, list)
 
     def test_to_json_dry_run_does_not_create_file(self, tmp_path):

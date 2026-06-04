@@ -287,22 +287,22 @@ def get_validation_options(config: Optional[str]) -> dict[str, Any]:
 def get_defaults_options(config: Optional[str]) -> dict[str, Any]:
     """Returns the [defaults] table used to back CLI flag defaults."""
 
-    return _get_project_table(config, "defaults")
+    return get_project_table(config, "defaults")
 
 
 def get_github_options(config: Optional[str]) -> dict[str, Any]:
     """Returns the [github] table (per-repo remote defaults)."""
 
-    return _get_project_table(config, "github")
+    return get_project_table(config, "github")
 
 
 def get_gitlab_options(config: Optional[str]) -> dict[str, Any]:
     """Returns the [gitlab] table (per-repo remote defaults)."""
 
-    return _get_project_table(config, "gitlab")
+    return get_project_table(config, "gitlab")
 
 
-def _get_project_table(config: Optional[str], table: str) -> dict[str, Any]:
+def get_project_table(config: Optional[str], table: str) -> dict[str, Any]:
     configuration = get_effective_configuration(config)
     value = configuration.get("project", {}).get(table, {}) or {}
     return dict(value) if isinstance(value, Mapping) else {}

@@ -27,7 +27,7 @@ class Range:
 
 
 @dataclass
-class __Message(Exception):  # pylint: disable=C0103
+class Message(Exception):  # pylint: disable=C0103
     """Diagnostics Message"""
 
     message: str
@@ -48,21 +48,21 @@ class __Message(Exception):  # pylint: disable=C0103
 
 
 @dataclass
-class Info(__Message):
+class Info(Message):
     """Diagnostics Information"""
 
     level: Level = Level.NOTE
 
 
 @dataclass
-class Error(__Message):
+class Error(Message):
     """Diagnostics Error"""
 
     level: Level = Level.ERROR
 
 
 @dataclass
-class Warning(__Message):  # pylint: disable=W0622
+class Warning(Message):  # pylint: disable=W0622
     """Diagnostics Warning"""
 
     level: Level = Level.WARNING

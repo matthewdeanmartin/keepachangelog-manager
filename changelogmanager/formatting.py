@@ -28,7 +28,7 @@ class Formatter(Protocol):
 
 class InProcessFormatter:
     def __call__(self, text: str, options: dict[str, Any]) -> str:
-        import mdformat  # type: ignore[import-not-found]
+        import mdformat
 
         wrap = options.get("wrap", "keep")
         number = options.get("number", False)

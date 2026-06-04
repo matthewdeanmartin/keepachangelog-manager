@@ -17,9 +17,4 @@ Before creating a Pull Request, please ensure:
 - All unit tests are passing via `make test`
 - Both `flake8` and `pylint` pass via `make lint`
 
-### Pull Requests
 
-- Please ensure that you apply the [Conventional Commits] standard to the commits in your Pull Request
-- We keep a linear history, please rebase your changes against the `main` branch (and do *NOT* use merge commits)
-
-[conventional commits]: https://www.conventionalcommits.org/en/v1.0.0/

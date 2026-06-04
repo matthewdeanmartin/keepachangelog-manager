@@ -51,7 +51,7 @@ def resolve_config(config: str | None) -> str | None:
 # are intentionally excluded: they stay flag-or-env only.
 #
 # Precedence: explicit CLI flag > env var (handled in command handlers) > config > default.
-_CONFIG_DEFAULTS: tuple[tuple[str, Any, str, Any], ...] = (
+CONFIG_DEFAULTS: tuple[tuple[str, Any, str, Any], ...] = (
     ("error_format", get_defaults_options, "error_format", "llvm"),
     ("commit_schema", get_defaults_options, "commit_schema", "auto"),
     ("schema_version", get_defaults_options, "schema_version", DEFAULT_SCHEMA_VERSION),
@@ -71,7 +71,7 @@ def apply_config_defaults(args: argparse.Namespace, config: str | None) -> None:
     arg differing from its known built-in default, in which case config is ignored.
     """
 
-    for attr, getter, key, builtin_default in _CONFIG_DEFAULTS:
+    for attr, getter, key, builtin_default in CONFIG_DEFAULTS:
         if not hasattr(args, attr):
             continue
         if getattr(args, attr) != builtin_default:

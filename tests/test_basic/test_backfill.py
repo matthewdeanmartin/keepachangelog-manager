@@ -31,7 +31,9 @@ def test_discover_tag_releases_normalizes_orders_and_skips_non_semver(monkeypatc
     monkeypatch.setattr(
         backfill.subprocess,
         "run",
-        fake_tag_run("v1.0.0\t2024-01-01\nrelease-candidate\t2024-01-15\nv1.2.0\t2024-02-01\n"),
+        fake_tag_run(
+            "v1.0.0\t2024-01-01\nrelease-candidate\t2024-01-15\nv1.2.0\t2024-02-01\n"
+        ),
     )
 
     releases, skipped = backfill.discover_tag_releases()
@@ -39,7 +41,9 @@ def test_discover_tag_releases_normalizes_orders_and_skips_non_semver(monkeypatc
     assert [release.version for release in releases] == ["1.2.0", "1.0.0"]
     assert [release.tag for release in releases] == ["v1.2.0", "v1.0.0"]
     assert skipped == ["release-candidate"]
-    assert releases[0].entries[0].text == ("Release notes unavailable; backfilled from tag `v1.2.0`.")
+    assert releases[0].entries[0].text == (
+        "Release notes unavailable; backfilled from tag `v1.2.0`."
+    )
 
 
 def test_plan_tag_backfill_skips_existing_versions(monkeypatch):
@@ -93,8 +97,12 @@ def test_discover_commit_releases_uses_commits_before_tag_placeholders(monkeypat
         fake_git_run_by_command(
             {
                 "for-each-ref": "v1.0.0\t2024-01-01\nv1.1.0\t2024-02-01\n",
-                "log --no-merges --pretty=%H%x09%s v1.0.0..v1.1.0": ("def456\t:bug: fix token cache\nfed789\tChanged: update parser registry\n"),
-                "log --no-merges --pretty=%H%x09%s v1.0.0": ("abc123\tfeat: first release\n"),
+                "log --no-merges --pretty=%H%x09%s v1.0.0..v1.1.0": (
+                    "def456\t:bug: fix token cache\nfed789\tChanged: update parser registry\n"
+                ),
+                "log --no-merges --pretty=%H%x09%s v1.0.0": (
+                    "abc123\tfeat: first release\n"
+                ),
             }
         ),
     )
@@ -117,8 +125,12 @@ def test_plan_backfill_commits_skips_existing_versions(monkeypatch):
         fake_git_run_by_command(
             {
                 "for-each-ref": "v1.0.0\t2024-01-01\nv1.1.0\t2024-02-01\n",
-                "log --no-merges --pretty=%H%x09%s v1.0.0..v1.1.0": ("def456\tfix: repair cli\n"),
-                "log --no-merges --pretty=%H%x09%s v1.0.0": ("abc123\tfeat: first release\n"),
+                "log --no-merges --pretty=%H%x09%s v1.0.0..v1.1.0": (
+                    "def456\tfix: repair cli\n"
+                ),
+                "log --no-merges --pretty=%H%x09%s v1.0.0": (
+                    "abc123\tfeat: first release\n"
+                ),
             }
         ),
     )
@@ -161,7 +173,9 @@ def test_apply_backfill_plan_writes_valid_changelog(monkeypatch, tmp_path):
     assert ChangelogReader(file_path=str(changelog_file)).validate_layout() == 0
 
 
-def test_command_backfill_dry_run_reports_without_writing(monkeypatch, tmp_path, capsys):
+def test_command_backfill_dry_run_reports_without_writing(
+    monkeypatch, tmp_path, capsys
+):
     monkeypatch.setattr(
         backfill.subprocess,
         "run",
@@ -222,10 +236,12 @@ def test_command_backfill_rejects_replace_strategy():
         )
 
 
-def _commit_outputs():
+def commit_outputs():
     return {
         "for-each-ref": "v1.0.0\t2024-01-01\nv1.1.0\t2024-02-01\n",
-        "log --no-merges --pretty=%H%x09%s v1.0.0..v1.1.0": ("def456\tfix: repair cli\nabc999\tfeat: add caching\n"),
+        "log --no-merges --pretty=%H%x09%s v1.0.0..v1.1.0": (
+            "def456\tfix: repair cli\nabc999\tfeat: add caching\n"
+        ),
         "log --no-merges --pretty=%H%x09%s v1.0.0": ("abc123\tfeat: first release\n"),
     }
 
@@ -234,7 +250,7 @@ def test_plan_backfill_merge_appends_new_entries_to_existing_version(monkeypatch
     monkeypatch.setattr(
         backfill.subprocess,
         "run",
-        fake_git_run_by_command(_commit_outputs()),
+        fake_git_run_by_command(commit_outputs()),
     )
     changelog = Changelog(
         changelog=OrderedDict(
@@ -263,13 +279,17 @@ def test_plan_backfill_merge_appends_new_entries_to_existing_version(monkeypatch
         )
     )
 
-    plan = backfill.plan_backfill(changelog, source="commits", strategy="merge", missing_only=False, dry_run=True)
+    plan = backfill.plan_backfill(
+        changelog, source="commits", strategy="merge", missing_only=False, dry_run=True
+    )
 
     assert plan.added_versions == []
     assert plan.merged_versions == ["1.1.0"]
     # The already-recorded "repair cli" entry is filtered; only the new one stays.
     merged = next(r for r in plan.releases if r.version == "1.1.0")
-    assert [(e.change_type, e.text) for e in merged.entries] == [("added", "add caching")]
+    assert [(e.change_type, e.text) for e in merged.entries] == [
+        ("added", "add caching")
+    ]
     assert plan.to_json()["merged_versions"] == ["1.1.0"]
 
 
@@ -277,7 +297,7 @@ def test_apply_backfill_merge_preserves_existing_entries(monkeypatch, tmp_path):
     monkeypatch.setattr(
         backfill.subprocess,
         "run",
-        fake_git_run_by_command(_commit_outputs()),
+        fake_git_run_by_command(commit_outputs()),
     )
     changelog_file = tmp_path / "CHANGELOG.md"
     changelog = Changelog(
@@ -298,7 +318,9 @@ def test_apply_backfill_merge_preserves_existing_entries(monkeypatch, tmp_path):
         ),
     )
 
-    plan = backfill.plan_backfill(changelog, source="commits", strategy="merge", missing_only=False)
+    plan = backfill.plan_backfill(
+        changelog, source="commits", strategy="merge", missing_only=False
+    )
     backfill.apply_backfill_plan(changelog, plan)
     changelog.write_to_file()
 
@@ -312,7 +334,7 @@ def test_backfill_merge_is_idempotent(monkeypatch, tmp_path):
     monkeypatch.setattr(
         backfill.subprocess,
         "run",
-        fake_git_run_by_command(_commit_outputs()),
+        fake_git_run_by_command(commit_outputs()),
     )
     changelog_file = tmp_path / "CHANGELOG.md"
     changelog = Changelog(
@@ -333,10 +355,14 @@ def test_backfill_merge_is_idempotent(monkeypatch, tmp_path):
         ),
     )
 
-    first = backfill.plan_backfill(changelog, source="commits", strategy="merge", missing_only=False)
+    first = backfill.plan_backfill(
+        changelog, source="commits", strategy="merge", missing_only=False
+    )
     backfill.apply_backfill_plan(changelog, first)
 
-    second = backfill.plan_backfill(changelog, source="commits", strategy="merge", missing_only=False)
+    second = backfill.plan_backfill(
+        changelog, source="commits", strategy="merge", missing_only=False
+    )
 
     assert second.merged_versions == []
     assert second.added_versions == []
@@ -348,7 +374,7 @@ def test_command_backfill_merge_reports_and_writes(monkeypatch, tmp_path, capsys
     monkeypatch.setattr(
         backfill.subprocess,
         "run",
-        fake_git_run_by_command(_commit_outputs()),
+        fake_git_run_by_command(commit_outputs()),
     )
     changelog_file = tmp_path / "CHANGELOG.md"
     changelog = Changelog(

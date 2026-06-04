@@ -10,8 +10,8 @@ from changelogmanager.config import (
     get_github_options,
     get_gitlab_options,
     get_preamble_keywords,
-    get_versioning_scheme,
     get_versioning_label,
+    get_versioning_scheme,
     replace_pyproject_section,
     serialize_config_toml,
     validate_configuration,
@@ -160,7 +160,7 @@ def test_serialize_config_toml_includes_optional_tables_and_match_globs():
     rendered = serialize_config_toml(config, prefix="")
 
     assert '[versioning]\nscheme = "calver"' in rendered
-    assert "[validation]\nenforce_preamble = true\nformat = \"auto\"" in rendered
+    assert '[validation]\nenforce_preamble = true\nformat = "auto"' in rendered
     assert '[defaults]\nerror_format = "github"\nbump_versions = true' in rendered
     assert '[github]\nrepository = "octo/example"' in rendered
     assert '[gitlab]\nproject = 123\nurl = "https://gitlab.example.com"' in rendered
@@ -170,7 +170,7 @@ def test_serialize_config_toml_includes_optional_tables_and_match_globs():
 def test_replace_pyproject_section_replaces_only_changelogmanager_block():
     content = (
         "[build-system]\n"
-        "requires = [\"hatchling\"]\n\n"
+        'requires = ["hatchling"]\n\n'
         "[tool.changelogmanager]\n"
         "old = true\n\n"
         "[tool.ruff]\n"

@@ -37,20 +37,20 @@ class GitHub:
     def __init__(self, repository: str, token: str) -> None:
         """Constructor"""
 
-        self.__repository = repository
-        self.__headers = {
+        self.repository = repository
+        self.headers = {
             "Accept": "application/vnd.github+json",
             "Authorization": f"Bearer {token}",
             "X-GitHub-Api-Version": GITHUB_API_VERSION,
         }
         logger.info("Initialized GitHub client for repository %s", repository)
 
-    def __github_request(
+    def github_request(
         self, api: str, method: HttpMethods, data: Optional[Mapping[str, Any]] = None
     ) -> Optional[Any]:
-        url = f"https://api.github.com/repos/{self.__repository}/{api}"
+        url = f"https://api.github.com/repos/{self.repository}/{api}"
         request_data: Optional[bytes] = None
-        headers = dict(self.__headers)
+        headers = dict(self.headers)
         if method is HttpMethods.GET and data:
             separator = "&" if "?" in url else "?"
             url = f"{url}{separator}{urlencode(data)}"
@@ -115,12 +115,12 @@ class GitHub:
 
     def get_releases(self) -> Sequence[dict[str, Any]]:
         """Retrieves available releases"""
-        logger.info("Fetching releases for %s", self.__repository)
+        logger.info("Fetching releases for %s", self.repository)
         releases: list[dict[str, Any]] = []
         index = 1
 
         while True:
-            data = self.__github_request(
+            data = self.github_request(
                 method=HttpMethods.GET,
                 api="releases",
                 data={
@@ -143,7 +143,7 @@ class GitHub:
 
     def delete_draft_releases(self) -> None:
         """Deletes all releases marked as 'Draft'"""
-        logger.info("Deleting draft releases for %s", self.__repository)
+        logger.info("Deleting draft releases for %s", self.repository)
 
         releases = self.get_releases()
 
@@ -156,10 +156,10 @@ class GitHub:
         logger.warning(
             "Deleting draft release %s from %s",
             release.get("id"),
-            self.__repository,
+            self.repository,
         )
 
-        self.__github_request(
+        self.github_request(
             method=HttpMethods.DELETE, api=f"releases/{release.get('id')}"
         )
 
@@ -169,15 +169,15 @@ class GitHub:
             "Checking for existing PRs head=%s base=%s in %s",
             head,
             base,
-            self.__repository,
+            self.repository,
         )
-        data = self.__github_request(
+        data = self.github_request(
             method=HttpMethods.GET,
             api="pulls?"
             + urlencode(
                 {
                     "state": "open",
-                    "head": f"{self.__repository.split('/')[0]}:{head}",
+                    "head": f"{self.repository.split('/')[0]}:{head}",
                     "base": base,
                 }
             ),
@@ -199,20 +199,20 @@ class GitHub:
             "Creating or updating PR head=%s base=%s in %s",
             head,
             base,
-            self.__repository,
+            self.repository,
         )
         existing = self.get_pull_requests(head=head, base=base)
         if existing:
             pr = existing[0]
             pr_number = pr["number"]
             logger.info("Updating existing PR #%d", pr_number)
-            response = self.__github_request(
+            response = self.github_request(
                 method=HttpMethods.PATCH,
                 api=f"pulls/{pr_number}",
                 data={"title": title, "body": body},
             )
         else:
-            response = self.__github_request(
+            response = self.github_request(
                 method=HttpMethods.POST,
                 api="pulls",
                 data={"head": head, "base": base, "title": title, "body": body},
@@ -227,7 +227,7 @@ class GitHub:
         logger.info(
             "Creating %s GitHub release for %s",
             "draft" if draft else "published",
-            self.__repository,
+            self.repository,
         )
 
         def generate_release_notes(release: Mapping[str, Any]) -> str:
@@ -247,7 +247,7 @@ class GitHub:
 
         version = f"v{changelog.suggest_future_version()}"
         logger.info("Preparing GitHub release payload for version %s", version)
-        response = self.__github_request(
+        response = self.github_request(
             method=HttpMethods.POST,
             api="releases",
             data={

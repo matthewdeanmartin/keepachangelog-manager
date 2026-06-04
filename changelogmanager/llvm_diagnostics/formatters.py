@@ -10,7 +10,7 @@ from changelogmanager.llvm_diagnostics import utils
 from changelogmanager.llvm_diagnostics.utils import Level
 
 if TYPE_CHECKING:
-    from changelogmanager.llvm_diagnostics.messages import __Message
+    from changelogmanager.llvm_diagnostics.messages import Message
 
 # pylint: disable=R0903
 
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 class DiagnosticsFormatter(Protocol):
     """Protocol Formatter class"""
 
-    def format(self, message: "__Message") -> str:
+    def format(self, message: "Message") -> str:
         """Protocol method"""
 
 
@@ -40,7 +40,7 @@ class Llvm(DiagnosticsFormatter):
         ),
     }
 
-    def format(self, message: "__Message") -> str:
+    def format(self, message: "Message") -> str:
         """Formats the message into a LLVM Diagnostics compatible format"""
 
         msg = ""
@@ -96,7 +96,7 @@ class GitHub(DiagnosticsFormatter):
         Level.NOTE: "notice",
     }
 
-    def format(self, message: "__Message") -> str:
+    def format(self, message: "Message") -> str:
         """Formats the message into a GitHub compatible Workflow command"""
 
         msg = f"::{self.LEVEL_FORMAT[message.level]}"
@@ -119,15 +119,15 @@ class GitHub(DiagnosticsFormatter):
 
 
 # Global configuration for handling message formatting
-__GLOBAL_FORMATTER: DiagnosticsFormatter = Llvm()
+GLOBAL_FORMATTER: DiagnosticsFormatter = Llvm()
 
 
 def config(formatter: DiagnosticsFormatter) -> None:
     """Configure the formatter used"""
-    global __GLOBAL_FORMATTER  # pylint: disable=W0603
-    __GLOBAL_FORMATTER = formatter
+    global GLOBAL_FORMATTER  # pylint: disable=W0603
+    GLOBAL_FORMATTER = formatter
 
 
 def get_config() -> DiagnosticsFormatter:
     """Retrieve configured formatter"""
-    return __GLOBAL_FORMATTER
+    return GLOBAL_FORMATTER

@@ -50,11 +50,16 @@ class ComponentsScreen(Screen):  # pylint: disable=too-many-ancestors
         try:
             components = get_components_from_config(self.app_state.config_path)
         except Exception as exc:  # pylint: disable=broad-exception-caught
-            ttk.Label(self.listing_body, text=f"Could not read components: {exc}",
-                      foreground="#a00").pack(anchor="w")
+            ttk.Label(
+                self.listing_body,
+                text=f"Could not read components: {exc}",
+                foreground="#a00",
+            ).pack(anchor="w")
             return
         if not components:
-            ttk.Label(self.listing_body, text="(no components declared)").pack(anchor="w")
+            ttk.Label(self.listing_body, text="(no components declared)").pack(
+                anchor="w"
+            )
             return
         for component in components:
             name = component.get("name", "?")
@@ -62,14 +67,14 @@ class ComponentsScreen(Screen):  # pylint: disable=too-many-ancestors
             ttk.Label(self.listing_body, text=f"• {name} → {path}").pack(anchor="w")
 
     # ------------------------------------------------------------------
-    def _base_argv(self) -> list[str]:
+    def base_argv(self) -> list[str]:
         argv: list[str] = []
         if self.app_state.config_path:
             argv += ["--config", self.app_state.config_path]
         argv += ["--error-format", self.app_state.error_format]
         return argv
 
-    def _run(self, argv: list[str]) -> None:
+    def run(self, argv: list[str]) -> None:
         if not self.app_state.config_path:
             self.status("Batch operations require a config file.")
             return
@@ -83,13 +88,13 @@ class ComponentsScreen(Screen):  # pylint: disable=too-many-ancestors
         self.controller.reload()
 
     def validate_all(self) -> None:
-        self._run(self._base_argv() + ["validate", "--all"])
+        self.run(self.base_argv() + ["validate", "--all"])
 
     def validate_changed(self) -> None:
-        self._run(self._base_argv() + ["validate", "--all", "--changed-only"])
+        self.run(self.base_argv() + ["validate", "--all", "--changed-only"])
 
     def from_commits_all(self) -> None:
-        argv = self._base_argv() + ["from-commits", "--all"]
+        argv = self.base_argv() + ["from-commits", "--all"]
         if self.app_state.dry_run:
             argv.append("--dry-run")
-        self._run(argv)
+        self.run(argv)

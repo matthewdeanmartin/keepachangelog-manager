@@ -17,7 +17,7 @@ def make_args(**kwargs):
 class DummyChangelog:
     def __init__(self, *, unreleased_entries=None, has_unreleased=True):
         # unreleased_entries: list of (change_type, index, message)
-        self._entries = list(unreleased_entries or [])
+        self.entries = list(unreleased_entries or [])
         self.has_unreleased_value = has_unreleased
         self.calls = []
         self.file_path = "CHANGELOG.md"
@@ -30,7 +30,7 @@ class DummyChangelog:
         return self.has_unreleased_value
 
     def list_unreleased(self):
-        return list(self._entries)
+        return list(self.entries)
 
     def remove(self, change_type, index):
         self.calls.append(("remove", change_type, index))

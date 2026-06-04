@@ -20,7 +20,7 @@ def test_get_releases_paginates_until_partial_page(monkeypatch):
             return [{"id": index} for index in range(RELEASES_CHUNK_SIZE)]
         return [{"id": 999}]
 
-    monkeypatch.setattr(GitHub, "_GitHub__github_request", fake_request)
+    monkeypatch.setattr(GitHub, "github_request", fake_request)
 
     releases = github.get_releases()
 
@@ -69,7 +69,7 @@ def test_create_release_posts_expected_payload(monkeypatch):
 
     monkeypatch.setattr(
         GitHub,
-        "_GitHub__github_request",
+        "github_request",
         lambda self, api, method, data=None: (
             captured.update({"api": api, "method": method, "data": data})
             or {
@@ -107,9 +107,7 @@ def test_github_request_wraps_url_errors(monkeypatch):
     )
 
     with pytest.raises(logging.Error) as exc_info:
-        github._GitHub__github_request(
-            api="releases", method=HttpMethods.GET, data={"page": 1}
-        )
+        github.github_request(api="releases", method=HttpMethods.GET, data={"page": 1})
 
     assert "Failure during GitHub request:" in exc_info.value.message
     assert "https://api.github.com/repos/owner/repo/releases" in exc_info.value.message
@@ -131,7 +129,7 @@ def test_github_request_reports_http_error_status_and_body(monkeypatch):
     monkeypatch.setattr("changelogmanager.github.urlopen", fake_urlopen)
 
     with pytest.raises(logging.Error) as exc_info:
-        github._GitHub__github_request(
+        github.github_request(
             api="pulls",
             method=HttpMethods.POST,
             data={"head": "release/bump-1", "base": "main"},

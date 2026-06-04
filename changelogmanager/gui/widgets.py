@@ -14,15 +14,15 @@ class StatusBar(ttk.Frame):  # pylint: disable=too-many-ancestors
 
     def __init__(self, parent: tk.Misc) -> None:
         super().__init__(parent, relief=tk.SUNKEN)
-        self._var = tk.StringVar(value="Ready")
-        ttk.Label(self, textvariable=self._var, anchor="w").pack(
+        self.var = tk.StringVar(value="Ready")
+        ttk.Label(self, textvariable=self.var, anchor="w").pack(
             side=tk.LEFT, fill=tk.X, expand=True, padx=6, pady=2
         )
 
     def set(self, message: str) -> None:
         """Replaces the status line text."""
 
-        self._var.set(message)
+        self.var.set(message)
         self.update_idletasks()
 
 

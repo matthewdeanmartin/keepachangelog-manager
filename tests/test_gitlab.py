@@ -31,7 +31,7 @@ def test_project_path_is_url_encoded(gitlab: GitLab) -> None:
         seen["api"] = kwargs.get("api")
         return None
 
-    with mock.patch.object(gitlab, "_GitLab__gitlab_request", side_effect=fake_request):
+    with mock.patch.object(gitlab, "gitlab_request", side_effect=fake_request):
         gitlab.get_release("v1.0.0")
 
     # group%2Frepo encoding happens in __init__; here we just confirm the call path.
@@ -48,7 +48,7 @@ def test_create_release_posts_when_absent(gitlab: GitLab) -> None:
             return None  # no existing release
         return {"tag_name": "v0.1.0", "_links": {"self": "https://gitlab/x"}}
 
-    with mock.patch.object(gitlab, "_GitLab__gitlab_request", side_effect=fake_request):
+    with mock.patch.object(gitlab, "gitlab_request", side_effect=fake_request):
         release = gitlab.create_release(changelog=changelog, ref="main")
 
     methods = [c["method"].value for c in calls]
@@ -70,7 +70,7 @@ def test_create_release_puts_when_present(gitlab: GitLab) -> None:
             return {"tag_name": "v0.1.0"}  # already exists
         return {"tag_name": "v0.1.0"}
 
-    with mock.patch.object(gitlab, "_GitLab__gitlab_request", side_effect=fake_request):
+    with mock.patch.object(gitlab, "gitlab_request", side_effect=fake_request):
         gitlab.create_release(changelog=changelog)
 
     methods = [c["method"].value for c in calls]

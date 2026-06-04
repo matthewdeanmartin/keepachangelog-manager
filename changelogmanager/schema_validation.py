@@ -27,7 +27,7 @@ SCHEMA_VERSIONS: tuple[SchemaVersion, ...] = ("current",)
 DEFAULT_SCHEMA_VERSION: SchemaVersion = "current"
 
 
-def _metadata_schema() -> dict[str, Any]:
+def metadata_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "required": ["version", "release_date"],
@@ -113,9 +113,9 @@ def _metadata_schema() -> dict[str, Any]:
     }
 
 
-def _release_schema() -> dict[str, Any]:
+def release_schema() -> dict[str, Any]:
     properties: dict[str, Any] = {
-        "metadata": _metadata_schema(),
+        "metadata": metadata_schema(),
     }
     for change_type in TYPES_OF_CHANGE:
         properties[change_type] = {
@@ -131,29 +131,29 @@ def _release_schema() -> dict[str, Any]:
     }
 
 
-def _mapping_schema() -> dict[str, Any]:
+def mapping_schema() -> dict[str, Any]:
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://keepachangelog-manager.local/schemas/current/changelog.mapping.schema.json",
         "title": "KAG-Manager changelog mapping",
         "type": "object",
         "propertyNames": {"type": "string", "minLength": 1},
-        "additionalProperties": _release_schema(),
+        "additionalProperties": release_schema(),
     }
 
 
-def _export_schema() -> dict[str, Any]:
+def export_schema() -> dict[str, Any]:
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://keepachangelog-manager.local/schemas/current/changelog.export.schema.json",
         "title": "KAG-Manager JSON export",
         "type": "array",
-        "items": _release_schema(),
+        "items": release_schema(),
     }
 
 
-CHANGELOG_MAPPING_SCHEMA: dict[str, Any] = _mapping_schema()
-CHANGELOG_EXPORT_SCHEMA: dict[str, Any] = _export_schema()
+CHANGELOG_MAPPING_SCHEMA: dict[str, Any] = mapping_schema()
+CHANGELOG_EXPORT_SCHEMA: dict[str, Any] = export_schema()
 
 
 def get_changelog_mapping_schema(
@@ -161,7 +161,7 @@ def get_changelog_mapping_schema(
 ) -> dict[str, Any]:
     """Returns the current mapping schema."""
 
-    _validate_supported_schema_version(schema_version)
+    validate_supported_schema_version(schema_version)
     return deepcopy(CHANGELOG_MAPPING_SCHEMA)
 
 
@@ -170,7 +170,7 @@ def get_changelog_export_schema(
 ) -> dict[str, Any]:
     """Returns the current JSON export schema."""
 
-    _validate_supported_schema_version(schema_version)
+    validate_supported_schema_version(schema_version)
     return deepcopy(CHANGELOG_EXPORT_SCHEMA)
 
 
@@ -182,7 +182,7 @@ def validate_changelog_mapping(
 ) -> None:
     """Validates internal changelog data against a KAG-Manager schema."""
 
-    _validate(
+    validate(
         data,
         schema=get_changelog_mapping_schema(schema_version),
         file_path=file_path,
@@ -198,7 +198,7 @@ def validate_changelog_export(
 ) -> None:
     """Validates exported JSON payloads against a KAG-Manager schema."""
 
-    _validate(
+    validate(
         data,
         schema=get_changelog_export_schema(schema_version),
         file_path=file_path,
@@ -206,7 +206,7 @@ def validate_changelog_export(
     )
 
 
-def _validate(
+def validate(
     data: Any,
     *,
     schema: dict[str, Any],
@@ -219,18 +219,18 @@ def _validate(
         return
     raise logging.Error(
         file_path=file_path,
-        message=f"Invalid {target}: {_format_validation_error(error)}",
+        message=f"Invalid {target}: {format_validation_error(error)}",
     )
 
 
-def _format_validation_error(error: ValidationError) -> str:
+def format_validation_error(error: ValidationError) -> str:
     location = ".".join(str(part) for part in error.absolute_path)
     if not location:
         location = "<root>"
     return f"{location}: {error.message}"
 
 
-def _validate_supported_schema_version(schema_version: str) -> None:
+def validate_supported_schema_version(schema_version: str) -> None:
     if schema_version not in SCHEMA_VERSIONS:
         supported = ", ".join(SCHEMA_VERSIONS)
         raise logging.Error(

@@ -19,20 +19,26 @@ from changelogmanager.gui.state import running_in_ci
 from changelogmanager.gui.yaml_samples import SAMPLES
 
 
-class ReleasesScreen(Screen):  # pylint: disable=too-many-instance-attributes,too-many-ancestors
+class ReleasesScreen(
+    Screen
+):  # pylint: disable=too-many-instance-attributes,too-many-ancestors
     """Drive github-release / github-pr / gitlab-release."""
 
     title = "Releases"
 
     def build_body(self) -> None:
-        self._command = "github-release"
+        self.command = "github-release"
         self.commands.add("GitHub release", lambda: self.select("github-release"))
         self.commands.add("GitHub PR", lambda: self.select("github-pr"))
         self.commands.add("GitLab release", lambda: self.select("gitlab-release"))
 
-        banner = "CI detected — live calls enabled." if running_in_ci() else (
-            "Local mode — dry-run is on by default. Copy the sample CI snippet to "
-            "run real releases from your pipeline."
+        banner = (
+            "CI detected — live calls enabled."
+            if running_in_ci()
+            else (
+                "Local mode — dry-run is on by default. Copy the sample CI snippet to "
+                "run real releases from your pipeline."
+            )
         )
         ttk.Label(self.work_area, text=banner, wraplength=820, foreground="#444").pack(
             anchor="w", pady=(0, 6)
@@ -49,17 +55,21 @@ class ReleasesScreen(Screen):  # pylint: disable=too-many-instance-attributes,to
         self.head_var = tk.StringVar()
         self.base_var = tk.StringVar(value="main")
 
-        self._field(form, "Repository (owner/repo):", self.repo_var)
-        self._field(form, "GitHub token:", self.token_var, secret=True)
-        ttk.Checkbutton(form, text="Draft (uncheck to publish)", variable=self.draft_var).pack(anchor="w", padx=4)
-        self._field(form, "PR head branch:", self.head_var)
-        self._field(form, "PR base branch:", self.base_var)
-        self._field(form, "GitLab project (id or group/project):", self.project_var)
-        self._field(form, "GitLab token:", self.gitlab_token_var, secret=True)
+        self.field(form, "Repository (owner/repo):", self.repo_var)
+        self.field(form, "GitHub token:", self.token_var, secret=True)
+        ttk.Checkbutton(
+            form, text="Draft (uncheck to publish)", variable=self.draft_var
+        ).pack(anchor="w", padx=4)
+        self.field(form, "PR head branch:", self.head_var)
+        self.field(form, "PR base branch:", self.base_var)
+        self.field(form, "GitLab project (id or group/project):", self.project_var)
+        self.field(form, "GitLab token:", self.gitlab_token_var, secret=True)
 
         run_row = ttk.Frame(self.work_area)
         run_row.pack(fill=tk.X, pady=2)
-        ttk.Button(run_row, text="Run selected command", command=self.run_selected).pack(side=tk.LEFT)
+        ttk.Button(
+            run_row, text="Run selected command", command=self.run_selected
+        ).pack(side=tk.LEFT)
         self.selected_var = tk.StringVar(value="github-release")
         ttk.Label(run_row, textvariable=self.selected_var).pack(side=tk.LEFT, padx=8)
 
@@ -74,23 +84,27 @@ class ReleasesScreen(Screen):  # pylint: disable=too-many-instance-attributes,to
         sample_frame = ttk.LabelFrame(panes, text="Sample CI snippet")
         toolbar = ttk.Frame(sample_frame)
         toolbar.pack(fill=tk.X)
-        ttk.Button(toolbar, text="Copy", command=self.copy_sample).pack(side=tk.RIGHT, padx=4, pady=2)
+        ttk.Button(toolbar, text="Copy", command=self.copy_sample).pack(
+            side=tk.RIGHT, padx=4, pady=2
+        )
         self.sample = scrolledtext.ScrolledText(sample_frame, wrap=tk.NONE, width=50)
         self.sample.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
         panes.add(sample_frame, weight=1)
 
         self.select("github-release")
 
-    def _field(self, parent, label, var, *, secret=False) -> None:  # type: ignore[no-untyped-def]
+    def field(self, parent, label, var, *, secret=False) -> None:  # type: ignore[no-untyped-def]
         row = ttk.Frame(parent)
         row.pack(fill=tk.X, padx=4, pady=2)
         ttk.Label(row, text=label, width=30, anchor="w").pack(side=tk.LEFT)
-        ttk.Entry(row, textvariable=var, width=36, show="*" if secret else "").pack(side=tk.LEFT, padx=4)
+        ttk.Entry(row, textvariable=var, width=36, show="*" if secret else "").pack(
+            side=tk.LEFT, padx=4
+        )
 
     # ------------------------------------------------------------------
     def select(self, command: str) -> None:
         self.selected_var.set(f"Selected: {command}")
-        self._command = command  # pylint: disable=attribute-defined-outside-init
+        self.command = command  # pylint: disable=attribute-defined-outside-init
         self.sample.delete("1.0", tk.END)
         self.sample.insert("1.0", SAMPLES.get(command, ""))
 
@@ -101,7 +115,7 @@ class ReleasesScreen(Screen):  # pylint: disable=too-many-instance-attributes,to
         self.status("Sample CI snippet copied to clipboard.")
 
     def run_selected(self) -> None:
-        command = getattr(self, "_command", "github-release")
+        command = getattr(self, "command", "github-release")
         argv: list[str] = []
         if self.app_state.config_path:
             argv += ["--config", self.app_state.config_path]
@@ -132,7 +146,9 @@ class ReleasesScreen(Screen):  # pylint: disable=too-many-instance-attributes,to
         if self.app_state.dry_run:
             argv.append("--dry-run")
 
-        self.output.insert(tk.END, f"$ changelogmanager {' '.join(self._redact(argv))}\n")
+        self.output.insert(
+            tk.END, f"$ changelogmanager {' '.join(self.redact(argv))}\n"
+        )
         self.output.see(tk.END)
         self.output.update_idletasks()
         code, text = run_cli(argv)
@@ -141,7 +157,7 @@ class ReleasesScreen(Screen):  # pylint: disable=too-many-instance-attributes,to
         self.status(f"{command} finished (exit {code})")
 
     @staticmethod
-    def _redact(argv: list[str]) -> list[str]:
+    def redact(argv: list[str]) -> list[str]:
         redacted = list(argv)
         for flag in ("--github-token", "--gitlab-token"):
             if flag in redacted:

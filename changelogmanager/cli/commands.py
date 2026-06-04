@@ -744,7 +744,7 @@ def command_from_commits(args: argparse.Namespace, ctx: CliContext) -> None:
         since = services.last_release_tag()
 
     if getattr(args, "all_components", False):
-        _from_commits_all(args, ctx, since)
+        from_commits_all(args, ctx, since)
         return
 
     logger.info("Running from-commits command for %s", ctx.changelog.get_file_path())
@@ -780,7 +780,7 @@ def command_from_commits(args: argparse.Namespace, ctx: CliContext) -> None:
         emit(ctx, text=f"added: [{entry['change_type']}] {entry['message']}")
 
 
-def _from_commits_all(
+def from_commits_all(
     args: argparse.Namespace, ctx: CliContext, since: str | None
 ) -> None:
     """Routes commits to components and seeds each [Unreleased]."""
@@ -839,7 +839,7 @@ def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
     )
 
     if args.include_unreleased:
-        _backfill_unreleased(args, ctx)
+        backfill_unreleased(args, ctx)
         return
 
     plan = services.plan_changelog_backfill(
@@ -911,7 +911,7 @@ def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
     services.apply_changelog_backfill(ctx.changelog, plan)
 
 
-def _backfill_unreleased(args: argparse.Namespace, ctx: CliContext) -> None:
+def backfill_unreleased(args: argparse.Namespace, ctx: CliContext) -> None:
     """Seeds [Unreleased] from commits since the latest release tag."""
 
     changelog = ctx.changelog
