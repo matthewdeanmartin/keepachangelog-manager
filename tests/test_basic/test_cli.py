@@ -131,9 +131,7 @@ def test_explicit_input_file_overrides_component_config(monkeypatch):
         "get_component_from_config",
         lambda config, component: {"changelog": "docs/COMPONENT_CHANGELOG.md"},
     )
-    monkeypatch.setattr(
-        cli.loaders, "get_preamble_keywords", lambda config: ()
-    )
+    monkeypatch.setattr(cli.loaders, "get_preamble_keywords", lambda config: ())
     monkeypatch.setattr(cli.loaders, "get_versioning_scheme", lambda config: "semver")
     monkeypatch.setattr(cli.loaders, "ChangelogReader", FakeReader)
 

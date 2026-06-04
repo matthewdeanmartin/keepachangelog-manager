@@ -67,7 +67,7 @@ bandit:
 
 lint: flake8 pylint mypy ruff
 
-quality: format-check lint bandit test validate
+quality: format lint bandit test validate
 
 check: quality
 
