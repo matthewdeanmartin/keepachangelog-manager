@@ -32,13 +32,13 @@ Supports pre-commit, CLI, and GitHub Actions workflows.
 - release `[Unreleased]` with an optional confirmation guard
 - seed `[Unreleased]` from git history using Conventional Commit subjects
 - backfill missing released versions from local git tags
-- export changelogs as JSON, YAML, or HTML
+- export changelogs as JSON or HTML
 - export a bundled CLI skill for Copilot or Claude
 - create or update GitHub and GitLab releases
 - open or update a GitHub pull request for release automation
-- work with multi-component repositories via config files
+- work with multi-component repositories via TOML config files
 - script the CLI with `--dry-run`, `--quiet`, `--json`, `--info`, and `--verbose`
-- use an optional Tkinter GUI for common workflows
+- use an optional Tkinter GUI for editing, backfill, release, and batch workflows
 
 ## Commands
 
@@ -173,34 +173,37 @@ and implies `--info`. Existing validation diagnostics still use the configured L
 
 Use `--config` and `--component` for multi-component repositories:
 
-```yaml
-project:
-  components:
-    - name: Service
-      changelog: service/CHANGELOG.md
-    - name: Client
-      changelog: client/CHANGELOG.md
-  commits:
-    style: conventional
-  versioning:
-    scheme: semver
-  validation:
-    enforce_preamble: false
+```toml
+[versioning]
+scheme = "semver"
+
+[validation]
+enforce_preamble = false
+
+[[components]]
+name = "Service"
+changelog = "service/CHANGELOG.md"
+match = ["service/**"]
+
+[[components]]
+name = "Client"
+changelog = "client/CHANGELOG.md"
+match = ["client/**"]
 ```
 
 ```sh
-changelogmanager --config .changelogmanager.yml --component Service validate
+changelogmanager --config changelogmanager.toml --component Service validate
 changelogmanager config
 changelogmanager config init
 changelogmanager skill export
 ```
 
-If `--config` is omitted, the CLI auto-detects `.changelogmanager.yml`, `.changelogmanager.yaml`,
-`changelogmanager.yml`, `changelogmanager.yaml`, or `[tool.changelogmanager]` in `pyproject.toml` from the current
-directory.
+If `--config` is omitted, the CLI auto-detects `changelogmanager.toml`, `.changelogmanager.toml`, or
+`[tool.changelogmanager]` in `pyproject.toml` from the current directory.
 
-`changelogmanager config init` is the quickest way to bootstrap config. It defaults to `pyproject.toml`,
-`Conventional Commits`, and `semver`, and re-running it updates the active config instead of starting from scratch.
+`changelogmanager config init` is the quickest way to bootstrap config. It defaults to `pyproject.toml` and `semver`,
+then prompts for preamble enforcement and the default component/changelog path. Re-running it updates the active config
+instead of starting from scratch.
 
 ## Optional desktop GUI
 
@@ -208,8 +211,8 @@ directory.
 changelogmanager gui
 ```
 
-The GUI currently wraps the common commands `create`, `version`, `validate`, `release`, `to-json`, `add`, and
-`github-release`.
+The GUI now includes four screens: a live `[Unreleased]` editor, an initialize/backfill screen, a release publishing
+screen for GitHub/GitLab, and a components screen for batch validation and `from-commits --all`.
 
 ## Credits
 

@@ -10,7 +10,7 @@ These options apply to every command and must appear before the command name.
 
 | Option | Default | Description |
 |-------------------------------------|-----------------------------|-------------------------------------------------------------|
-| `--config TEXT` | _(auto-detect if possible)_ | Path to a YAML config file or `pyproject.toml` |
+| `--config TEXT` | _(auto-detect if possible)_ | Path to `changelogmanager.toml`, `.changelogmanager.toml`, or `pyproject.toml` |
 | `--component TEXT` | `default` | Component name to use from the config file |
 | `-f, --error-format [llvm\|github]` | `llvm` | Format for diagnostic messages |
 | `--input-file TEXT` | `CHANGELOG.md` | Path to the changelog file |
@@ -20,8 +20,8 @@ These options apply to every command and must appear before the command name.
 | `--json` | `false` | Emit one machine-readable JSON object on stdout |
 | `--help` | | Show help and exit |
 
-If `--config` is omitted, the CLI looks for `.changelogmanager.yml`, `.changelogmanager.yaml`, `changelogmanager.yml`,
-`changelogmanager.yaml`, or `[tool.changelogmanager]` in `pyproject.toml` in the current directory.
+If `--config` is omitted, the CLI looks for `changelogmanager.toml`, `.changelogmanager.toml`, or
+`[tool.changelogmanager]` in `pyproject.toml` in the current directory.
 
 Runtime logging is emitted on stderr so it does not interfere with `--json` output on stdout. These logs are separate
 from validation diagnostics: layout/content validation still uses the selected `llvm` or `github` error format for
@@ -77,10 +77,10 @@ Create or update config interactively with the same `inquirer` prompts used else
 changelogmanager config init
 ```
 
-The prompt flow asks where config should live (`pyproject.toml` or YAML), which commit style to configure, which
-versioning scheme to mention in the preamble, whether to enforce the preamble during validation, and the default
-component/changelog path when the config only tracks one component. The defaults are `pyproject.toml`,
-`Conventional Commits`, and `semver`. Running it again updates the existing config instead of only creating a new one.
+The prompt flow asks where config should live (`pyproject.toml` or `changelogmanager.toml`), which versioning scheme to
+mention in the preamble, whether to enforce the preamble during validation, and the default component/changelog path
+when the config only tracks one component. The defaults are `pyproject.toml` and `semver`. Running it again updates
+the existing config instead of only creating a new one.
 
 ______________________________________________________________________
 
@@ -234,23 +234,6 @@ The output is a JSON array. Each element corresponds to one release (including `
 
 ______________________________________________________________________
 
-## to-yaml
-
-Export the changelog to YAML.
-
-```
-changelogmanager to-yaml [OPTIONS]
-```
-
-| Option | Default | Description |
-|--------------------|------------------|-----------------------------------------|
-| `--file-name TEXT` | `CHANGELOG.yaml` | Output file path |
-| `--dry-run` | | Validate and print path without writing |
-
-The output is a YAML array mirroring the JSON export structure.
-
-______________________________________________________________________
-
 ## to-html
 
 Export the changelog to HTML.
@@ -303,7 +286,7 @@ changelogmanager edit [OPTIONS]
 | `--new-change-type [added\|changed\|deprecated\|removed\|fixed\|security]` | Move the entry into another category |
 | `--dry-run` | Preview without writing |
 
-At least one of `--message` or `--new-change-type` is required.
+Provide `--message` and/or `--new-change-type`, or run interactively and enter a replacement message when prompted.
 
 ______________________________________________________________________
 
@@ -430,6 +413,7 @@ changelogmanager from-commits [OPTIONS]
 |-----------------|---------------------|-------------------------------------------------------------------|
 | `--since TEXT` | _(last tag if any)_ | Git ref to start from |
 | `--all-history` | `false` | Walk full history instead of starting at the last tag |
+| `--all` | `false` | Route commits to every configured component by `match` globs |
 | `--strict` | `false` | Skip commit subjects that do not match the selected schema |
 | `--commit-schema` | `auto` | Commit schema: `auto`, `conventional`, `gitmoji`, or `keepachangelog` |
 | `--dry-run` | | Preview without writing |
@@ -447,6 +431,9 @@ Commit type mapping:
 
 Breaking-change subjects like `feat!:` are treated as `removed`.
 
+With `--all`, the command requires a config file and uses each component's optional `match` globs to route commits by
+the files they touch.
+
 ______________________________________________________________________
 
 ## gui
@@ -458,11 +445,17 @@ changelogmanager gui
 ```
 
 Global options (`--config`, `--component`, `-f/--error-format`, `--input-file`) are applied as initial values in the
-window's Inputs panel and can be changed at runtime.
+window's Workspace panel and can be changed at runtime.
 
-The GUI currently wraps `create`, `version`, `validate`, `release`, `to-json`, `add`, and `github-release`. Use the CLI
-directly for `remove`, `edit`, `from-commits`, `backfill`, `gitlab-release`, `github-pr`, `to-yaml`, `to-html`,
-`validate --fix`, and other advanced flows.
+The GUI currently ships four screens:
+
+- **Edit** — live `[Unreleased]` editing, save, validate, release, and read-only released history
+- **Initialize / Backfill** — `create`, config settings, `backfill`, and `from-commits`
+- **Releases** — `github-release`, `github-pr`, and `gitlab-release`
+- **Components / Batch** — `validate --all`, `validate --all --changed-only`, and `from-commits --all`
+
+Use the CLI directly for `to-json`, `to-html`, `validate --fix`, `release --bump-versions`, `skill export`, and other
+automation-oriented flows.
 
 If `tkinter` is not available in the current Python installation, the command exits with code 1 and prints
 platform-specific install hints. See the [Desktop GUI](gui.md) page for the full layout and behaviour.

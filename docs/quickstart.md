@@ -32,7 +32,9 @@ If you want config first, run:
 changelogmanager config init
 ```
 
-That interactive setup defaults to `pyproject.toml`, `Conventional Commits`, and `semver`. If you pick `pep440` or `calver`, future `create` runs use that wording in the generated preamble.
+That interactive setup defaults to `pyproject.toml` and `semver`, then asks whether to enforce the preamble plus the
+default component name and changelog path. If you pick `pep440` or `calver`, future `create` runs use that wording in
+the generated preamble.
 
 ## Already have tagged releases?
 
@@ -43,7 +45,10 @@ changelogmanager backfill --source all --dry-run
 changelogmanager backfill --source all
 ```
 
-Backfill uses local tags and can classify commit subjects between tag intervals using Conventional Commits, gitmoji, or Keep a Changelog flavored prefixes. If no richer commit entries are available, each missing version gets a conservative placeholder under `Changed`, for example `Release notes unavailable; backfilled from tag \`v1.2.3\`.`Existing versions already present in`CHANGELOG.md\` are left alone.
+Backfill uses local tags and can classify commit subjects between tag intervals using Conventional Commits, gitmoji, or
+Keep a Changelog-flavored prefixes. If no richer commit entries are available, each missing version gets a conservative
+placeholder under `Changed`, for example: `Release notes unavailable; backfilled from tag \`v1.2.3\`.` Existing
+versions already present in `CHANGELOG.md` are left alone.
 
 ## 3. Add a change
 
@@ -130,7 +135,8 @@ Seed `[Unreleased]` from git commit subjects:
 changelogmanager from-commits
 ```
 
-By default this starts at the last git tag, falling back to full history when no tag exists. Use `--strict` to skip non-Conventional Commit subjects instead of treating them as `changed`.
+By default this starts at the last git tag, falling back to full history when no tag exists. Use `--strict` to skip
+subjects that do not match the selected commit schema instead of treating them as `changed`.
 
 ## Prefer a GUI?
 
@@ -140,7 +146,8 @@ If you'd rather click than type, run:
 changelogmanager gui
 ```
 
-This opens a paneled Tkinter window for the common commands. See the [Desktop GUI](gui.md) page for details.
+This opens a multi-screen Tkinter app for editing `[Unreleased]`, backfilling from history, publishing releases, and
+running batch component operations. See the [Desktop GUI](gui.md) page for details.
 
 ## What's next
 

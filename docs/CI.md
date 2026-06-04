@@ -37,13 +37,13 @@ CHANGELOG.md:5:3: error: Incompatible change type provided, MUST be one of: Adde
 If your repository tracks multiple changelogs in config, validate all configured components:
 
 ```sh
-uv run changelogmanager --config .changelogmanager.yml validate --all
+uv run changelogmanager --config changelogmanager.toml validate --all
 ```
 
 If you only want to validate components whose changelog files changed in git:
 
 ```sh
-uv run changelogmanager --config .changelogmanager.yml validate --all --changed-only
+uv run changelogmanager --config changelogmanager.toml validate --all --changed-only
 ```
 
 ## Machine-readable CI output

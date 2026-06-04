@@ -94,7 +94,8 @@ changelogmanager from-commits --all-history
 changelogmanager from-commits --strict
 ```
 
-`--strict` skips non-Conventional Commit subjects. Without it, unmatched subjects are added as `changed`.
+`--strict` skips subjects that do not match the selected commit schema. Without it, unmatched subjects are added as
+`changed`.
 
 ______________________________________________________________________
 
@@ -326,8 +327,8 @@ This can:
 ### Validate all configured components
 
 ```sh
-changelogmanager --config .changelogmanager.yml validate --all
-changelogmanager --config .changelogmanager.yml validate --all --changed-only
+changelogmanager --config changelogmanager.toml validate --all
+changelogmanager --config changelogmanager.toml validate --all --changed-only
 ```
 
 `--changed-only` uses `git status --porcelain` and skips configured components whose changelog files are unchanged.
@@ -339,7 +340,9 @@ changelogmanager config
 changelogmanager config init
 ```
 
-`config` shows the effective config plus where it came from. `config init` writes YAML or `pyproject.toml` using interactive prompts, defaulting to `pyproject.toml`, `Conventional Commits`, and `semver`. Re-running it updates the active config with the current answers.
+`config` shows the effective config plus where it came from. `config init` writes `changelogmanager.toml` or
+`pyproject.toml` using interactive prompts, defaulting to `pyproject.toml` and `semver`. Re-running it updates the
+active config with the current answers.
 
 ### Export the bundled CLI skill
 
@@ -354,14 +357,12 @@ Without `--path`, the CLI prompts for a common Copilot or Claude skills location
 
 You can require the standard Keep a Changelog preamble from configuration:
 
-```yaml
-project:
-  commits:
-    style: conventional
-  versioning:
-    scheme: semver
-  validation:
-    enforce_preamble: true
+```toml
+[versioning]
+scheme = "semver"
+
+[validation]
+enforce_preamble = true
 ```
 
 If `versioning.scheme` is set to `pep440` or `calver`, `create` writes that scheme into the changelog preamble and validation expects the same wording.
@@ -454,7 +455,6 @@ ______________________________________________________________________
 ```sh
 changelogmanager to-json
 changelogmanager to-json --schema-version v1
-changelogmanager to-yaml
 changelogmanager to-html
 ```
 
@@ -463,7 +463,6 @@ Default output files:
 | Command | Default output |
 |---|---|
 | `to-json` | `CHANGELOG.json` |
-| `to-yaml` | `CHANGELOG.yaml` |
 | `to-html` | `CHANGELOG.html` |
 
 `to-json` writes one object per release. Example output:
@@ -496,7 +495,6 @@ Use a custom filename:
 
 ```sh
 changelogmanager to-json --file-name changelog-export.json
-changelogmanager to-yaml --file-name changelog-export.yaml
 changelogmanager to-html --file-name changelog-export.html
 ```
 
@@ -508,27 +506,37 @@ ______________________________________________________________________
 
 When a single repository contains multiple packages, each with its own `CHANGELOG.md`, create a configuration file:
 
-```yaml
-project:
-  components:
-    - name: Service Component
-      changelog: service/CHANGELOG.md
-    - name: Client Interface
-      changelog: client/CHANGELOG.md
-  commits:
-    style: component-is-substring
-  versioning:
-    scheme: pep440
+```toml
+[versioning]
+scheme = "pep440"
+
+[[components]]
+name = "Service Component"
+changelog = "service/CHANGELOG.md"
+match = ["service/**"]
+
+[[components]]
+name = "Client Interface"
+changelog = "client/CHANGELOG.md"
+match = ["client/**"]
+
+[[components]]
+name = "default"
+changelog = "CHANGELOG.md"
 ```
 
 Then pass `--config` and `--component` to any command:
 
 ```sh
-changelogmanager --config config.yml --component "Client Interface" version
-changelogmanager --config config.yml --component "Service Component" release
+changelogmanager --config changelogmanager.toml --component "Client Interface" version
+changelogmanager --config changelogmanager.toml --component "Service Component" release
 ```
 
-If `--config` is omitted, the CLI auto-detects `.changelogmanager.yml`, `.changelogmanager.yaml`, `changelogmanager.yml`, `changelogmanager.yaml`, or `[tool.changelogmanager]` in `pyproject.toml` from the current directory.
+`from-commits --all` uses each component's optional `match` globs to route commits by touched files. A component with
+no `match` acts as the fallback bucket for commits that do not match any explicit component.
+
+If `--config` is omitted, the CLI auto-detects `changelogmanager.toml`, `.changelogmanager.toml`, or
+`[tool.changelogmanager]` in `pyproject.toml` from the current directory.
 
 ______________________________________________________________________
 

@@ -1,6 +1,7 @@
 # Desktop GUI
 
-`keepachangelog-manager` ships with an optional Tkinter desktop GUI for the common changelog workflows. It is useful for one-off edits, exploring a changelog interactively, or onboarding teammates who would rather click than memorise flags.
+`keepachangelog-manager` ships with an optional Tkinter desktop GUI for editing changelogs, backfilling history,
+publishing releases, and running batch component workflows.
 
 ## Launch
 
@@ -8,7 +9,8 @@
 changelogmanager gui
 ```
 
-That's it — the same global options (`--config`, `--component`, `-f/--error-format`, `--input-file`) work, but the GUI lets you change them at any time from the **Inputs** panel at the top of the window.
+That's it — the same global options (`--config`, `--component`, `-f/--error-format`, `--input-file`) work, but the GUI
+lets you change them at any time from the **Workspace** panel at the top of the window.
 
 You can also launch it as a module:
 
@@ -18,45 +20,37 @@ python -m changelogmanager gui
 
 ## Layout
 
-| Pane | Contents |
+The current app is organized as a menubar plus four top-level screens:
+
+| Area | Contents |
 |---|---|
-| **Top — Inputs** | Input file (with Browse), config file, component name, error format, and a global Dry-run toggle |
-| **Left — Commands** | Buttons for the GUI-backed commands: `create`, `version`, `validate`, `release`, `to-json`, `add`, and `github-release` |
-| **Center — Tabs** | One tab per GUI-backed command with its specific inputs, a Run button, and a scrollable output log; plus a **changelog** tab that shows the current file |
-| **Right — Help** | Context-sensitive help for the currently selected tab |
+| **Top — Workspace** | Changelog path, config path, component name, error format, and a global Dry run toggle |
+| **Edit** | Live `[Unreleased]` editor, add/remove/reorder controls, save, validate, release, and read-only released history |
+| **Initialize / Backfill** | `create`, config settings, `backfill`, and `from-commits` with source/schema/range controls and an output log |
+| **Releases** | `github-release`, `github-pr`, and `gitlab-release`, plus copyable sample CI snippets |
+| **Components / Batch** | Configured component listing plus `validate --all`, `validate --all --changed-only`, and `from-commits --all` |
 
 ## Scope
 
-The GUI currently supports these commands:
+The GUI supports:
 
-- `create`
-- `version`
-- `validate`
-- `release`
-- `to-json`
-- `add`
-- `github-release`
+- direct editing of `[Unreleased]` entries, including reordering
+- `create`, `validate`, and `release`
+- `backfill` and `from-commits`
+- `github-release`, `github-pr`, and `gitlab-release`
+- batch `validate --all`, `validate --all --changed-only`, and `from-commits --all`
 
-Use the CLI directly for newer or more specialised workflows such as:
-
-- `remove`
-- `edit`
-- `from-commits`
-- `to-yaml`
-- `to-html`
-- `validate --fix`
-- `validate --all --changed-only`
-- `--quiet` and `--json`
-
-## Auto-run on tab activation
-
-The non-destructive commands `version` and `validate` run automatically the first time you open their tab, using the current Inputs panel values. Re-runs are manual via the **Run** button so you stay in control after editing the file.
+Use the CLI directly for export commands (`to-json`, `to-html`), `validate --fix`, `release --bump-versions`,
+`skill export`, and JSON/quiet automation modes.
 
 ## Destructive commands
 
-`create`, `release`, `add`, `to-json` (without `--dry-run`), and `github-release` all modify state. The GUI honours the global **Dry run** checkbox — leave it on while you experiment, then untick it once you're satisfied with the previewed output.
+Outside CI, the GUI defaults **Dry run** to on. Leave it on while you experiment, then untick it once you're satisfied
+with the previewed output.
 
-`github-release` additionally requires a repository (in `owner/repo` form) and a GitHub token. The token field is masked and pre-populated from the `GITHUB_TOKEN` environment variable when present.
+`github-release` and `github-pr` require a repository (in `owner/repo` form) and a GitHub token. `gitlab-release`
+requires a project ID/path and a GitLab token. Token fields are masked and pre-populated from the corresponding
+environment variables when present.
 
 ## When tkinter is missing
 

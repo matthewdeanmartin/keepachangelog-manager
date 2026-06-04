@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 
 import pytest
-from hypothesis import settings, HealthCheck
+from hypothesis import HealthCheck, settings
 
 # Disable deadline globally for Hypothesis tests to prevent flakiness on slow CI/machines.
 settings.register_profile(

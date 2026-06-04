@@ -27,15 +27,15 @@ On top of what the `keepachangelog` library provides, this tool gives you:
 - **Automatic semver bumping** — infers the next version from change categories (`removed` → major, `added`/`security` → minor, everything else → patch)
 - **Release workflow** — promotes `[Unreleased]` to a dated version, with `release --yes` for non-interactive runs
 - **Historical backfill** — create missing released sections from local git tags with `backfill --source tags`
-- **Git history seeding** — build `[Unreleased]` from commit history with `from-commits`, including Conventional Commit parsing
-- **Multiple export formats** — export the changelog as JSON, YAML, or HTML
+- **Git history seeding** — build `[Unreleased]` from commit history with `from-commits`, including Conventional Commits, gitmoji, and Keep a Changelog-flavored subjects
+- **Multiple export formats** — export the changelog as JSON or HTML
 - **Bundled skill export** — install the packaged `keepachangelog-manager-cli` skill into Copilot or Claude skill directories
 - **GitHub integration** — creates draft/published releases and opens or updates release pull requests
 - **GitLab integration** — creates or updates GitLab releases, including self-hosted instances
-- **Config bootstrap + inspection** — generate or update YAML / `pyproject.toml` config with `config init`, then inspect the active config with `config`
+- **Config bootstrap + inspection** — generate or update `changelogmanager.toml` / `pyproject.toml` config with `config init`, then inspect the active config with `config`
 - **Script-friendly output** — use `--dry-run`, `--quiet`, and `--json` in automation
-- **Multi-component repos** — point commands at any `CHANGELOG.md` via YAML config or `[tool.changelogmanager]` in `pyproject.toml`
-- **Desktop GUI** — an optional Tkinter window for common commands, launched with `changelogmanager gui`
+- **Multi-component repos** — point commands at any `CHANGELOG.md` via TOML config or `[tool.changelogmanager]` in `pyproject.toml`
+- **Desktop GUI** — an optional Tkinter window for editing, backfill, releases, and batch operations, launched with `changelogmanager gui`
 
 ## Next steps
 

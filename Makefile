@@ -3,7 +3,7 @@ PACKAGE = changelogmanager
 BUILD_DIR = build
 PYLINT_TEMPLATE = {path}:{line}: [{msg_id}({symbol}),{obj}] {msg}
 
-.PHONY: help sync clean format format-check test flake8 pylint mypy bandit lint quality check build validate ruff docs-sync gha-validate gha-pin gha-upgrade
+.PHONY: help sync clean format format-check test flake8 pylint mypy bandit lint quality check build validate ruff docs-sync gha-validate gha-pin gha-upgrade prerelease prerelease-check version-check dev-status
 
 help:
 	@echo Available targets:
@@ -17,8 +17,9 @@ help:
 	@echo   ruff          Run ruff check
 	@echo   bandit        Run bandit and write a JSON report
 	@echo   lint          Run flake8, pylint, mypy and ruff
-	@echo   quality       Run format, lint, bandit, test, and changelog validation checks
+	@echo   quality       Run format-check, lint, bandit, test, and changelog validation checks
 	@echo   check         Alias for quality
+	@echo   prerelease    Run quality, changelog/version prerelease checks, docs sync, and build
 	@echo   docs-sync     Copy CHANGELOG.md into docs/ for documentation builds
 	@echo   build         Build source and wheel distributions with uv
 	@echo   validate      Validate CHANGELOG.md with changelogmanager
@@ -99,17 +100,18 @@ gha-upgrade: gha-pin gha-validate
 
 # ── Dogfooding targets (independent, not wired into check) ───────────────────
 
-.PHONY: version-check
 version-check:
-	@$(UV) jiggle_version check
+	@$(UV) run jiggle_version check
 
-.PHONY: dev-status
 dev-status:
-	@$(UV) troml-dev-status validate .
+	@$(UV) tool run --from troml troml-dev-status validate .
+
+.PHONY: prerelease
+prerelease: quality version-check build
+	@echo "Pre-release checks passed."
 
 .PHONY: prerelease-check
-prerelease-check: version-check dev-status
-	@echo "Pre-release checks passed."
+prerelease-check: prerelease
 
 .PHONY: dont-be-lazy
 dont-be-lazy:
