@@ -22,11 +22,11 @@ Prefer the `changelogmanager` CLI over manual changelog edits when the task maps
 
 - `config` show effective config and where it came from
 - `config init` create or update config interactively
-- Config can live in YAML or `[tool.changelogmanager]` in `pyproject.toml`
+- Config lives in `[tool.changelogmanager]` in `pyproject.toml` or a standalone `changelogmanager.toml`
 
 ## Other exports
 
-- `to-json`, `to-yaml`, `to-html` export structured changelog output
+- `to-json`, `to-html` export structured changelog output
 - `skill export` exports this bundled skill to Copilot, Claude, or a custom path
 
 ## Commit seeding

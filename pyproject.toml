@@ -9,7 +9,6 @@ license-files = ["LICENSE.md"]
 dependencies = [
     "jsonschema>=4.25.1,<5",
     "packaging>=24.0,<27",
-    "pyyaml>=6.0.2,<7",
     "semantic_version>=2.10.0,<3",
     "urllib3>=2.6.3,<3",
     "inquirer>=3.4.0,<4",
@@ -54,7 +53,6 @@ lint = [
     "pylint>1.0.0",
     "ruff>=0.15.12",
     "types-jsonschema",
-    "types-PyYAML",
 ]
 security = [
     "bandit>1.0.0",
@@ -90,6 +88,23 @@ show_error_codes = true
 [tool.uv]
 default-groups = ["dev"]
 exclude-newer = "7 days"
+
+
+[tool.changelogmanager.versioning]
+scheme = "semver"
+
+[tool.changelogmanager.validation]
+enforce_preamble = true
+format = "auto"
+
+[tool.changelogmanager.defaults]
+error_format = "github"
+commit_schema = "keepachangelog"
+schema_version = "current"
+
+[[tool.changelogmanager.components]]
+name = "default"
+changelog = "CHANGELOG.md"
 
 
 [tool.ruff]

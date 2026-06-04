@@ -38,18 +38,19 @@ def test_change_types_expose_expected_metadata():
 )
 def test_validate_configuration_rejects_invalid_shapes(config, message):
     with pytest.raises(logging.Error, match=message):
-        validate_configuration("config.yml", config)
+        validate_configuration("config.toml", config)
 
 
 def test_get_component_from_config_returns_named_component(tmp_path):
-    config_file = tmp_path / "components.yml"
+    config_file = tmp_path / "changelogmanager.toml"
     config_file.write_text(
-        "project:\n"
-        "  components:\n"
-        "    - name: api\n"
-        "      changelog: docs/API_CHANGELOG.md\n"
-        "    - name: ui\n"
-        "      changelog: docs/UI_CHANGELOG.md\n",
+        '[[components]]\n'
+        'name = "api"\n'
+        'changelog = "docs/API_CHANGELOG.md"\n'
+        "\n"
+        '[[components]]\n'
+        'name = "ui"\n'
+        'changelog = "docs/UI_CHANGELOG.md"\n',
         encoding="utf-8",
     )
 
@@ -59,12 +60,11 @@ def test_get_component_from_config_returns_named_component(tmp_path):
 
 
 def test_get_component_from_config_rejects_unknown_component(tmp_path):
-    config_file = tmp_path / "components.yml"
+    config_file = tmp_path / "changelogmanager.toml"
     config_file.write_text(
-        "project:\n"
-        "  components:\n"
-        "    - name: api\n"
-        "      changelog: docs/API_CHANGELOG.md\n",
+        '[[components]]\n'
+        'name = "api"\n'
+        'changelog = "docs/API_CHANGELOG.md"\n',
         encoding="utf-8",
     )
 
@@ -78,29 +78,31 @@ def test_effective_configuration_defaults_without_file():
     assert config["project"]["components"] == [
         {"name": "default", "changelog": "CHANGELOG.md"}
     ]
-    assert config["project"]["commits"]["style"] == "conventional"
     assert config["project"]["versioning"]["scheme"] == "semver"
+    # commits.style is gone; the dead knob no longer appears in the defaults.
+    assert "commits" not in config["project"]
 
 
-def test_write_configuration_round_trips_yaml_and_pyproject(tmp_path):
+def test_write_configuration_round_trips_standalone_and_pyproject(tmp_path):
     config = {
         "project": {
             "components": [{"name": "api", "changelog": "docs/API_CHANGELOG.md"}],
             "validation": {"enforce_preamble": True},
-            "commits": {"style": "gitmoji"},
             "versioning": {"scheme": "pep440"},
         }
     }
 
-    yaml_path = tmp_path / ".changelogmanager.yml"
+    toml_path = tmp_path / "changelogmanager.toml"
     pyproject_path = tmp_path / "pyproject.toml"
 
-    write_configuration(str(yaml_path), config)
+    write_configuration(str(toml_path), config)
     write_configuration(str(pyproject_path), config)
 
     assert (
-        get_effective_configuration(str(yaml_path))["project"]["commits"]["style"]
-        == "gitmoji"
+        get_effective_configuration(str(toml_path))["project"]["validation"][
+            "enforce_preamble"
+        ]
+        is True
     )
     assert (
         get_effective_configuration(str(pyproject_path))["project"]["versioning"][
@@ -111,14 +113,14 @@ def test_write_configuration_round_trips_yaml_and_pyproject(tmp_path):
 
 
 def test_preamble_keywords_follow_configured_versioning(tmp_path):
-    config_path = tmp_path / ".changelogmanager.yml"
+    config_path = tmp_path / "changelogmanager.toml"
     config_path.write_text(
-        "project:\n"
-        "  components:\n"
-        "    - name: default\n"
-        "      changelog: CHANGELOG.md\n"
-        "  versioning:\n"
-        "    scheme: calver\n",
+        '[[components]]\n'
+        'name = "default"\n'
+        'changelog = "CHANGELOG.md"\n'
+        "\n"
+        "[versioning]\n"
+        'scheme = "calver"\n',
         encoding="utf-8",
     )
 

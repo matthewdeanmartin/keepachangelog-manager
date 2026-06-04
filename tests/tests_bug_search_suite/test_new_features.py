@@ -257,14 +257,6 @@ class TestQuietJson:
 
 
 class TestExports:
-    def test_to_yaml_writes_file(self, tmp_path):
-        p = write_changelog(tmp_path)
-        out = tmp_path / "out.yaml"
-        rc = main(["--input-file", p, "to-yaml", "--file-name", str(out)])
-        assert rc == 0
-        body = out.read_text(encoding="utf-8")
-        assert "First feature" in body
-
     def test_to_html_writes_file(self, tmp_path):
         p = write_changelog(tmp_path)
         out = tmp_path / "out.html"
@@ -389,9 +381,9 @@ class TestFromCommits:
 
 
 class TestAutoDetectAndAll:
-    def test_autodetect_yaml(self, tmp_path, monkeypatch):
-        (tmp_path / ".changelogmanager.yml").write_text(
-            "project:\n  components:\n    - name: api\n      changelog: API.md\n",
+    def test_autodetect_toml(self, tmp_path, monkeypatch):
+        (tmp_path / "changelogmanager.toml").write_text(
+            '[[components]]\nname = "api"\nchangelog = "API.md"\n',
             encoding="utf-8",
         )
         (tmp_path / "API.md").write_text(
@@ -404,13 +396,9 @@ class TestAutoDetectAndAll:
         assert "1.0.0" in out
 
     def test_validate_all(self, tmp_path, monkeypatch):
-        (tmp_path / "config.yml").write_text(
-            "project:\n"
-            "  components:\n"
-            "    - name: api\n"
-            "      changelog: api/CHANGELOG.md\n"
-            "    - name: web\n"
-            "      changelog: web/CHANGELOG.md\n",
+        (tmp_path / "config.toml").write_text(
+            '[[components]]\nname = "api"\nchangelog = "api/CHANGELOG.md"\n\n'
+            '[[components]]\nname = "web"\nchangelog = "web/CHANGELOG.md"\n',
             encoding="utf-8",
         )
         for name in ("api", "web"):
@@ -420,7 +408,7 @@ class TestAutoDetectAndAll:
                 encoding="utf-8",
             )
         monkeypatch.chdir(tmp_path)
-        rc = main(["--config", "config.yml", "validate", "--all"])
+        rc = main(["--config", "config.toml", "validate", "--all"])
         assert rc == 0
 
     def test_validate_all_requires_config(self, tmp_path, monkeypatch):

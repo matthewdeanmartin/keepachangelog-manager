@@ -8,8 +8,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Optional
 
-import yaml
-
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.runtime_logging import VERBOSE, get_logger
 
@@ -28,22 +26,25 @@ except ImportError:  # Python < 3.11
 
 
 CONFIG_FILE_CANDIDATES = (
-    ".changelogmanager.yml",
-    ".changelogmanager.yaml",
-    "changelogmanager.yml",
-    "changelogmanager.yaml",
+    "changelogmanager.toml",
+    ".changelogmanager.toml",
 )
 PYPROJECT_FILE = "pyproject.toml"
 DEFAULT_CONFIG_FILE = CONFIG_FILE_CANDIDATES[0]
-DEFAULT_COMMIT_STYLE = "conventional"
 DEFAULT_VERSIONING_SCHEME = "semver"
 
+# Internal normalized config keeps everything under "project" so the existing
+# readers (get_versioning_scheme, get_validation_options, ...) are unchanged.
+# The on-disk TOML schema is "unwrapped" (top-level tables) and is mapped into
+# this shape on load. A legacy "project" table is also accepted (back-compat).
 DEFAULT_CONFIG: dict[str, Any] = {
     "project": {
         "components": [{"name": "default", "changelog": "CHANGELOG.md"}],
         "validation": {"enforce_preamble": False},
-        "commits": {"style": DEFAULT_COMMIT_STYLE},
         "versioning": {"scheme": DEFAULT_VERSIONING_SCHEME},
+        "defaults": {},
+        "github": {},
+        "gitlab": {},
     }
 }
 
@@ -65,11 +66,9 @@ VERSIONING_SCHEMES: dict[str, dict[str, str]] = {
     },
 }
 
-COMMIT_STYLE_LABELS = {
-    "conventional": "Conventional Commits",
-    "gitmoji": "Gitmoji",
-    "component-is-substring": "Component is substring",
-}
+# Top-level TOML tables that make up the unwrapped on-disk schema. These are the
+# keys lifted into the internal "project" namespace on load.
+UNWRAPPED_TABLES = ("versioning", "validation", "defaults", "github", "gitlab")
 
 logger = get_logger(__name__)
 
@@ -89,49 +88,80 @@ def validate_configuration(file_path: str, config: Mapping[str, Any]) -> None:
             )
 
 
+def wrap_unwrapped_schema(config: Mapping[str, Any]) -> dict[str, Any]:
+    """Maps the on-disk TOML schema onto the internal ``project.*`` namespace.
+
+    Accepts either the unwrapped schema (top-level ``versioning``, ``validation``,
+    ``defaults``, ``github``, ``gitlab``, ``components``) or a legacy ``project``
+    table (back-compat). Returns a mapping shaped like ``{"project": {...}}``.
+    """
+
+    # Legacy form: already wrapped under "project". Flatten by lifting it out.
+    if "project" in config and isinstance(config["project"], Mapping):
+        project = dict(config["project"])
+        # A legacy config may still carry the dead "commits" table; drop it.
+        project.pop("commits", None)
+        return {"project": project}
+
+    project: dict[str, Any] = {}
+    for table in UNWRAPPED_TABLES:
+        value = config.get(table)
+        if isinstance(value, Mapping):
+            project[table] = dict(value)
+    if "components" in config:
+        project["components"] = config["components"]
+    return {"project": project}
+
+
 def normalize_configuration(config: Optional[Mapping[str, Any]]) -> dict[str, Any]:
     """Returns a config with defaults applied while preserving unknown keys."""
 
     logger.log(VERBOSE, "Normalizing configuration with defaults")
     normalized = deepcopy(DEFAULT_CONFIG)
     if isinstance(config, Mapping):
-        merge_mappings(normalized, config)
+        merge_mappings(normalized, wrap_unwrapped_schema(config))
     return normalized
 
 
 def load_configuration(config_path: str) -> dict[str, Any]:
-    """Loads a configuration file (YAML or pyproject.toml)."""
+    """Loads a TOML configuration file (pyproject.toml or standalone .toml)."""
 
     path = Path(config_path)
     logger.info("Loading configuration from %s", path)
-    if path.name == PYPROJECT_FILE or path.suffix == ".toml":
+    if path.name == PYPROJECT_FILE:
         return load_pyproject(path)
-    return load_yaml(path)
+    return load_toml(path)
 
 
-def load_yaml(path: Path) -> dict[str, Any]:
-    logger.log(VERBOSE, "Reading YAML configuration from %s", path)
-    with path.open(encoding="UTF-8") as file_handle:
-        data = yaml.safe_load(file_handle)
-    if not isinstance(data, dict):
-        raise logging.Error(
-            file_path=str(path), message="Configuration file is not a mapping"
-        )
-    return dict(data)
+def read_toml(path: Path) -> dict[str, Any]:
+    """Reads a TOML file, raising a friendly error when tomllib is unavailable."""
 
-
-def load_pyproject(path: Path) -> dict[str, Any]:
     if not HAS_TOMLLIB:
         raise logging.Error(
             file_path=str(path),
             message=(
-                "pyproject.toml configuration requires Python 3.11+ "
+                "TOML configuration requires Python 3.11+ or the 'tomli' package "
                 "(tomllib unavailable)"
             ),
         )
-    logger.log(VERBOSE, "Reading pyproject configuration from %s", path)
+    logger.log(VERBOSE, "Reading TOML configuration from %s", path)
     with path.open("rb") as file_handle:
-        data = tomllib.load(file_handle)
+        return dict(tomllib.load(file_handle))
+
+
+def load_toml(path: Path) -> dict[str, Any]:
+    """Loads a standalone changelogmanager TOML config (unwrapped schema)."""
+
+    data = read_toml(path)
+    if not data:
+        raise logging.Error(
+            file_path=str(path), message="Configuration file is empty"
+        )
+    return data
+
+
+def load_pyproject(path: Path) -> dict[str, Any]:
+    data = read_toml(path)
     tool_section = data.get("tool", {}).get("changelogmanager")
     if not isinstance(tool_section, Mapping) or not tool_section:
         raise logging.Error(
@@ -145,8 +175,8 @@ def auto_detect_config(start_dir: Optional[Path] = None) -> Optional[str]:
     """Searches the current working directory for a configuration file.
 
     Returns the path of the first match, or None if no config is found.
-    Order: .changelogmanager.yml/.yaml, then pyproject.toml (only if it has a
-    [tool.changelogmanager] section).
+    Order: changelogmanager.toml, .changelogmanager.toml, then pyproject.toml
+    (only if it has a [tool.changelogmanager] section).
     """
 
     base = Path(start_dir) if start_dir else Path.cwd()
@@ -188,7 +218,7 @@ def get_effective_configuration(config_path: Optional[str]) -> dict[str, Any]:
 def get_component_from_config(config: str, component: str) -> dict[str, Any]:
     """Retrieves a specific component from the configuration file"""
     logger.info("Resolving component '%s' from %s", component, config)
-    configuration = load_configuration(config)
+    configuration = wrap_unwrapped_schema(load_configuration(config))
 
     validate_configuration(config, configuration)
 
@@ -210,7 +240,7 @@ def get_components_from_config(config: str) -> list[dict[str, Any]]:
     """Retrieves all components from the configuration file"""
 
     logger.info("Loading all configured components from %s", config)
-    configuration = load_configuration(config)
+    configuration = wrap_unwrapped_schema(load_configuration(config))
     validate_configuration(config, configuration)
     components: list[dict[str, Any]] = configuration.get("project", {}).get(
         "components", []
@@ -245,7 +275,7 @@ def get_validation_options(config: Optional[str]) -> dict[str, Any]:
         logger.log(VERBOSE, "No configuration file provided for validation options")
         return {}
     try:
-        configuration = load_configuration(config)
+        configuration = wrap_unwrapped_schema(load_configuration(config))
     except (logging.Error, OSError):
         logger.warning("Unable to load validation options from %s", config)
         return {}
@@ -256,18 +286,28 @@ def get_validation_options(config: Optional[str]) -> dict[str, Any]:
     return dict(validation)
 
 
-def get_commit_style(config: Optional[str]) -> str:
-    """Returns the configured commit parsing style."""
+def get_defaults_options(config: Optional[str]) -> dict[str, Any]:
+    """Returns the [defaults] table used to back CLI flag defaults."""
 
-    logger.log(VERBOSE, "Resolving commit style from %s", config or "<defaults>")
+    return _get_project_table(config, "defaults")
+
+
+def get_github_options(config: Optional[str]) -> dict[str, Any]:
+    """Returns the [github] table (per-repo remote defaults)."""
+
+    return _get_project_table(config, "github")
+
+
+def get_gitlab_options(config: Optional[str]) -> dict[str, Any]:
+    """Returns the [gitlab] table (per-repo remote defaults)."""
+
+    return _get_project_table(config, "gitlab")
+
+
+def _get_project_table(config: Optional[str], table: str) -> dict[str, Any]:
     configuration = get_effective_configuration(config)
-    commits = configuration.get("project", {}).get("commits", {}) or {}
-    style = commits.get("style", DEFAULT_COMMIT_STYLE)
-    if not isinstance(style, str):
-        return DEFAULT_COMMIT_STYLE
-    if style not in COMMIT_STYLE_LABELS:
-        return DEFAULT_COMMIT_STYLE
-    return style
+    value = configuration.get("project", {}).get(table, {}) or {}
+    return dict(value) if isinstance(value, Mapping) else {}
 
 
 def get_versioning_scheme(config: Optional[str]) -> str:
@@ -312,16 +352,19 @@ def default_config_path_for_format(config_format: str) -> str:
 
 
 def config_format_from_path(config_path: str) -> str:
-    """Returns the config storage format implied by a file path."""
+    """Returns the config storage format implied by a file path.
+
+    ``pyproject`` for a pyproject.toml; ``toml`` for a standalone .toml file.
+    """
 
     path = Path(config_path)
-    if path.name == PYPROJECT_FILE or path.suffix == ".toml":
+    if path.name == PYPROJECT_FILE:
         return "pyproject"
-    return "yaml"
+    return "toml"
 
 
 def write_configuration(config_path: str, config: Mapping[str, Any]) -> None:
-    """Writes configuration to YAML or pyproject.toml."""
+    """Writes configuration to pyproject.toml or a standalone .toml file."""
 
     path = Path(config_path)
     logger.info("Writing configuration to %s", path)
@@ -329,7 +372,7 @@ def write_configuration(config_path: str, config: Mapping[str, Any]) -> None:
     if config_format_from_path(config_path) == "pyproject":
         write_pyproject(path, config)
         return
-    write_yaml(path, config)
+    write_standalone_toml(path, config)
 
 
 def merge_mappings(base: dict[str, Any], updates: Mapping[str, Any]) -> dict[str, Any]:
@@ -341,10 +384,9 @@ def merge_mappings(base: dict[str, Any], updates: Mapping[str, Any]) -> dict[str
     return base
 
 
-def write_yaml(path: Path, config: Mapping[str, Any]) -> None:
-    logger.log(VERBOSE, "Serializing YAML configuration to %s", path)
-    with path.open("w", encoding="UTF-8") as file_handle:
-        yaml.safe_dump(dict(config), file_handle, sort_keys=False, allow_unicode=True)
+def write_standalone_toml(path: Path, config: Mapping[str, Any]) -> None:
+    logger.log(VERBOSE, "Serializing standalone TOML configuration to %s", path)
+    path.write_text(serialize_config_toml(config, prefix=""), encoding="UTF-8")
 
 
 def write_pyproject(path: Path, config: Mapping[str, Any]) -> None:
@@ -391,37 +433,83 @@ def replace_pyproject_section(content: str, section: str) -> str:
 
 
 def serialize_pyproject_section(config: Mapping[str, Any]) -> str:
+    """Serializes config as a [tool.changelogmanager] pyproject section."""
+
+    return serialize_config_toml(config, prefix="tool.changelogmanager.")
+
+
+def serialize_config_toml(config: Mapping[str, Any], *, prefix: str) -> str:
+    """Renders config as TOML using the unwrapped schema.
+
+    ``prefix`` is "" for a standalone file, or "tool.changelogmanager." for a
+    pyproject section (so tables become ``[tool.changelogmanager.versioning]``).
+    """
+
     project = config.get("project", {}) or {}
     validation = project.get("validation", {}) or {}
-    commits = project.get("commits", {}) or {}
     versioning = project.get("versioning", {}) or {}
     components = project.get("components", []) or []
 
-    lines = [
-        "[tool.changelogmanager]",
-        "[tool.changelogmanager.project]",
-        "",
-        "[tool.changelogmanager.project.validation]",
-        f"enforce_preamble = {toml_bool(bool(validation.get('enforce_preamble', False)))}",
-        "",
-        "[tool.changelogmanager.project.commits]",
-        f"style = {toml_string(str(commits.get('style', 'conventional')))}",
-        "",
-        "[tool.changelogmanager.project.versioning]",
-        f"scheme = {toml_string(str(versioning.get('scheme', 'semver')))}",
-    ]
+    lines: list[str] = []
+    if prefix:
+        # Anchor table so an empty section still produces [tool.changelogmanager].
+        lines.append(f"[{prefix.rstrip('.')}]")
+
+    def table(name: str) -> str:
+        return f"[{prefix}{name}]"
+
+    def array_table(name: str) -> str:
+        return f"[[{prefix}{name}]]"
+
+    lines.extend(
+        [
+            table("versioning"),
+            f"scheme = {toml_string(str(versioning.get('scheme', 'semver')))}",
+            "",
+            table("validation"),
+            f"enforce_preamble = "
+            f"{toml_bool(bool(validation.get('enforce_preamble', False)))}",
+        ]
+    )
+
+    fmt = validation.get("format")
+    if fmt is not None:
+        lines.append(f"format = {toml_scalar(fmt)}")
+
+    for name, key in (("defaults", "defaults"), ("github", "github"), ("gitlab", "gitlab")):
+        values = project.get(key, {}) or {}
+        if not isinstance(values, Mapping) or not values:
+            continue
+        lines.extend(["", table(name)])
+        for option_key, option_value in values.items():
+            lines.append(f"{option_key} = {toml_scalar(option_value)}")
 
     for component in components:
         lines.extend(
             [
                 "",
-                "[[tool.changelogmanager.project.components]]",
+                array_table("components"),
                 f"name = {toml_string(str(component.get('name', 'default')))}",
-                f"changelog = {toml_string(str(component.get('changelog', 'CHANGELOG.md')))}",
+                f"changelog = "
+                f"{toml_string(str(component.get('changelog', 'CHANGELOG.md')))}",
             ]
         )
+        match = component.get("match")
+        if isinstance(match, (list, tuple)) and match:
+            rendered = ", ".join(toml_string(str(item)) for item in match)
+            lines.append(f"match = [{rendered}]")
 
     return "\n".join(lines) + "\n"
+
+
+def toml_scalar(value: Any) -> str:
+    """Renders a scalar (str/bool/int) as TOML."""
+
+    if isinstance(value, bool):
+        return toml_bool(value)
+    if isinstance(value, int):
+        return str(value)
+    return toml_string(str(value))
 
 
 def toml_string(value: str) -> str:

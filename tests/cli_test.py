@@ -122,20 +122,21 @@ def test_config_show_uses_built_in_defaults_when_no_file(tmp_path, monkeypatch):
 
     assert result.exit_code == 0
     assert "Config source: built-in defaults" in result.stdout
-    assert "style: conventional" in result.stdout
-    assert "scheme: semver" in result.stdout
+    assert 'scheme = "semver"' in result.stdout
+    # commits.style is gone; the display is TOML and must not mention it.
+    assert "style" not in result.stdout
 
 
 def test_config_show_reports_auto_detected_source(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    config_path = tmp_path / ".changelogmanager.yml"
+    config_path = tmp_path / "changelogmanager.toml"
     config_path.write_text(
-        "project:\n"
-        "  components:\n"
-        "    - name: default\n"
-        "      changelog: CHANGELOG.md\n"
-        "  commits:\n"
-        "    style: gitmoji\n",
+        '[[components]]\n'
+        'name = "default"\n'
+        'changelog = "CHANGELOG.md"\n'
+        "\n"
+        "[versioning]\n"
+        'scheme = "calver"\n',
         encoding="utf-8",
     )
 
@@ -143,7 +144,7 @@ def test_config_show_reports_auto_detected_source(tmp_path, monkeypatch):
 
     assert result.exit_code == 0
     assert f"Config source: auto-detected ({config_path})" in result.stdout
-    assert "style: gitmoji" in result.stdout
+    assert 'scheme = "calver"' in result.stdout
 
 
 def test_config_init_writes_pyproject_by_default(tmp_path, monkeypatch, mocker):
@@ -152,7 +153,6 @@ def test_config_init_writes_pyproject_by_default(tmp_path, monkeypatch, mocker):
         "changelogmanager.cli.inquirer.prompt",
         return_value={
             "config_format": "pyproject.toml",
-            "commit_style": "Conventional Commits",
             "versioning_scheme": "PEP 440",
             "enforce_preamble": "Yes",
             "component_name": "default",
@@ -166,29 +166,27 @@ def test_config_init_writes_pyproject_by_default(tmp_path, monkeypatch, mocker):
     pyproject = (tmp_path / "pyproject.toml").read_text(encoding="UTF-8")
     assert "[tool.changelogmanager]" in pyproject
     assert 'scheme = "pep440"' in pyproject
-    assert 'style = "conventional"' in pyproject
+    # commits.style is gone; the dead knob must not be written.
+    assert "style" not in pyproject
     assert "Wrote config: pyproject.toml" in result.stdout
 
 
-def test_config_init_updates_existing_yaml_on_second_run(tmp_path, monkeypatch, mocker):
+def test_config_init_updates_existing_toml_on_second_run(tmp_path, monkeypatch, mocker):
     monkeypatch.chdir(tmp_path)
-    config_path = tmp_path / ".changelogmanager.yml"
+    config_path = tmp_path / "changelogmanager.toml"
     config_path.write_text(
-        "project:\n"
-        "  components:\n"
-        "    - name: default\n"
-        "      changelog: CHANGELOG.md\n"
-        "  commits:\n"
-        "    style: conventional\n"
-        "  versioning:\n"
-        "    scheme: semver\n",
+        '[[components]]\n'
+        'name = "default"\n'
+        'changelog = "CHANGELOG.md"\n'
+        "\n"
+        "[versioning]\n"
+        'scheme = "semver"\n',
         encoding="utf-8",
     )
     mocker.patch(
         "changelogmanager.cli.inquirer.prompt",
         return_value={
-            "config_format": "YAML",
-            "commit_style": "Gitmoji",
+            "config_format": "changelogmanager.toml",
             "versioning_scheme": "Calendar Versioning",
             "enforce_preamble": "No",
             "component_name": "default",
@@ -200,9 +198,8 @@ def test_config_init_updates_existing_yaml_on_second_run(tmp_path, monkeypatch, 
 
     assert result.exit_code == 0
     text = config_path.read_text(encoding="UTF-8")
-    assert "style: gitmoji" in text
-    assert "scheme: calver" in text
-    assert "changelog: docs/CHANGELOG.md" in text
+    assert 'scheme = "calver"' in text
+    assert 'changelog = "docs/CHANGELOG.md"' in text
     assert f"Updated config: {config_path}" in result.stdout
 
 
@@ -371,17 +368,16 @@ def test_read_only_commands_accept_dry_run(tmp_path, monkeypatch):
 
     monkeypatch.chdir(tmp_path)
     changelog_path = Path("CHANGELOG.md")
-    config_path = Path("config.yml")
+    config_path = Path("config.toml")
     component_changelog_path = Path("service") / "CHANGELOG.md"
     component_changelog_path.parent.mkdir()
     write_changelog(changelog_path)
     write_changelog(component_changelog_path)
     config_path.write_text(
         """\
-project:
-  components:
-    - name: Service Component
-      changelog: service/CHANGELOG.md
+[[components]]
+name = "Service Component"
+changelog = "service/CHANGELOG.md"
 """,
         encoding="UTF-8",
     )

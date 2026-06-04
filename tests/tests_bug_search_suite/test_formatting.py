@@ -368,11 +368,10 @@ class TestIdempotency:
 class TestValidateAllWithFormat:
     def test_all_no_format_applies_structural_fixes(self, tmp_path, monkeypatch):
         """validate --all --fix --no-format applies structural fixes to every component."""
-        cfg = tmp_path / "config.yml"
+        cfg = tmp_path / "config.toml"
         cfg.write_text(
-            "project:\n  components:\n"
-            "    - name: api\n      changelog: api/CHANGELOG.md\n"
-            "    - name: web\n      changelog: web/CHANGELOG.md\n",
+            '[[components]]\nname = "api"\nchangelog = "api/CHANGELOG.md"\n\n'
+            '[[components]]\nname = "web"\nchangelog = "web/CHANGELOG.md"\n',
             encoding="utf-8",
         )
         for name in ("api", "web"):
@@ -389,10 +388,9 @@ class TestValidateAllWithFormat:
 
     def test_all_dry_run_does_not_write(self, tmp_path, monkeypatch):
         """validate --all --fix --dry-run must not modify any component file."""
-        cfg = tmp_path / "config.yml"
+        cfg = tmp_path / "config.toml"
         cfg.write_text(
-            "project:\n  components:\n"
-            "    - name: api\n      changelog: api/CHANGELOG.md\n",
+            '[[components]]\nname = "api"\nchangelog = "api/CHANGELOG.md"\n',
             encoding="utf-8",
         )
         (tmp_path / "api").mkdir()
@@ -406,10 +404,9 @@ class TestValidateAllWithFormat:
 
     def test_all_with_format_pass(self, tmp_path, monkeypatch):
         """validate --all --fix threads the format pass to each component."""
-        cfg = tmp_path / "config.yml"
+        cfg = tmp_path / "config.toml"
         cfg.write_text(
-            "project:\n  components:\n"
-            "    - name: svc\n      changelog: svc/CHANGELOG.md\n",
+            '[[components]]\nname = "svc"\nchangelog = "svc/CHANGELOG.md"\n',
             encoding="utf-8",
         )
         (tmp_path / "svc").mkdir()
@@ -516,9 +513,9 @@ class TestGetFormatOptions:
     def test_reads_format_true_from_config(self, tmp_path):
         from changelogmanager.config import get_format_options
 
-        cfg = tmp_path / "cfg.yml"
+        cfg = tmp_path / "cfg.toml"
         cfg.write_text(
-            "project:\n  validation:\n    format: true\n",
+            "[validation]\nformat = true\n",
             encoding="utf-8",
         )
         opts = get_format_options(str(cfg))
@@ -527,9 +524,9 @@ class TestGetFormatOptions:
     def test_reads_format_false_from_config(self, tmp_path):
         from changelogmanager.config import get_format_options
 
-        cfg = tmp_path / "cfg.yml"
+        cfg = tmp_path / "cfg.toml"
         cfg.write_text(
-            "project:\n  validation:\n    format: false\n",
+            "[validation]\nformat = false\n",
             encoding="utf-8",
         )
         opts = get_format_options(str(cfg))
@@ -538,9 +535,9 @@ class TestGetFormatOptions:
     def test_reads_mdformat_options_from_config(self, tmp_path):
         from changelogmanager.config import get_format_options
 
-        cfg = tmp_path / "cfg.yml"
+        cfg = tmp_path / "cfg.toml"
         cfg.write_text(
-            "project:\n  validation:\n    mdformat_options:\n      wrap: '80'\n      number: true\n",
+            "[validation.mdformat_options]\nwrap = \"80\"\nnumber = true\n",
             encoding="utf-8",
         )
         opts = get_format_options(str(cfg))

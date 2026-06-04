@@ -11,8 +11,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
-import yaml
-
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import (
     CATEGORIES,
@@ -447,29 +445,6 @@ class Changelog:
             file_path=self.__changelog_file_path,
         )
         return json.dumps(json_data, indent=4)
-
-    def write_to_yaml(self, file: str, version: Optional[str] = None) -> None:
-        """Stores the Changelog file in YAML format."""
-        logger.info(
-            "Writing YAML export for %s to %s", self.__changelog_file_path, file
-        )
-
-        with Path(file).open("w", encoding="UTF-8") as file_handle:
-            file_handle.write(self.to_yaml(version=version))
-
-    def to_yaml(self, version: Optional[str] = None) -> str:
-        """Returns the Changelog file in YAML format."""
-        logger.log(
-            VERBOSE,
-            "Rendering YAML export for %s (%s)",
-            self.__changelog_file_path,
-            version or "<all>",
-        )
-
-        content = self.get(version=version)
-        yaml_data = [value for _, value in content.items()]
-        result: str = yaml.safe_dump(yaml_data, sort_keys=False, allow_unicode=True)
-        return result
 
     def write_to_html(self, file: str, version: Optional[str] = None) -> None:
         """Stores the Changelog file in HTML format."""

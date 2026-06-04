@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Any
 
 import inquirer  # type: ignore
-import yaml
 
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.backfill import (
@@ -32,19 +31,27 @@ from changelogmanager.backfill import (
 from changelogmanager.change_types import TYPES_OF_CHANGE, UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
 from changelogmanager.changelog_reader import ChangelogReader
+from changelogmanager.commit_routing import (
+    git_log_with_files,
+    route_commit,
+    validate_routing_components,
+)
 from changelogmanager.config import (
-    COMMIT_STYLE_LABELS,
     VERSIONING_SCHEMES,
     auto_detect_config,
     config_format_from_path,
     default_config_path_for_format,
     get_component_from_config,
     get_components_from_config,
+    get_defaults_options,
     get_effective_configuration,
     get_format_options,
+    get_github_options,
+    get_gitlab_options,
     get_preamble_keywords,
     get_validation_options,
     get_versioning_scheme,
+    serialize_config_toml,
     write_configuration,
 )
 from changelogmanager.formatting import Formatter, discover_formatter
@@ -143,6 +150,43 @@ def resolve_config(config: str | None) -> str | None:
     else:
         logger.info("No configuration file found; using built-in defaults")
     return detected
+
+
+# Maps an args attribute to (config getter, config key, built-in default). When the
+# arg is still at its built-in default, the config value (if any) is applied. Tokens
+# are intentionally excluded: they stay flag-or-env only.
+#
+# Precedence: explicit CLI flag > env var (handled in command handlers) > config > default.
+_CONFIG_DEFAULTS: tuple[tuple[str, Any, str, Any], ...] = (
+    ("error_format", get_defaults_options, "error_format", "llvm"),
+    ("commit_schema", get_defaults_options, "commit_schema", "auto"),
+    ("schema_version", get_defaults_options, "schema_version", DEFAULT_SCHEMA_VERSION),
+    ("bump_versions", get_defaults_options, "bump_versions", False),
+    ("pyproject_only", get_defaults_options, "pyproject_only", False),
+    ("repository", get_github_options, "repository", None),
+    ("project", get_gitlab_options, "project", None),
+    ("gitlab_url", get_gitlab_options, "url", DEFAULT_GITLAB_URL),
+)
+
+
+def apply_config_defaults(args: argparse.Namespace, config: str | None) -> None:
+    """Fills args still at their built-in default with values from config.
+
+    Implements the "config" tier of the precedence chain
+    (flag > env > config > built-in default). An explicit flag is detected by the
+    arg differing from its known built-in default, in which case config is ignored.
+    """
+
+    for attr, getter, key, builtin_default in _CONFIG_DEFAULTS:
+        if not hasattr(args, attr):
+            continue
+        if getattr(args, attr) != builtin_default:
+            # Explicit flag (or already non-default) wins over config.
+            continue
+        options = getter(config)
+        if key in options and options[key] is not None:
+            logger.info("Applying config default %s=%s", attr, options[key])
+            setattr(args, attr, options[key])
 
 
 def config_source_text(args: argparse.Namespace, config_path: str | None) -> str:
@@ -248,35 +292,28 @@ def prompt_for_config_init(  # pylint: disable=too-many-locals
     version_choices, version_reverse = config_prompt_choices(
         {scheme: data["label"] for scheme, data in VERSIONING_SCHEMES.items()}
     )
-    commit_choices, commit_reverse = config_prompt_choices(COMMIT_STYLE_LABELS)
     component_name, changelog_path = component_defaults(config)
     components = config.get("project", {}).get("components", []) or []
-    commit_style = str(
-        config.get("project", {}).get("commits", {}).get("style", "conventional")
-    )
     versioning_scheme = str(
         config.get("project", {}).get("versioning", {}).get("scheme", "semver")
     )
 
+    standalone_label = "changelogmanager.toml"
     if prompt_for_format:
         prompts.append(
             inquirer.List(
                 "config_format",
                 message="Where should the config live?",
-                choices=["pyproject.toml", "YAML"],
-                default="pyproject.toml" if default_format == "pyproject" else "YAML",
+                choices=["pyproject.toml", standalone_label],
+                default=(
+                    "pyproject.toml"
+                    if default_format == "pyproject"
+                    else standalone_label
+                ),
             )
         )
     prompts.extend(
         [
-            inquirer.List(
-                "commit_style",
-                message="Which commit style should be configured?",
-                choices=commit_choices,
-                default=COMMIT_STYLE_LABELS.get(
-                    commit_style, COMMIT_STYLE_LABELS["conventional"]
-                ),
-            ),
             inquirer.List(
                 "versioning_scheme",
                 message="Which versioning scheme should the changelog mention?",
@@ -324,14 +361,12 @@ def prompt_for_config_init(  # pylint: disable=too-many-locals
     selected_format = (
         "pyproject"
         if answers.get("config_format", "pyproject.toml") == "pyproject.toml"
-        else "yaml"
+        else "toml"
     )
-    selected_commit_label = str(answers["commit_style"])
     selected_version_label = str(answers["versioning_scheme"])
 
     return {
         "config_format": selected_format,
-        "commit_style": commit_reverse[selected_commit_label],
         "versioning_scheme": version_reverse[selected_version_label],
         "enforce_preamble": answers["enforce_preamble"] == "Yes",
         "component_name": answers.get("component_name", component_name),
@@ -347,15 +382,12 @@ def build_updated_config(
     updated = deepcopy(dict(base_config))
     project = dict(updated.get("project", {}) or {})
     validation = dict(project.get("validation", {}) or {})
-    commits = dict(project.get("commits", {}) or {})
     versioning = dict(project.get("versioning", {}) or {})
 
     validation["enforce_preamble"] = bool(answers["enforce_preamble"])
-    commits["style"] = answers["commit_style"]
     versioning["scheme"] = answers["versioning_scheme"]
 
     project["validation"] = validation
-    project["commits"] = commits
     project["versioning"] = versioning
 
     if answers["prompted_components"]:
@@ -389,7 +421,7 @@ def command_config(args: argparse.Namespace, ctx: CliContext) -> None:
     emit(ctx, text=f"Config source: {source}")
     emit(
         ctx,
-        text=yaml.safe_dump(config, sort_keys=False, allow_unicode=True).rstrip(),
+        text=serialize_config_toml(config, prefix="").rstrip(),
         json_key="config",
         json_value=config,
     )
@@ -819,23 +851,6 @@ def command_to_json(args: argparse.Namespace, ctx: CliContext) -> None:
     changelog.write_to_json(file=output, schema_version=schema_version)
     ctx.json_payload["output"] = output
     ctx.json_payload["schema_version"] = schema_version
-
-
-def command_to_yaml(args: argparse.Namespace, ctx: CliContext) -> None:
-    """Exports the contents of the CHANGELOG.md to a YAML file."""
-
-    logger.info("Running to-yaml command for %s", ctx.changelog.get_file_path())
-    changelog = ctx.changelog
-    output = export_target(args, "CHANGELOG.yaml")
-
-    if args.dry_run:
-        changelog.to_yaml()
-        print_dry_run(ctx, f"would write YAML output to {output}")
-        ctx.json_payload["output"] = output
-        return
-
-    changelog.write_to_yaml(file=output)
-    ctx.json_payload["output"] = output
 
 
 def command_to_html(args: argparse.Namespace, ctx: CliContext) -> None:
@@ -1369,11 +1384,15 @@ def command_from_commits(  # pylint: disable=too-many-locals,too-many-branches
 ) -> None:
     """Seeds [Unreleased] from git commit messages."""
 
-    logger.info("Running from-commits command for %s", ctx.changelog.get_file_path())
     since = args.since
     if since is None and not args.all_history:
         since = last_release_tag()
 
+    if getattr(args, "all_components", False):
+        from_commits_all(args, ctx, since)
+        return
+
+    logger.info("Running from-commits command for %s", ctx.changelog.get_file_path())
     subjects = git_log_since(since)
     if not subjects:
         emit(ctx, text="No commits found", json_key="added", json_value=0)
@@ -1394,27 +1413,7 @@ def command_from_commits(  # pylint: disable=too-many-locals,too-many-branches
         else:
             classified.append(result)
 
-    changelog = ctx.changelog
-    existing = set()
-    unreleased = (
-        changelog.get().get(UNRELEASED_ENTRY, {})
-        if UNRELEASED_ENTRY in changelog.get()
-        else {}
-    )
-    for change_type, entries in unreleased.items():
-        if change_type == "metadata" or not isinstance(entries, list):
-            continue
-        for entry in entries:
-            existing.add((change_type, str(entry).strip().lower()))
-
-    added: list[dict[str, str]] = []
-    for change_type, message in classified:
-        key = (change_type, message.strip().lower())
-        if key in existing:
-            continue
-        existing.add(key)
-        changelog.add(change_type=change_type, message=message)
-        added.append({"change_type": change_type, "message": message})
+    added = apply_classified_to_changelog(ctx.changelog, classified)
 
     ctx.json_payload["added"] = added
     ctx.json_payload["skipped"] = skipped
@@ -1424,14 +1423,120 @@ def command_from_commits(  # pylint: disable=too-many-locals,too-many-branches
         for entry in added:
             emit(ctx, text=f"would add: [{entry['change_type']}] {entry['message']}")
         print_dry_run(
-            ctx, f"would update {changelog.get_file_path()} with {len(added)} entries"
+            ctx,
+            f"would update {ctx.changelog.get_file_path()} with {len(added)} entries",
         )
         return
 
     if added:
-        changelog.write_to_file()
+        ctx.changelog.write_to_file()
     for entry in added:
         emit(ctx, text=f"added: [{entry['change_type']}] {entry['message']}")
+
+
+def existing_unreleased_keys(changelog: Changelog) -> set[tuple[str, str]]:
+    """Returns (change_type, normalized_message) keys already in [Unreleased]."""
+
+    existing: set[tuple[str, str]] = set()
+    data = changelog.get()
+    unreleased = data.get(UNRELEASED_ENTRY, {}) if UNRELEASED_ENTRY in data else {}
+    for change_type, entries in unreleased.items():
+        if change_type == "metadata" or not isinstance(entries, list):
+            continue
+        for entry in entries:
+            existing.add((change_type, str(entry).strip().lower()))
+    return existing
+
+
+def apply_classified_to_changelog(
+    changelog: Changelog, classified: Sequence[tuple[str, str]]
+) -> list[dict[str, str]]:
+    """Adds classified (change_type, message) pairs, skipping existing dupes."""
+
+    existing = existing_unreleased_keys(changelog)
+    added: list[dict[str, str]] = []
+    for change_type, message in classified:
+        key = (change_type, message.strip().lower())
+        if key in existing:
+            continue
+        existing.add(key)
+        changelog.add(change_type=change_type, message=message)
+        added.append({"change_type": change_type, "message": message})
+    return added
+
+
+def from_commits_all(
+    args: argparse.Namespace, ctx: CliContext, since: str | None
+) -> None:
+    """Routes commits to components by touched files and seeds each [Unreleased]."""
+
+    config_path = resolved_config_path(args)
+    if not config_path:
+        raise logging.Error(
+            message=(
+                "--all requires a configuration file "
+                "(use --config or place changelogmanager.toml in cwd)"
+            ),
+        )
+    components = get_components_from_config(config_path)
+    validate_routing_components(components, config_path=config_path)
+
+    commits = git_log_with_files(since)
+    if not commits:
+        emit(ctx, text="No commits found", json_key="components", json_value=[])
+        return
+
+    schema = getattr(args, "commit_schema", "auto")
+    versioning_scheme = get_versioning_scheme(config_path)
+    enforce_preamble = bool(
+        get_validation_options(config_path).get("enforce_preamble", False)
+    )
+    preamble_keywords = get_preamble_keywords(config_path)
+
+    # Bucket classified entries per component name.
+    per_component: dict[str, list[tuple[str, str]]] = {
+        str(component.get("name")): [] for component in components
+    }
+    skipped = 0
+    for commit in commits:
+        classified = classify_commit_subject(commit.subject, schema=schema)
+        if classified is None:
+            if args.strict:
+                skipped += 1
+                continue
+            classified = ("changed", commit.subject)
+        targets = route_commit(commit.files, components)
+        for name in targets:
+            per_component.setdefault(name, []).append(classified)
+
+    summaries: list[dict[str, Any]] = []
+    for component in components:
+        name = str(component.get("name"))
+        path = str(component.get("changelog"))
+        changelog = Changelog(
+            file_path=path,
+            changelog=ChangelogReader(
+                file_path=path,
+                enforce_preamble=enforce_preamble,
+                preamble_keywords=preamble_keywords,
+                versioning_scheme=versioning_scheme,
+            ).read(),
+            versioning_scheme=versioning_scheme,
+        )
+        added = apply_classified_to_changelog(changelog, per_component.get(name, []))
+        for entry in added:
+            verb = "would add" if args.dry_run else "added"
+            emit(ctx, text=f"[{name}] {verb}: [{entry['change_type']}] {entry['message']}")
+        if added and not args.dry_run:
+            changelog.write_to_file()
+        summaries.append({"component": name, "path": path, "added": added})
+
+    ctx.json_payload["components"] = summaries
+    ctx.json_payload["skipped"] = skipped
+    ctx.json_payload["since"] = since
+    if args.dry_run:
+        total = sum(len(s["added"]) for s in summaries)
+        print_dry_run(ctx, f"would add {total} entries across {len(summaries)} components")
 
 
 def backfill_unreleased(args: argparse.Namespace, ctx: CliContext) -> None:
@@ -1905,15 +2010,6 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     add_dry_run_argument(to_json_parser)
     to_json_parser.set_defaults(handler=command_to_json)
 
-    to_yaml_parser = subparsers.add_parser(
-        "to-yaml", help="Exports the contents of the CHANGELOG.md to a YAML file"
-    )
-    to_yaml_parser.add_argument(
-        "--file-name", default="CHANGELOG.yaml", help="Filename of the YAML output"
-    )
-    add_dry_run_argument(to_yaml_parser)
-    to_yaml_parser.set_defaults(handler=command_to_yaml)
-
     to_html_parser = subparsers.add_parser(
         "to-html", help="Exports the contents of the CHANGELOG.md to an HTML file"
     )
@@ -2163,6 +2259,16 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         help="Walk full history rather than starting at the last tag",
     )
     from_commits_parser.add_argument(
+        "--all",
+        dest="all_components",
+        action="store_true",
+        default=False,
+        help=(
+            "Route commits to every configured component by the files they touch "
+            "(uses each component's 'match' globs; requires a config file)"
+        ),
+    )
+    from_commits_parser.add_argument(
         "--strict",
         action="store_true",
         default=False,
@@ -2207,7 +2313,6 @@ def main(  # pylint: disable=too-many-return-statements
             info=bool(getattr(args, "info", False) or getattr(args, "verbose", False)),
             verbose=bool(getattr(args, "verbose", False)),
         )
-        configure_logging(args.error_format)
         logger.info("Starting CLI command %s", getattr(args, "command", "<none>"))
         if args.command == "gui":
             from changelogmanager.gui import (
@@ -2220,13 +2325,24 @@ def main(  # pylint: disable=too-many-return-statements
         resolved_config = resolve_config(config_arg)
         args.resolved_config_path = resolved_config
 
+        # Apply config-backed flag defaults (flag > env > config > built-in default)
+        # before consuming any defaulted flag such as --error-format. Skip when the
+        # explicit config path does not exist yet (e.g. `config init --config new`).
+        config_for_defaults = (
+            resolved_config
+            if resolved_config and Path(resolved_config).is_file()
+            else None
+        )
+        apply_config_defaults(args, config_for_defaults)
+        configure_logging(args.error_format)
+
         # --all branch for validate uses an aggregate flow, no single changelog load.
         if args.command == "validate" and getattr(args, "all_components", False):
             if not resolved_config:
                 raise logging.Error(
                     message=(
                         "--all requires a configuration file "
-                        "(use --config or place .changelogmanager.yml in cwd)"
+                        "(use --config or place changelogmanager.toml in cwd)"
                     ),
                 )
             ctx = CliContext(
@@ -2241,6 +2357,19 @@ def main(  # pylint: disable=too-many-return-statements
                 "Finished CLI command %s with exit code %d", args.command, exit_code
             )
             return exit_code
+
+        # from-commits --all routes commits across components; no single load.
+        if args.command == "from-commits" and getattr(args, "all_components", False):
+            ctx = CliContext(
+                changelog=Changelog(file_path="<all>"),
+                quiet=args.quiet,
+                json_output=args.json,
+            )
+            args.handler(args, ctx)
+            if args.json:
+                print(json.dumps(ctx.json_payload, indent=2))
+            logger.info("Finished CLI command %s successfully", args.command)
+            return 0
 
         if args.command in {"config", "skill"}:
             # `config` / `config init` may legitimately point --config at a path

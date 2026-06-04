@@ -1,4 +1,4 @@
-"""Bug-hunting tests for config.py — YAML config loading and validation."""
+"""Bug-hunting tests for config.py — TOML config loading and validation."""
 
 from pathlib import Path
 
@@ -13,42 +13,36 @@ from changelogmanager.config import get_component_from_config, validate_configur
 
 
 def write_config(path: Path, content: str) -> str:
-    p = path / "config.yml"
+    p = path / "changelogmanager.toml"
     p.write_text(content, encoding="utf-8")
     return str(p)
 
 
+# Standalone TOML (unwrapped schema)
 VALID_CONFIG = """\
-project:
-  components:
-    - name: default
-      changelog: CHANGELOG.md
-    - name: service-a
-      changelog: service-a/CHANGELOG.md
+[[components]]
+name = "default"
+changelog = "CHANGELOG.md"
+
+[[components]]
+name = "service-a"
+changelog = "service-a/CHANGELOG.md"
 """
 
-MISSING_PROJECT_KEY = """\
-components:
-  - name: default
-    changelog: CHANGELOG.md
-"""
 
-MISSING_COMPONENTS_KEY = """\
-project:
-  description: No components here
-"""
-
-COMPONENT_MISSING_NAME = """\
-project:
-  components:
-    - changelog: CHANGELOG.md
-"""
-
-COMPONENT_MISSING_CHANGELOG = """\
-project:
-  components:
-    - name: default
-"""
+# validate_configuration operates on the internal wrapped shape ({"project": ...}).
+VALID_WRAPPED = {
+    "project": {
+        "components": [
+            {"name": "default", "changelog": "CHANGELOG.md"},
+            {"name": "service-a", "changelog": "service-a/CHANGELOG.md"},
+        ]
+    }
+}
+MISSING_PROJECT_KEY = {"components": [{"name": "default", "changelog": "CHANGELOG.md"}]}
+MISSING_COMPONENTS_KEY = {"project": {"description": "No components here"}}
+COMPONENT_MISSING_NAME = {"project": {"components": [{"changelog": "CHANGELOG.md"}]}}
+COMPONENT_MISSING_CHANGELOG = {"project": {"components": [{"name": "default"}]}}
 
 
 # ---------------------------------------------------------------------------
@@ -58,46 +52,35 @@ project:
 
 class TestValidateConfiguration:
     def test_valid_config_does_not_raise(self, tmp_path):
-        import yaml
-
-        config = yaml.safe_load(VALID_CONFIG)
-        validate_configuration(str(tmp_path / "config.yml"), config)
+        validate_configuration(str(tmp_path / "config.toml"), VALID_WRAPPED)
 
     def test_missing_project_key_raises(self, tmp_path):
-        import yaml
-
-        config = yaml.safe_load(MISSING_PROJECT_KEY)
         with pytest.raises(logging.Error, match="configuration format"):
-            validate_configuration(str(tmp_path / "config.yml"), config)
+            validate_configuration(str(tmp_path / "config.toml"), MISSING_PROJECT_KEY)
 
     def test_missing_components_key_raises(self, tmp_path):
-        import yaml
-
-        config = yaml.safe_load(MISSING_COMPONENTS_KEY)
         with pytest.raises(logging.Error, match="configuration format"):
-            validate_configuration(str(tmp_path / "config.yml"), config)
+            validate_configuration(
+                str(tmp_path / "config.toml"), MISSING_COMPONENTS_KEY
+            )
 
     def test_component_missing_name_raises(self, tmp_path):
-        import yaml
-
-        config = yaml.safe_load(COMPONENT_MISSING_NAME)
         with pytest.raises(logging.Error, match="Component configuration"):
-            validate_configuration(str(tmp_path / "config.yml"), config)
+            validate_configuration(str(tmp_path / "config.toml"), COMPONENT_MISSING_NAME)
 
     def test_component_missing_changelog_raises(self, tmp_path):
-        import yaml
-
-        config = yaml.safe_load(COMPONENT_MISSING_CHANGELOG)
         with pytest.raises(logging.Error, match="Component configuration"):
-            validate_configuration(str(tmp_path / "config.yml"), config)
+            validate_configuration(
+                str(tmp_path / "config.toml"), COMPONENT_MISSING_CHANGELOG
+            )
 
     def test_empty_config_raises(self, tmp_path):
         with pytest.raises((logging.Error, AttributeError, TypeError)):
-            validate_configuration(str(tmp_path / "config.yml"), {})
+            validate_configuration(str(tmp_path / "config.toml"), {})
 
     def test_none_config_raises(self, tmp_path):
         with pytest.raises((logging.Error, AttributeError, TypeError)):
-            validate_configuration(str(tmp_path / "config.yml"), None)
+            validate_configuration(str(tmp_path / "config.toml"), None)
 
 
 # ---------------------------------------------------------------------------
@@ -125,15 +108,14 @@ class TestGetComponentFromConfig:
     def test_missing_config_file_raises(self, tmp_path):
         with pytest.raises((FileNotFoundError, OSError)):
             get_component_from_config(
-                config=str(tmp_path / "missing.yml"), component="default"
+                config=str(tmp_path / "missing.toml"), component="default"
             )
 
     def test_single_component_config(self, tmp_path):
         config = """\
-project:
-  components:
-    - name: only
-      changelog: only/CHANGELOG.md
+[[components]]
+name = "only"
+changelog = "only/CHANGELOG.md"
 """
         p = write_config(tmp_path, config)
         result = get_component_from_config(config=p, component="only")
@@ -149,8 +131,7 @@ project:
         # configuration format!") before even trying to find the component, so the
         # error message is about config format, not "Unknown component".
         config = """\
-project:
-  components: []
+components = []
 """
         p = write_config(tmp_path, config)
         with pytest.raises(logging.Error, match="configuration format"):

@@ -358,20 +358,20 @@ class TestConfigDrivenCLI:
         changelog_path = tmp_path / "service.md"
         changelog_path.write_text(VALID_CHANGELOG, encoding="utf-8")
 
-        config = tmp_path / "config.yml"
+        config = tmp_path / "config.toml"
         config.write_text(
-            "project:\n  components:\n    - name: mysvc\n      changelog: "
+            '[[components]]\nname = "mysvc"\nchangelog = "'
             + str(changelog_path).replace("\\", "/")
-            + "\n",
+            + '"\n',
             encoding="utf-8",
         )
         rc = main(["--config", str(config), "--component", "mysvc", "validate"])
         assert rc == 0
 
     def test_config_unknown_component_returns_one(self, tmp_path):
-        config = tmp_path / "config.yml"
+        config = tmp_path / "config.toml"
         config.write_text(
-            "project:\n  components:\n    - name: real\n      changelog: CHANGELOG.md\n",
+            '[[components]]\nname = "real"\nchangelog = "CHANGELOG.md"\n',
             encoding="utf-8",
         )
         rc = main(["--config", str(config), "--component", "nope", "validate"])
