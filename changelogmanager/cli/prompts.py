@@ -13,11 +13,12 @@ import os
 import sys
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
-
-import inquirer as inquirer  # type: ignore  # noqa: PLC0414 (re-exported for cli.inquirer patch target)
+from typing import TYPE_CHECKING, Any
 
 import changelogmanager.llvm_diagnostics as logging
+
+if TYPE_CHECKING:
+    import inquirer as inquirer  # type: ignore  # noqa: PLC0414
 from changelogmanager.change_types import TYPES_OF_CHANGE
 from changelogmanager.changelog import Changelog
 from changelogmanager.config import VERSIONING_SCHEMES
@@ -29,6 +30,18 @@ from changelogmanager.skill_bundle import (
 )
 
 logger = get_logger(__name__)
+
+# Module-level cache so we only pay the import cost once per process.
+_inquirer_module: Any = None
+
+
+def _get_inquirer() -> Any:
+    global _inquirer_module  # noqa: PLW0603
+    if _inquirer_module is None:
+        import inquirer as _inq  # type: ignore  # noqa: PLC0415
+
+        _inquirer_module = _inq
+    return _inquirer_module
 
 
 def interactive_enabled() -> bool:
@@ -77,10 +90,11 @@ def prompt_for_skill_export_path(path: str | None) -> Path:
             message="skill export requires --path in non-interactive mode",
         )
 
+    inq = _get_inquirer()
     choices, choice_map = skill_location_choices()
-    answers = inquirer.prompt(
+    answers = inq.prompt(
         [
-            inquirer.List(
+            inq.List(
                 "location",
                 message="Where should the bundled skill be exported?",
                 choices=choices,
@@ -97,9 +111,9 @@ def prompt_for_skill_export_path(path: str | None) -> Path:
         logger.info("Selected interactive skill export destination %s", destination)
         return destination
 
-    custom = inquirer.prompt(
+    custom = inq.prompt(
         [
-            inquirer.Text(
+            inq.Text(
                 "path",
                 message="Skill export path",
                 default=str(Path.cwd()),
@@ -121,8 +135,9 @@ def prompt_for_config_init(  # pylint: disable=too-many-locals
 ) -> dict[str, Any]:
     """Prompts for config values using the existing inquirer library."""
 
+    inq = _get_inquirer()
     logger.info("Prompting for configuration initialization values")
-    prompts: list[inquirer.questions.Question] = []
+    prompts: list[Any] = []
     version_choices, version_reverse = config_prompt_choices(
         {scheme: data["label"] for scheme, data in VERSIONING_SCHEMES.items()}
     )
@@ -135,7 +150,7 @@ def prompt_for_config_init(  # pylint: disable=too-many-locals
     standalone_label = "changelogmanager.toml"
     if prompt_for_format:
         prompts.append(
-            inquirer.List(
+            inq.List(
                 "config_format",
                 message="Where should the config live?",
                 choices=["pyproject.toml", standalone_label],
@@ -148,7 +163,7 @@ def prompt_for_config_init(  # pylint: disable=too-many-locals
         )
     prompts.extend(
         [
-            inquirer.List(
+            inq.List(
                 "versioning_scheme",
                 message="Which versioning scheme should the changelog mention?",
                 choices=version_choices,
@@ -156,7 +171,7 @@ def prompt_for_config_init(  # pylint: disable=too-many-locals
                     versioning_scheme, VERSIONING_SCHEMES["semver"]
                 )["label"],
             ),
-            inquirer.List(
+            inq.List(
                 "enforce_preamble",
                 message="Require the canonical changelog preamble during validation?",
                 choices=["No", "Yes"],
@@ -175,12 +190,12 @@ def prompt_for_config_init(  # pylint: disable=too-many-locals
     if len(components) <= 1:
         prompts.extend(
             [
-                inquirer.Text(
+                inq.Text(
                     "component_name",
                     message="Default component name",
                     default=component_name,
                 ),
-                inquirer.Text(
+                inq.Text(
                     "changelog_path",
                     message="Default changelog path",
                     default=changelog_path,
@@ -188,7 +203,7 @@ def prompt_for_config_init(  # pylint: disable=too-many-locals
             ]
         )
 
-    answers = inquirer.prompt(prompts)
+    answers = inq.prompt(prompts)
     if not answers:
         raise logging.Info(message="Config init cancelled by user")
 
@@ -221,11 +236,12 @@ def prompt_for_missing_add_arguments(
         message is not None,
     )
     changelog_entry: dict[str, str] = {}
-    prompts: list[inquirer.questions.Question] = []
+    prompts: list[Any] = []
 
     if not change_type:
+        inq = _get_inquirer()
         prompts.append(
-            inquirer.List(
+            inq.List(
                 "change_type",
                 message="Specify the type of your change",
                 choices=TYPES_OF_CHANGE,
@@ -233,20 +249,22 @@ def prompt_for_missing_add_arguments(
         )
 
     if not message:
+        inq = _get_inquirer()
         prompts.append(
-            inquirer.Text("message", message="Message of the changelog entry to add")
+            inq.Text("message", message="Message of the changelog entry to add")
         )
 
     if prompts:
+        inq = _get_inquirer()
         prompts.append(
-            inquirer.List(
+            inq.List(
                 "confirm",
                 message="Apply changes to your CHANGELOG.md",
                 choices=["Yes", "No"],
                 default="Yes",
             )
         )
-        changelog_entry = inquirer.prompt(prompts) or {}
+        changelog_entry = inq.prompt(prompts) or {}
 
     if change_type:
         changelog_entry.setdefault("change_type", change_type)
@@ -275,9 +293,10 @@ def prompt_for_unreleased_entry(
         choices.append(label)
         choice_map[label] = (change_type, index)
 
-    answers = inquirer.prompt(
+    inq = _get_inquirer()
+    answers = inq.prompt(
         [
-            inquirer.List(
+            inq.List(
                 "entry",
                 message=f"Which entry should be {action}?",
                 choices=choices,
@@ -310,8 +329,9 @@ def resolve_entry_selection(
 def prompt_text(message: str, *, default: str | None = None) -> str:
     """Prompts for a single line of text, returning the stripped answer."""
 
-    answers = inquirer.prompt(
-        [inquirer.Text("value", message=message, default=default or "")]
+    inq = _get_inquirer()
+    answers = inq.prompt(
+        [inq.Text("value", message=message, default=default or "")]
     )
     if not answers:
         raise logging.Info(message=f"{message} cancelled by user")

@@ -30,7 +30,7 @@ DEFAULT_SCHEMA_VERSION: SchemaVersion = "current"
 def metadata_schema() -> dict[str, Any]:
     return {
         "type": "object",
-        "required": ["version", "release_date"],
+        "required": ["version"],
         "properties": {
             "version": {"type": "string", "minLength": 1},
             "release_date": {
@@ -39,6 +39,7 @@ def metadata_schema() -> dict[str, Any]:
                     {"type": "string", "format": "date"},
                 ]
             },
+            "url": {"type": "string"},
             "semantic_version": {
                 "type": "object",
                 "required": ["major", "minor", "patch", "prerelease", "buildmetadata"],

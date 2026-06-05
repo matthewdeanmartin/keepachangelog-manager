@@ -24,7 +24,6 @@ from __future__ import annotations
 
 from changelogmanager.cli.commands import (
     GitHub,
-    GitLab,
     command_add,
     command_backfill,
     command_config,
@@ -67,11 +66,10 @@ from changelogmanager.cli.parser import (
     add_dry_run_argument,
     build_parser,
 )
+from changelogmanager.gitlab import GitLab as GitLab  # noqa: PLC0414 (re-exported)
 
-# Interactive front-end module, re-exported so ``cli.inquirer`` patch targets work.
 from changelogmanager.cli.prompts import (
     component_defaults,
-    inquirer,
     interactive_enabled,
     prompt_for_config_init,
     prompt_for_missing_add_arguments,
@@ -82,6 +80,18 @@ from changelogmanager.cli.prompts import (
     resolve_required_value,
 )
 from changelogmanager.services import build_updated_config, classify_commit
+
+
+def __getattr__(name: str) -> object:
+    # Lazy re-export: tests patch ``cli.inquirer.prompt`` so we expose it here
+    # without paying the 200ms blessed/inquirer import on every CLI invocation.
+    if name == "inquirer":
+        import inquirer as _inq  # type: ignore  # noqa: PLC0415
+
+        globals()["inquirer"] = _inq
+        return _inq
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "CliContext",

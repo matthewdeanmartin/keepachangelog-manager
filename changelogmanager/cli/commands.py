@@ -21,7 +21,7 @@ from pathlib import Path
 
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager import services
-from changelogmanager.cli import prompts
+import changelogmanager.cli.prompts as prompts
 
 # Imported lazily where needed to avoid a circular import with parser/config_resolve.
 from changelogmanager.cli.config_resolve import resolved_config_path  # noqa: E402
@@ -37,14 +37,10 @@ from changelogmanager.config import (
 from changelogmanager.github import (
     GitHub as GitHub,
 )  # noqa: PLC0414 (re-exported; patched in tests)
-from changelogmanager.gitlab import (
-    GitLab as GitLab,
-)  # noqa: PLC0414 (re-exported; patched in tests)
 from changelogmanager.runtime_logging import VERBOSE, get_logger
 from changelogmanager.schema_validation import DEFAULT_SCHEMA_VERSION
 from changelogmanager.services import build_updated_config  # re-exported for the GUI
 from changelogmanager.skill_bundle import SKILL_NAME, export_skill
-from changelogmanager.version_bumper import bump_version_files, jiggle_available
 from changelogmanager.versioning import version_scheme_label
 
 logger = get_logger(__name__)
@@ -323,10 +319,13 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
     # Stage the release (no write yet) so we can compute the version for the
     # confirmation prompt, but defer the validity check for --bump-versions to
     # the service so behaviour matches the dry-run path.
-    if bump_versions and not jiggle_available():
-        raise logging.Error(
-            message="--bump-versions requires jiggle-version. Install it with: pip install 'keepachangelog-manager-fork[jiggle]'"
-        )
+    if bump_versions:
+        from changelogmanager.version_bumper import jiggle_available  # noqa: PLC0415
+
+        if not jiggle_available():
+            raise logging.Error(
+                message="--bump-versions requires jiggle-version. Install it with: pip install 'keepachangelog-manager-fork[jiggle]'"
+            )
 
     changelog.release(args.override_version)
     new_version = str(next(iter(changelog.get())))
@@ -359,6 +358,8 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
     )
 
     if bump_versions:
+        from changelogmanager.version_bumper import bump_version_files  # noqa: PLC0415
+
         bumped = bump_version_files(new_version, pyproject_only=pyproject_only)
         bumped_strs = [str(p) for p in bumped]
         for path in bumped_strs:
@@ -712,6 +713,8 @@ def command_gitlab_release(args: argparse.Namespace, ctx: CliContext) -> None:
         ctx.json_payload["version"] = str(future_version)
         ctx.json_payload["project"] = args.project
         return
+
+    from changelogmanager.gitlab import GitLab  # noqa: PLC0415
 
     gitlab = GitLab(project=args.project, token=token, gitlab_url=args.gitlab_url)
     release = gitlab.create_release(changelog=changelog, ref=args.ref)

@@ -24,30 +24,16 @@ from pathlib import Path
 from typing import Any
 
 import changelogmanager.llvm_diagnostics as logging
-from changelogmanager.backfill import (
-    apply_backfill_plan,
-    classify_commit_subject,
-    plan_backfill,
-    plan_unreleased_backfill,
-)
 from changelogmanager.change_types import UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
 from changelogmanager.changelog_reader import ChangelogReader
-from changelogmanager.commit_routing import (
-    git_log_with_files,
-    route_commit,
-    validate_routing_components,
-)
 from changelogmanager.config import (
     get_components_from_config,
     get_preamble_keywords,
     get_validation_options,
     get_versioning_scheme,
 )
-from changelogmanager.github import GitHub
-from changelogmanager.gitlab import GitLab
 from changelogmanager.runtime_logging import VERBOSE, get_logger
-from changelogmanager.version_bumper import bump_version_files, jiggle_available
 
 logger = get_logger(__name__)
 
@@ -118,10 +104,13 @@ def release_changelog(
     ``dry_run`` is True, no files are modified.
     """
 
-    if bump_versions and not jiggle_available():
-        raise logging.Error(
-            message="--bump-versions requires jiggle-version. Install it with: pip install 'keepachangelog-manager-fork[jiggle]'"
-        )
+    if bump_versions:
+        from changelogmanager.version_bumper import jiggle_available  # noqa: PLC0415
+
+        if not jiggle_available():
+            raise logging.Error(
+                message="--bump-versions requires jiggle-version. Install it with: pip install 'keepachangelog-manager-fork[jiggle]'"
+            )
 
     changelog.release(override_version)
     new_version = str(next(iter(changelog.get())))
@@ -138,6 +127,8 @@ def release_changelog(
     changelog.write_to_file()
 
     if bump_versions:
+        from changelogmanager.version_bumper import bump_version_files  # noqa: PLC0415
+
         bumped = bump_version_files(new_version, pyproject_only=pyproject_only)
         result.bumped_files = [str(p) for p in bumped]
 
@@ -193,8 +184,18 @@ def last_release_tag() -> str | None:
         return None
 
 
+def git_log_with_files(since: str | None) -> list[Any]:
+    """Returns commits (with touched files) since a ref. Module-level so tests can patch it."""
+
+    from changelogmanager.commit_routing import git_log_with_files as _impl  # noqa: PLC0415
+
+    return _impl(since)
+
+
 def classify_commit(subject: str) -> tuple[str, str] | None:
     """Maps a commit subject onto (change_type, message). Returns None to skip."""
+
+    from changelogmanager.backfill import classify_commit_subject  # noqa: PLC0415
 
     logger.log(VERBOSE, "Classifying commit subject: %s", subject)
     return classify_commit_subject(subject, schema="auto")
@@ -251,6 +252,8 @@ def seed_unreleased_from_commits(
     dry_run: bool = False,
 ) -> FromCommitsResult:
     """Classifies commits since ``since`` and adds them to [Unreleased]."""
+
+    from changelogmanager.backfill import classify_commit_subject  # noqa: PLC0415
 
     subjects = git_log_since(since)
     if not subjects:
@@ -317,6 +320,12 @@ def seed_components_from_commits(
                 "--all requires a configuration file (use --config or place changelogmanager.toml in cwd)"
             ),
         )
+    from changelogmanager.backfill import classify_commit_subject  # noqa: PLC0415
+    from changelogmanager.commit_routing import (  # noqa: PLC0415
+        route_commit,
+        validate_routing_components,
+    )
+
     components = get_components_from_config(config_path)
     validate_routing_components(components, config_path=config_path)
 
@@ -414,6 +423,8 @@ def plan_changelog_backfill(
 ) -> Any:
     """Returns a backfill plan (see :func:`changelogmanager.backfill.plan_backfill`)."""
 
+    from changelogmanager.backfill import plan_backfill  # noqa: PLC0415
+
     return plan_backfill(
         changelog,
         source=source,
@@ -429,6 +440,8 @@ def plan_changelog_backfill(
 def apply_changelog_backfill(changelog: Changelog, plan: Any) -> None:
     """Applies a backfill plan and writes the changelog when anything changed."""
 
+    from changelogmanager.backfill import apply_backfill_plan  # noqa: PLC0415
+
     apply_backfill_plan(changelog, plan)
     if plan.added_versions or plan.merged_versions:
         changelog.write_to_file()
@@ -440,6 +453,18 @@ class UnreleasedBackfillResult:
 
     added: list[dict[str, str]]
     since: str | None
+
+
+def plan_unreleased_backfill(
+    changelog: Changelog, *, since: str | None, commit_schema: str = "auto"
+) -> list[Any]:
+    """Module-level wrapper so tests can patch services.plan_unreleased_backfill."""
+
+    from changelogmanager.backfill import (  # noqa: PLC0415
+        plan_unreleased_backfill as _impl,
+    )
+
+    return _impl(changelog, since=since, commit_schema=commit_schema)
 
 
 def backfill_unreleased(
@@ -699,6 +724,8 @@ def github_release(
             version=str(future_version),
         )
 
+    from changelogmanager.github import GitHub  # noqa: PLC0415
+
     github = GitHub(repository=repository, token=token)
     github.delete_draft_releases()
     release = github.create_release(changelog=changelog, draft=draft)
@@ -734,6 +761,8 @@ def github_pull_request(
 
     if dry_run:
         return GitHubPRResult(dry_run=True)
+
+    from changelogmanager.github import GitHub  # noqa: PLC0415
 
     github = GitHub(repository=repository, token=token)
     pr = github.create_pull_request(head=head, base=base, title=title, body=body)
@@ -771,6 +800,8 @@ def gitlab_release(
     if dry_run:
         future_version = changelog.suggest_future_version()
         return GitLabReleaseResult(dry_run=True, version=str(future_version))
+
+    from changelogmanager.gitlab import GitLab  # noqa: PLC0415
 
     gitlab = GitLab(project=project, token=token, gitlab_url=gitlab_url)
     release = gitlab.create_release(changelog=changelog, ref=ref)

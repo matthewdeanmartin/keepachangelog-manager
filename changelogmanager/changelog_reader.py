@@ -641,7 +641,10 @@ class ChangelogReader:
         ]
 
         # Empty version (no change sections at all).
+        # An empty [Unreleased] is normal immediately after a release.
         if not change_sections:
+            if version == UNRELEASED_ENTRY:
+                return
             logger.warning(
                 "Version %s has no change sections in %s", version, self.file_path
             )

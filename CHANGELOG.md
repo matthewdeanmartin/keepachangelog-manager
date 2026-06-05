@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - config command now displays the effective configuration as TOML
 - Backfill `--strategy replace` is now an explicit unsupported error: changelog entries have no stable identity, so replacing them is unsafe
 - Backfill `--strategy merge` additively fills entries into existing versions while preserving existing text (idempotent on re-runs)
+- Lazy imports cut CLI startup time by ~45%
 
 ### Removed
 - to-yaml export command (use to-json or to-html)
@@ -26,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - config init --config <new-path> no longer crashes when the target config file does not exist yet
+- Schema validation no longer rejects metadata url fields added by the keepachangelog vendor parser
+- Schema validation no longer requires release_date in metadata (vendor parser omits it for unreleased-only-URL entries)
+- Validation no longer warns about empty [Unreleased] sections — having no pending changes after a release is valid
 
 ## [5.2.0] - 2026-05-30
 ### Added
