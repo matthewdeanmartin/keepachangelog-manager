@@ -22,6 +22,17 @@ logger = get_logger(__name__)
 
 CommitParser = Callable[[str], Optional[tuple[str, str]]]
 
+#: Default ceiling on commits considered in a single backfill run. Beyond this a
+#: changelog built from raw commits is unusable (thousands of bullet points) and
+#: the in-memory commit/entry lists grow without bound, so backfill refuses
+#: rather than silently producing garbage. ``0`` disables the guard entirely.
+MAX_COMMITS_DEFAULT = 5000
+
+#: Per-release ceiling on commit-derived entries. Even within the overall guard a
+#: single release interval can contain far more commits than belong in one
+#: changelog section; excess entries are dropped in favor of a summary line.
+MAX_ENTRIES_PER_RELEASE = 200
+
 CONVENTIONAL_RE = re.compile(
     r"^(?P<type>[a-zA-Z]+)(?:\([^)]+\))?(?P<breaking>!)?:\s*(?P<subject>.+)$"
 )
@@ -359,8 +370,15 @@ def discover_commit_releases(
     cwd: str | None = None,
     versioning_scheme: str = "semver",
     commit_schema: str = "auto",
+    max_commits: int = MAX_COMMITS_DEFAULT,
 ) -> tuple[list[BackfillRelease], list[str]]:
-    """Discovers releases from tag intervals and classifies commit subjects."""
+    """Discovers releases from tag intervals and classifies commit subjects.
+
+    Commits are gathered in a single ``git log`` pass and partitioned in Python
+    by tag decoration, so the number of git subprocesses is independent of the
+    tag count. ``max_commits`` guards against monster histories: when the walked
+    range exceeds it the run is refused before commits are parsed.
+    """
 
     tag_releases, skipped = discover_tag_releases(
         since=since,
@@ -372,13 +390,25 @@ def discover_commit_releases(
         tag_releases,
         key=lambda release: parse_version(release.version, versioning_scheme),
     )
+    tagged = [release for release in ascending if release.tag is not None]
+    if not tagged:
+        return [], skipped
+
+    # Walk only up to the newest in-scope tag; commits after it are [Unreleased].
+    newest_tag = tagged[-1].tag
+    assert newest_tag is not None  # noqa: S101 - narrowed by the filter above
+    enforce_commit_budget(newest_tag, max_commits=max_commits, cwd=cwd)
+
+    commit_rows = git_log_all_decorated(newest_tag, cwd=cwd)
+    commits_by_tag = partition_commits_by_tag(
+        commit_rows, ascending_tags=[release.tag for release in tagged]
+    )
+
     releases: list[BackfillRelease] = []
-    previous_tag: str | None = None
-    for tag_release in ascending:
-        if tag_release.tag is None:
-            continue
-        commits = git_log_between(previous_tag, tag_release.tag, cwd=cwd)
+    for tag_release in tagged:
+        commits = commits_by_tag.get(tag_release.tag, [])
         entries = entries_from_commits(commits, commit_schema=commit_schema)
+        entries = cap_release_entries(entries, len(commits))
         release = BackfillRelease(
             version=tag_release.version,
             date=tag_release.date,
@@ -392,10 +422,174 @@ def discover_commit_releases(
             ],
         )
         releases.append(release)
-        previous_tag = tag_release.tag
 
     releases.reverse()
     return releases, skipped
+
+
+def partition_commits_by_tag(
+    commit_rows: Sequence[tuple[str, list[str], str]],
+    *,
+    ascending_tags: Sequence[str],
+) -> dict[str, list[GitCommit]]:
+    """Assigns each commit to the release it belongs to from one decorated walk.
+
+    ``commit_rows`` come newest-first (git log default). Walking newest→oldest we
+    track the "current" release boundary: a commit decorated with a known tag
+    becomes the boundary for itself and all older commits until an even older tag
+    is reached. This reproduces the previous ``prev..current`` interval
+    partition without one ``git log`` per tag.
+    """
+
+    tag_order = {tag: index for index, tag in enumerate(ascending_tags)}
+    buckets: dict[str, list[GitCommit]] = {tag: [] for tag in ascending_tags}
+    # Newest tag is the default owner for commits seen before any tag decoration
+    # (e.g. the tag's own commit when --until lands mid-history).
+    current_tag = ascending_tags[-1] if ascending_tags else None
+
+    for sha, tags, subject in commit_rows:
+        owning = [tag for tag in tags if tag in tag_order]
+        if owning:
+            # If several known tags point at this commit, the oldest one owns the
+            # interval boundary going forward.
+            current_tag = min(owning, key=lambda tag: tag_order[tag])
+        if current_tag is None:
+            continue
+        buckets[current_tag].append(GitCommit(sha=sha, subject=subject))
+    return buckets
+
+
+def cap_release_entries(
+    entries: list[BackfillEntry], commit_count: int
+) -> list[BackfillEntry]:
+    """Caps per-release entries, appending a summary line when truncated.
+
+    Keeps changelog sections readable even when a single release interval spans
+    far more commits than belong in one section.
+    """
+
+    if len(entries) <= MAX_ENTRIES_PER_RELEASE:
+        return entries
+    kept = entries[:MAX_ENTRIES_PER_RELEASE]
+    dropped = commit_count - MAX_ENTRIES_PER_RELEASE
+    kept.append(
+        BackfillEntry(
+            change_type="changed",
+            text=(
+                f"… and {dropped} more commit(s) in this release "
+                "(truncated; narrow the range to capture them)."
+            ),
+            source="commits",
+            confidence="low",
+        )
+    )
+    return kept
+
+
+def count_commits(revision: str, *, cwd: str | None = None) -> int:
+    """Returns the number of non-merge commits in a revision range.
+
+    Uses ``git rev-list --count`` which only counts objects and never
+    materializes commit data, so it stays cheap even on monster histories. This
+    is the cheap pre-flight used to refuse runaway backfills before any commit is
+    parsed into memory.
+    """
+
+    cmd = [git_executable(), "rev-list", "--no-merges", "--count", revision]
+    try:
+        result = subprocess.run(  # nosec B603
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        raise logging.Error(message=f"git rev-list failed: {exc}") from exc
+    text = result.stdout.strip()
+    return int(text) if text else 0
+
+
+def enforce_commit_budget(
+    revision: str, *, max_commits: int, cwd: str | None = None
+) -> int:
+    """Refuses a backfill when ``revision`` holds more commits than allowed.
+
+    Returns the counted commit total when within budget. A ``max_commits`` of
+    ``0`` (or less) disables the guard. Raises a :class:`logging.Error` with
+    actionable guidance otherwise so the CLI surfaces a clear message instead of
+    emitting an unusable, thousands-of-entries changelog.
+    """
+
+    if max_commits <= 0:
+        return count_commits(revision, cwd=cwd)
+    total = count_commits(revision, cwd=cwd)
+    if total > max_commits:
+        raise logging.Error(
+            message=(
+                f"{total} commits in range {revision} exceeds the backfill limit "
+                f"of {max_commits}. This would create an unusable changelog. "
+                "Narrow the range with --since/--until, or pass --max-commits 0 "
+                "to override."
+            )
+        )
+    return total
+
+
+def git_log_all_decorated(
+    revision: str = "HEAD", *, cwd: str | None = None
+) -> list[tuple[str, list[str], str]]:
+    """Returns ``(sha, tag_names, subject)`` for every non-merge commit, once.
+
+    A single ``git log`` walk decorated with ``%D`` replaces the previous
+    per-tag ``git log`` fan-out: the whole history is partitioned in Python from
+    one subprocess, so cost is O(1) in the number of tags rather than O(tags).
+    ``tag_names`` are the (un-prefixed) tags pointing directly at each commit,
+    in git's emitted order; most commits carry none.
+    """
+
+    cmd = [
+        git_executable(),
+        "log",
+        "--no-merges",
+        "--pretty=%H%x1f%D%x1f%s",
+        revision,
+    ]
+    logger.info("Collecting all commits for backfill in one pass over %s", revision)
+    try:
+        result = subprocess.run(  # nosec B603
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        raise logging.Error(message=f"git log failed: {exc}") from exc
+
+    rows: list[tuple[str, list[str], str]] = []
+    for line in result.stdout.splitlines():
+        if not line.strip():
+            continue
+        sha, _, rest = line.partition("\x1f")
+        decoration, _, subject = rest.partition("\x1f")
+        rows.append((sha, parse_decoration_tags(decoration), subject.strip()))
+    return rows
+
+
+def parse_decoration_tags(decoration: str) -> list[str]:
+    """Extracts tag names from a ``%D`` ref-decoration field.
+
+    Git formats decorations as a comma-separated list where tags appear as
+    ``tag: <name>``; branches and ``HEAD`` are ignored.
+    """
+
+    tags: list[str] = []
+    for ref in decoration.split(","):
+        ref = ref.strip()
+        if ref.startswith("tag:"):
+            tags.append(ref[len("tag:") :].strip())
+    return tags
 
 
 def git_log_between(
@@ -540,6 +734,7 @@ def plan_backfill(
     dry_run: bool = False,
     commit_schema: str = "auto",
     strategy: str = "conservative",
+    max_commits: int = MAX_COMMITS_DEFAULT,
 ) -> BackfillPlan:
     """Builds a conservative backfill plan from the selected local source set.
 
@@ -565,6 +760,7 @@ def plan_backfill(
             until=until,
             versioning_scheme=versioning_scheme,
             commit_schema=commit_schema,
+            max_commits=max_commits,
         )
         sources = ["commits"] if source == "commits" else ["tags", "commits"]
     else:
@@ -665,15 +861,20 @@ def plan_unreleased_backfill(
     since: str | None = None,
     commit_schema: str = "auto",
     cwd: str | None = None,
+    max_commits: int = MAX_COMMITS_DEFAULT,
 ) -> list[BackfillEntry]:
     """Returns new [Unreleased] entries derived from commits since the latest release.
 
     Entries already present in the changelog's [Unreleased] section (matched on
     change type + normalized text) are filtered out so the plan is additive only.
+    ``max_commits`` guards the HEAD walk: when no tag exists the boundary is the
+    repository root, so an unguarded walk would ingest the entire history.
     """
 
     versioning_scheme = changelog.get_versioning_scheme()
     boundary = since or latest_release_tag(cwd=cwd, versioning_scheme=versioning_scheme)
+    revision = f"{boundary}..HEAD" if boundary else "HEAD"
+    enforce_commit_budget(revision, max_commits=max_commits, cwd=cwd)
     commits = git_log_between(boundary, "HEAD", cwd=cwd)
     candidates = entries_from_commits(commits, commit_schema=commit_schema)
 

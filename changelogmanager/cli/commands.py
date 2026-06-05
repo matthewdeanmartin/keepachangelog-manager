@@ -854,6 +854,7 @@ def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
         dry_run=args.dry_run,
         commit_schema=getattr(args, "commit_schema", "auto"),
         strategy=args.strategy,
+        max_commits=getattr(args, "max_commits", None),
     )
     ctx.json_payload.update(plan.to_json())
 
@@ -923,6 +924,7 @@ def backfill_unreleased(args: argparse.Namespace, ctx: CliContext) -> None:
         since=args.since,
         commit_schema=getattr(args, "commit_schema", "auto"),
         dry_run=args.dry_run,
+        max_commits=getattr(args, "max_commits", None),
     )
 
     ctx.json_payload["unreleased_added"] = result.added

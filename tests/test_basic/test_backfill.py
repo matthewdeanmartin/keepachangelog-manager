@@ -27,6 +27,34 @@ def fake_git_run_by_command(outputs):
     return run
 
 
+US = "\x1f"  # unit separator used by the single-pass decorated git log
+
+
+def decorated_log(rows):
+    """Builds %H\\x1f%D\\x1f%s output. Each row is (sha, [tags], subject)."""
+
+    lines = []
+    for sha, tags, subject in rows:
+        decoration = ", ".join(f"tag: {tag}" for tag in tags)
+        lines.append(f"{sha}{US}{decoration}{US}{subject}")
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
+def commit_git_outputs(*, for_each_ref, rows, count=None):
+    """Mock outputs for the single-pass commit discovery path.
+
+    ``rows`` is the decorated newest-first commit list; ``count`` is the
+    rev-list --count guard total (defaults to the number of rows).
+    """
+
+    return {
+        "for-each-ref": for_each_ref,
+        "rev-list --no-merges --count": str(len(rows) if count is None else count)
+        + "\n",
+        f"log --no-merges --pretty=%H%x1f%D%x1f%s": decorated_log(rows),
+    }
+
+
 def test_discover_tag_releases_normalizes_orders_and_skips_non_semver(monkeypatch):
     monkeypatch.setattr(
         backfill.subprocess,
@@ -95,15 +123,15 @@ def test_discover_commit_releases_uses_commits_before_tag_placeholders(monkeypat
         backfill.subprocess,
         "run",
         fake_git_run_by_command(
-            {
-                "for-each-ref": "v1.0.0\t2024-01-01\nv1.1.0\t2024-02-01\n",
-                "log --no-merges --pretty=%H%x09%s v1.0.0..v1.1.0": (
-                    "def456\t:bug: fix token cache\nfed789\tChanged: update parser registry\n"
-                ),
-                "log --no-merges --pretty=%H%x09%s v1.0.0": (
-                    "abc123\tfeat: first release\n"
-                ),
-            }
+            commit_git_outputs(
+                for_each_ref="v1.0.0\t2024-01-01\nv1.1.0\t2024-02-01\n",
+                # newest-first: v1.1.0's commits, then v1.0.0's tagged commit
+                rows=[
+                    ("def456", [], ":bug: fix token cache"),
+                    ("fed789", ["v1.1.0"], "Changed: update parser registry"),
+                    ("abc123", ["v1.0.0"], "feat: first release"),
+                ],
+            )
         ),
     )
 
@@ -123,15 +151,13 @@ def test_plan_backfill_commits_skips_existing_versions(monkeypatch):
         backfill.subprocess,
         "run",
         fake_git_run_by_command(
-            {
-                "for-each-ref": "v1.0.0\t2024-01-01\nv1.1.0\t2024-02-01\n",
-                "log --no-merges --pretty=%H%x09%s v1.0.0..v1.1.0": (
-                    "def456\tfix: repair cli\n"
-                ),
-                "log --no-merges --pretty=%H%x09%s v1.0.0": (
-                    "abc123\tfeat: first release\n"
-                ),
-            }
+            commit_git_outputs(
+                for_each_ref="v1.0.0\t2024-01-01\nv1.1.0\t2024-02-01\n",
+                rows=[
+                    ("def456", ["v1.1.0"], "fix: repair cli"),
+                    ("abc123", ["v1.0.0"], "feat: first release"),
+                ],
+            )
         ),
     )
     changelog = Changelog(
@@ -237,13 +263,14 @@ def test_command_backfill_rejects_replace_strategy():
 
 
 def commit_outputs():
-    return {
-        "for-each-ref": "v1.0.0\t2024-01-01\nv1.1.0\t2024-02-01\n",
-        "log --no-merges --pretty=%H%x09%s v1.0.0..v1.1.0": (
-            "def456\tfix: repair cli\nabc999\tfeat: add caching\n"
-        ),
-        "log --no-merges --pretty=%H%x09%s v1.0.0": ("abc123\tfeat: first release\n"),
-    }
+    return commit_git_outputs(
+        for_each_ref="v1.0.0\t2024-01-01\nv1.1.0\t2024-02-01\n",
+        rows=[
+            ("def456", [], "fix: repair cli"),
+            ("abc999", ["v1.1.0"], "feat: add caching"),
+            ("abc123", ["v1.0.0"], "feat: first release"),
+        ],
+    )
 
 
 def test_plan_backfill_merge_appends_new_entries_to_existing_version(monkeypatch):
@@ -412,6 +439,78 @@ def test_command_backfill_merge_reports_and_writes(monkeypatch, tmp_path, capsys
     output = capsys.readouterr().out
     assert "merge 1 new entry into 1.1.0" in output
     assert "add caching" in changelog_file.read_text(encoding="UTF-8")
+
+
+def test_parse_decoration_tags_extracts_only_tags():
+    decoration = "HEAD -> main, tag: v2.0.0, origin/main, tag: release-2"
+    assert backfill.parse_decoration_tags(decoration) == ["v2.0.0", "release-2"]
+    assert backfill.parse_decoration_tags("") == []
+
+
+def test_partition_commits_by_tag_assigns_intervals():
+    # Newest-first walk across three releases; untagged commits flow to the
+    # nearest newer tag's release.
+    rows = [
+        ("h1", [], "feat: post-2.0 work"),
+        ("h2", ["v2.0.0"], "feat: tag two"),
+        ("h3", [], "fix: between"),
+        ("h4", ["v1.0.0"], "feat: tag one"),
+    ]
+    buckets = backfill.partition_commits_by_tag(
+        rows, ascending_tags=["v1.0.0", "v2.0.0"]
+    )
+    assert [c.sha for c in buckets["v2.0.0"]] == ["h1", "h2", "h3"]
+    assert [c.sha for c in buckets["v1.0.0"]] == ["h4"]
+
+
+def test_discover_commit_releases_refuses_monster_history(monkeypatch):
+    monkeypatch.setattr(
+        backfill.subprocess,
+        "run",
+        fake_git_run_by_command(
+            commit_git_outputs(
+                for_each_ref="v1.0.0\t2024-01-01\n",
+                rows=[("a", ["v1.0.0"], "feat: x")],
+                count=10_001,
+            )
+        ),
+    )
+    with pytest.raises(logging.Error, match="exceeds the backfill limit"):
+        backfill.discover_commit_releases(max_commits=10_000)
+
+
+def test_discover_commit_releases_unlimited_when_max_commits_zero(monkeypatch):
+    monkeypatch.setattr(
+        backfill.subprocess,
+        "run",
+        fake_git_run_by_command(
+            commit_git_outputs(
+                for_each_ref="v1.0.0\t2024-01-01\n",
+                rows=[("a", ["v1.0.0"], "feat: x")],
+                count=10_000_000,
+            )
+        ),
+    )
+    releases, _ = backfill.discover_commit_releases(max_commits=0)
+    assert [r.version for r in releases] == ["1.0.0"]
+
+
+def test_cap_release_entries_truncates_with_summary():
+    entries = [
+        backfill.BackfillEntry(change_type="changed", text=f"c{i}", source="commits")
+        for i in range(backfill.MAX_ENTRIES_PER_RELEASE + 50)
+    ]
+    capped = backfill.cap_release_entries(entries, commit_count=len(entries))
+    assert len(capped) == backfill.MAX_ENTRIES_PER_RELEASE + 1
+    assert "50 more commit(s)" in capped[-1].text
+
+
+def test_backfill_parser_max_commits_option():
+    parser = cli.build_parser()
+    args = parser.parse_args(["backfill", "--max-commits", "0"])
+    assert args.max_commits == 0
+    default = parser.parse_args(["backfill"])
+    assert default.max_commits is None
 
 
 def test_backfill_parser_options():

@@ -416,6 +416,16 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
             "Commit message schema for commit-derived entries; auto tries Conventional Commits, gitmoji, and Keep a Changelog flavored subjects"
         ),
     )
+    backfill_parser.add_argument(
+        "--max-commits",
+        dest="max_commits",
+        type=int,
+        default=None,
+        help=(
+            "Refuse to backfill when the walked range exceeds this many commits "
+            "(default 5000); pass 0 to disable the guard for monster repos"
+        ),
+    )
     add_dry_run_argument(backfill_parser)
     backfill_parser.set_defaults(handler=commands.command_backfill)
 

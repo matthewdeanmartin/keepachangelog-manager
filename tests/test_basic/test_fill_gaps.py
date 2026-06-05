@@ -315,6 +315,7 @@ def test_plan_unreleased_backfill_filters_existing(monkeypatch):
             }
 
     monkeypatch.setattr(backfill, "latest_release_tag", lambda **kwargs: "v1.0.0")
+    monkeypatch.setattr(backfill, "count_commits", lambda revision, cwd=None: 2)
     monkeypatch.setattr(
         backfill,
         "git_log_between",
@@ -336,7 +337,7 @@ def test_command_backfill_include_unreleased_adds_entries(monkeypatch):
     monkeypatch.setattr(
         services,
         "plan_unreleased_backfill",
-        lambda cl, *, since, commit_schema: [
+        lambda cl, *, since, commit_schema, max_commits=None: [
             backfill.BackfillEntry(
                 change_type="added", text="new thing", source="commits"
             )
@@ -367,7 +368,7 @@ def test_command_backfill_include_unreleased_dry_run(monkeypatch, capsys):
     monkeypatch.setattr(
         services,
         "plan_unreleased_backfill",
-        lambda cl, *, since, commit_schema: [
+        lambda cl, *, since, commit_schema, max_commits=None: [
             backfill.BackfillEntry(change_type="fixed", text="a fix", source="commits")
         ],
     )

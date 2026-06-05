@@ -422,10 +422,14 @@ def plan_changelog_backfill(
     dry_run: bool,
     commit_schema: str,
     strategy: str,
+    max_commits: int | None = None,
 ) -> Any:
     """Returns a backfill plan (see :func:`changelogmanager.backfill.plan_backfill`)."""
 
-    from changelogmanager.backfill import plan_backfill  # noqa: PLC0415
+    from changelogmanager.backfill import (  # noqa: PLC0415
+        MAX_COMMITS_DEFAULT,
+        plan_backfill,
+    )
 
     return plan_backfill(
         changelog,
@@ -436,6 +440,7 @@ def plan_changelog_backfill(
         dry_run=dry_run,
         commit_schema=commit_schema,
         strategy=strategy,
+        max_commits=MAX_COMMITS_DEFAULT if max_commits is None else max_commits,
     )
 
 
@@ -458,15 +463,27 @@ class UnreleasedBackfillResult:
 
 
 def plan_unreleased_backfill(
-    changelog: Changelog, *, since: str | None, commit_schema: str = "auto"
+    changelog: Changelog,
+    *,
+    since: str | None,
+    commit_schema: str = "auto",
+    max_commits: int | None = None,
 ) -> list[Any]:
     """Module-level wrapper so tests can patch services.plan_unreleased_backfill."""
 
     from changelogmanager.backfill import (  # noqa: PLC0415
+        MAX_COMMITS_DEFAULT,
+    )
+    from changelogmanager.backfill import (
         plan_unreleased_backfill as _impl,
     )
 
-    return _impl(changelog, since=since, commit_schema=commit_schema)
+    return _impl(
+        changelog,
+        since=since,
+        commit_schema=commit_schema,
+        max_commits=MAX_COMMITS_DEFAULT if max_commits is None else max_commits,
+    )
 
 
 def backfill_unreleased(
@@ -475,6 +492,7 @@ def backfill_unreleased(
     since: str | None,
     commit_schema: str = "auto",
     dry_run: bool = False,
+    max_commits: int | None = None,
 ) -> UnreleasedBackfillResult:
     """Seeds [Unreleased] from commits since the latest release tag."""
 
@@ -482,6 +500,7 @@ def backfill_unreleased(
         changelog,
         since=since,
         commit_schema=commit_schema,
+        max_commits=max_commits,
     )
     added = [
         {"change_type": entry.change_type, "message": entry.text} for entry in entries

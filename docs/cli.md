@@ -355,12 +355,14 @@ changelogmanager backfill [OPTIONS]
 | `--include-unreleased` | `false` | Seed `[Unreleased]` from commits since the latest release tag |
 | `--strategy` | `conservative` | How to handle versions already present |
 | `--commit-schema` | `auto` | Commit schema for commit-derived entries |
+| `--max-commits N` | `5000` | Refuse when the walked range exceeds N commits; pass `0` to disable the guard |
 | `--dry-run` | | Preview without writing |
 
 Current behavior:
 
 - `--source tags` is implemented
-- `--source commits` fills tag intervals from local commit subjects
+- `--source commits` fills tag intervals from local commit subjects, gathered in a single `git log` pass (cost is independent of the number of tags)
+- `--max-commits` guards against monster histories: a range larger than the limit is refused with guidance to narrow `--since`/`--until`; within budget, any single release section is still capped to keep the changelog readable
 - `--source all` uses local commits when they produce entries and falls back to tag placeholders
 - `--commit-schema auto` tries Conventional Commits, gitmoji, and Keep a Changelog flavored subjects such as `Fixed: repair parser`
 - remote sources (`github-releases`, `github-prs`, `pypi`) are parsed but fail fast because they are not implemented yet
