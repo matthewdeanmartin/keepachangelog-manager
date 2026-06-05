@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import datetime
 import difflib
-import re
 from collections import OrderedDict
 from collections.abc import Generator, Mapping, Sequence
 from pathlib import Path
@@ -74,7 +73,10 @@ ENTRY_RULES = [
 
 AUTOFIX_PATTERNS = [
     (re2.compile(r"^#{1,6}\s+(.*)$"), "Removed heading marker from changelog entry"),
-    (re2.compile(r"^[0-9]+\.\s+(.*)$"), "Removed numbered-list marker from changelog entry"),
+    (
+        re2.compile(r"^[0-9]+\.\s+(.*)$"),
+        "Removed numbered-list marker from changelog entry",
+    ),
     (re2.compile(r"^[-+*]\s+(.*)$"), "Removed nested-list marker from changelog entry"),
     (re2.compile(r"^>+\s+(.*)$"), "Removed block-quote marker from changelog entry"),
 ]
@@ -106,18 +108,26 @@ class ChangelogReader:
             self.enforce_preamble,
         )
 
-    def read(self) -> dict[str, Any]:
-        """Reads the CHANGELOG.md file and checks for validity"""
+    def read(self, text: str | None = None) -> dict[str, Any]:
+        """Reads the CHANGELOG.md file and checks for validity.
+
+        Pass ``text`` to avoid a second disk read when the caller already holds
+        the file contents (transaction-local caching).
+        """
         logger.info("Reading changelog from %s", self.file_path)
 
-        if not Path(self.file_path).is_file():
-            logger.warning(
-                "Changelog file %s does not exist; returning empty data",
-                self.file_path,
-            )
+        if text is None:
+            if not Path(self.file_path).is_file():
+                logger.warning(
+                    "Changelog file %s does not exist; returning empty data",
+                    self.file_path,
+                )
+                return {}
+            text = Path(self.file_path).read_text(encoding="UTF-8")
+        elif not text and not Path(self.file_path).is_file():
             return {}
 
-        errors = self.validate_layout()
+        errors = self.validate_layout(text=text)
 
         if errors:
             logger.error(
@@ -129,7 +139,7 @@ class ChangelogReader:
             )
 
         changelog: dict[str, Any] = keepachangelog.to_dict(
-            self.file_path, show_unreleased=True
+            text.splitlines(keepends=True), show_unreleased=True
         )
 
         self.validate_contents(changelog)
@@ -387,22 +397,23 @@ class ChangelogReader:
                     expectations=rule["hint"],
                 )
 
-    def validate_preamble(self) -> list[logging.Error]:
+    def validate_preamble(self, text: str | None = None) -> list[logging.Error]:
         """Optional check that the first non-blank lines mention KaC + versioning."""
 
         if not self.enforce_preamble:
             logger.log(VERBOSE, "Skipping preamble validation for %s", self.file_path)
             return []
 
-        try:
-            content = Path(self.file_path).read_text(encoding="UTF-8")
-        except OSError:
-            logger.warning(
-                "Unable to read %s while validating preamble", self.file_path
-            )
-            return []
+        if text is None:
+            try:
+                text = Path(self.file_path).read_text(encoding="UTF-8")
+            except OSError:
+                logger.warning(
+                    "Unable to read %s while validating preamble", self.file_path
+                )
+                return []
 
-        head = content.lower()[:1024]
+        head = text.lower()[:1024]
         missing = [kw for kw in self.preamble_keywords if kw not in head]
         if not missing:
             logger.log(VERBOSE, "Preamble validation passed for %s", self.file_path)
@@ -422,8 +433,12 @@ class ChangelogReader:
             )
         ]
 
-    def validate_layout(self) -> int:
-        """Validates the changelog file according to KeepAChangelog conventions"""
+    def validate_layout(self, text: str | None = None) -> int:
+        """Validates the changelog file according to KeepAChangelog conventions.
+
+        Pass ``text`` to skip the disk read when the caller already holds the
+        file contents.
+        """
 
         logger.info("Validating changelog layout for %s", self.file_path)
         if not self.versioning_scheme_explicit:
@@ -432,13 +447,22 @@ class ChangelogReader:
                 self.versioning_scheme = detected
         line_number = 1
         errors: list[logging.Error] = []
-        with Path(self.file_path).open(encoding="UTF-8") as file_handle:
-            for line in file_handle:
-                errors.extend(list(self.validate_heading(line_number, line)))
-                errors.extend(list(self.validate_entry(line_number, line)))
-                line_number += 1
 
-        errors.extend(self.validate_preamble())
+        if text is None:
+            lines: list[str] = (
+                Path(self.file_path)
+                .read_text(encoding="UTF-8")
+                .splitlines(keepends=True)
+            )
+        else:
+            lines = text.splitlines(keepends=True)
+
+        for line in lines:
+            errors.extend(list(self.validate_heading(line_number, line)))
+            errors.extend(list(self.validate_entry(line_number, line)))
+            line_number += 1
+
+        errors.extend(self.validate_preamble(text=text))
 
         for error in errors:
             error.report()
@@ -450,15 +474,50 @@ class ChangelogReader:
         )
         return len(errors)
 
-    def autofix_text(self) -> tuple[str, list[str]]:
-        """Returns raw Markdown with safe layout fixes applied.
+    def count_layout_errors(self, text: str | None = None) -> int:
+        """Returns the number of layout errors without reporting them.
 
-        These fixes run before parsing, so they only handle line-local changes
-        that preserve the intended changelog structure.
+        Used for before/after comparisons around write operations.
         """
 
-        path = Path(self.file_path)
-        text = path.read_text(encoding="UTF-8")
+        if not self.versioning_scheme_explicit:
+            detected = detect_versioning_scheme_from_file(self.file_path)
+            if detected:
+                self.versioning_scheme = detected
+
+        if text is None:
+            try:
+                raw = Path(self.file_path).read_text(encoding="UTF-8")
+            except OSError:
+                return 0
+        else:
+            raw = text
+        lines = raw.splitlines(keepends=True)
+
+        count = 0
+        line_number = 1
+        for line in lines:
+            count += sum(1 for _ in self.validate_heading(line_number, line))
+            count += sum(1 for _ in self.validate_entry(line_number, line))
+            line_number += 1
+
+        if self.enforce_preamble:
+            head = raw.lower()[:1024]
+            missing = [kw for kw in self.preamble_keywords if kw not in head]
+            count += len(missing)
+
+        return count
+
+    def autofix_text(self, text: str | None = None) -> tuple[str, list[str]]:
+        """Returns raw Markdown with safe layout fixes applied.
+
+        Pass ``text`` to skip the disk read when the caller already holds the
+        file contents. These fixes run before parsing, so they only handle
+        line-local changes that preserve the intended changelog structure.
+        """
+
+        if text is None:
+            text = Path(self.file_path).read_text(encoding="UTF-8")
         fixed_lines: list[str] = []
         applied: list[str] = []
 

@@ -187,7 +187,9 @@ def last_release_tag() -> str | None:
 def git_log_with_files(since: str | None) -> list[Any]:
     """Returns commits (with touched files) since a ref. Module-level so tests can patch it."""
 
-    from changelogmanager.commit_routing import git_log_with_files as _impl  # noqa: PLC0415
+    from changelogmanager.commit_routing import (
+        git_log_with_files as _impl,
+    )  # noqa: PLC0415
 
     return _impl(since)
 
@@ -643,47 +645,61 @@ def validate_one_component(  # pylint: disable=too-many-locals
 ) -> list[str]:
     """Validates a single component, returning the list of applied fix labels."""
 
-    raw_applied: list[str] = []
-    read_path = path
-    temp_path: str | None = None
-    if fix:
-        raw_reader = ChangelogReader(
+    # Read the file once; pass the text through the pipeline to avoid re-reads.
+    original_text = (
+        Path(path).read_text(encoding="UTF-8") if Path(path).is_file() else ""
+    )
+
+    if not fix:
+        reader = ChangelogReader(
             file_path=path,
             enforce_preamble=enforce_preamble,
             preamble_keywords=preamble_keywords,
             versioning_scheme=versioning_scheme,
         )
-        fixed_text, raw_applied = raw_reader.autofix_text()
-        if raw_applied:
-            if dry_run:
-                with tempfile.NamedTemporaryFile(
-                    mode="w",
-                    encoding="UTF-8",
-                    suffix=".md",
-                    dir=str(Path(path).resolve().parent),
-                    delete=False,
-                ) as temp_handle:
-                    temp_handle.write(fixed_text)
-                    temp_path = temp_handle.name
-                read_path = temp_path
-            else:
-                Path(path).write_text(fixed_text, encoding="UTF-8")
+        reader.read(text=original_text)
+        return []
 
-    reader = ChangelogReader(
-        file_path=read_path,
+    raw_reader = ChangelogReader(
+        file_path=path,
         enforce_preamble=enforce_preamble,
         preamble_keywords=preamble_keywords,
         versioning_scheme=versioning_scheme,
     )
+    fixed_text, raw_applied = raw_reader.autofix_text(text=original_text)
+    working_text = fixed_text if raw_applied else original_text
+
+    # Validate fixed text via a temp file before touching the real file.
+    temp_path: str | None = None
     try:
-        data = reader.read()
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="UTF-8",
+            suffix=".md",
+            dir=str(Path(path).resolve().parent),
+            delete=False,
+        ) as temp_handle:
+            temp_handle.write(working_text)
+            temp_path = temp_handle.name
+
+        temp_reader = ChangelogReader(
+            file_path=temp_path,
+            enforce_preamble=enforce_preamble,
+            preamble_keywords=preamble_keywords,
+            versioning_scheme=versioning_scheme,
+        )
+        data = temp_reader.read(text=working_text)
     finally:
         if temp_path:
             Path(temp_path).unlink(missing_ok=True)
 
-    if not fix:
-        return []
-
+    # Use the original path reader for autofix (it knows the canonical path).
+    reader = ChangelogReader(
+        file_path=path,
+        enforce_preamble=enforce_preamble,
+        preamble_keywords=preamble_keywords,
+        versioning_scheme=versioning_scheme,
+    )
     fixed, applied = reader.autofix(data)
     cl = Changelog(
         file_path=path,
@@ -697,11 +713,36 @@ def validate_one_component(  # pylint: disable=too-many-locals
         if post != pre:
             format_entry = f"formatted {path} with mdformat"
     all_applied = raw_applied + applied + ([format_entry] if format_entry else [])
+
     if all_applied and not dry_run:
-        cl.write_to_file(
+        # Commit atomically: write final result and validate via temp first.
+        final_text = cl.render(
             formatter=formatter if format_entry else None,
             format_options=fmt_options if format_entry else None,
         )
+        temp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="UTF-8",
+                suffix=".md",
+                dir=str(Path(path).resolve().parent),
+                delete=False,
+            ) as temp_handle:
+                temp_handle.write(final_text)
+                temp_path = temp_handle.name
+            verify_reader = ChangelogReader(
+                file_path=temp_path,
+                enforce_preamble=enforce_preamble,
+                preamble_keywords=preamble_keywords,
+                versioning_scheme=versioning_scheme,
+            )
+            verify_reader.read(text=final_text)
+        finally:
+            if temp_path:
+                Path(temp_path).unlink(missing_ok=True)
+        Path(path).write_text(final_text, encoding="UTF-8")
+
     return all_applied
 
 

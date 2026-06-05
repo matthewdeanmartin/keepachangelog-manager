@@ -18,7 +18,7 @@ def test_read_raises_when_layout_validation_fails(tmp_path, monkeypatch):
     changelog_file.write_text("# placeholder\n", encoding="utf-8")
     reader = ChangelogReader(file_path=str(changelog_file))
 
-    monkeypatch.setattr(reader, "validate_layout", lambda: 2)
+    monkeypatch.setattr(reader, "validate_layout", lambda text=None: 2)
 
     with pytest.raises(logging.Error, match="2 errors detected in the layout"):
         reader.read()
@@ -38,10 +38,10 @@ def test_read_returns_parsed_changelog_after_validation(tmp_path, monkeypatch):
     )
     seen = {}
 
-    monkeypatch.setattr(reader, "validate_layout", lambda: 0)
+    monkeypatch.setattr(reader, "validate_layout", lambda text=None: 0)
     monkeypatch.setattr(
         "changelogmanager.changelog_reader.keepachangelog.to_dict",
-        lambda path, show_unreleased: parsed,
+        lambda path_or_lines, show_unreleased: parsed,
     )
     monkeypatch.setattr(
         reader,

@@ -45,14 +45,6 @@ CONVENTIONAL_TO_KAC = {
     "bug": "fixed",
     "changed": "changed",
     "perf": "changed",
-    "refactor": "changed",
-    "docs": "changed",
-    "style": "changed",
-    "test": "changed",
-    "tests": "changed",
-    "build": "changed",
-    "ci": "changed",
-    "chore": "changed",
     "revert": "changed",
     "deprecate": "deprecated",
     "deprecated": "deprecated",
@@ -60,6 +52,15 @@ CONVENTIONAL_TO_KAC = {
     "removed": "removed",
     "security": "security",
     "sec": "security",
+    # Non-user-facing types: excluded from KAC changelogs.
+    "refactor": None,
+    "docs": None,
+    "style": None,
+    "test": None,
+    "tests": None,
+    "build": None,
+    "ci": None,
+    "chore": None,
 }
 KEEPACHANGELOG_RE = re.compile(
     r"^(?:\[(?P<bracket>added|changed|deprecated|removed|fixed|security)\]|"
@@ -219,7 +220,11 @@ def commit_parsers_for_schema(schema: str) -> list[CommitParser]:
 
 
 def parse_conventional_commit(subject: str) -> tuple[str, str] | None:
-    """Parses Conventional Commit subjects."""
+    """Parses Conventional Commit subjects.
+
+    Returns ``None`` for commit types that are not user-facing (docs, style,
+    test, build, ci, chore, refactor) so they are excluded from the changelog.
+    """
 
     match = CONVENTIONAL_RE.match(subject)
     if not match:
@@ -230,7 +235,11 @@ def parse_conventional_commit(subject: str) -> tuple[str, str] | None:
         return None
     if bool(match.group("breaking")):
         return ("removed", body)
-    return (CONVENTIONAL_TO_KAC.get(commit_type, "changed"), body)
+    # Look up the KAC type; sentinel None means "skip this commit".
+    kac_type = CONVENTIONAL_TO_KAC.get(commit_type, "changed")
+    if kac_type is None:
+        return None
+    return (kac_type, body)
 
 
 def parse_keepachangelog_commit(subject: str) -> tuple[str, str] | None:

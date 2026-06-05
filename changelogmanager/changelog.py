@@ -3,7 +3,6 @@
 """Changelog"""
 
 import html
-import re
 from collections import OrderedDict
 from collections.abc import Mapping
 from datetime import datetime

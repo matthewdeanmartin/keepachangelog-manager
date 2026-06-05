@@ -19,9 +19,9 @@ import argparse
 import os
 from pathlib import Path
 
+import changelogmanager.cli.prompts as prompts
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager import services
-import changelogmanager.cli.prompts as prompts
 
 # Imported lazily where needed to avoid a circular import with parser/config_resolve.
 from changelogmanager.cli.config_resolve import resolved_config_path  # noqa: E402
@@ -279,6 +279,7 @@ def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
         )
         return
 
+    pre_errors: int = getattr(args, "pre_fix_error_count", 0) or 0
     ctx.changelog.set_data(fixed_data)
     ctx.changelog.write_to_file(
         formatter=formatter if format_entry else None,
@@ -287,6 +288,26 @@ def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
     for entry in all_applied:
         emit(ctx, text=f"fixed: {entry}")
     ctx.json_payload["fixed"] = all_applied
+
+    # Report before/after validation counts when there were pre-existing issues.
+    if pre_errors:
+        post_errors = reader.count_layout_errors()
+        ctx.json_payload["validation_errors_before"] = pre_errors
+        ctx.json_payload["validation_errors_after"] = post_errors
+        if post_errors:
+            emit(
+                ctx,
+                text=(
+                    f"Validation: {pre_errors} problem(s) before fix, "
+                    f"{post_errors} remaining. "
+                    f"Run 'changelogmanager validate' for details."
+                ),
+            )
+        else:
+            emit(
+                ctx,
+                text=f"Validation: resolved all {pre_errors} problem(s).",
+            )
 
 
 def command_release(args: argparse.Namespace, ctx: CliContext) -> None:

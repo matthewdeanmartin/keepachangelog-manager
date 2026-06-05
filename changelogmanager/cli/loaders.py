@@ -102,7 +102,11 @@ def resolve_versioning_scheme(config: str | None, file_path: str) -> str:
 def load_changelog_for_validate_fix(
     args: argparse.Namespace, config: str | None
 ) -> Changelog:
-    """Loads a changelog after applying raw-text validate --fix repairs."""
+    """Loads a changelog after applying raw-text validate --fix repairs.
+
+    The raw-text fix is validated against a temp file before the original is
+    overwritten, so a fix that breaks parsing never corrupts the source file.
+    """
 
     file_path = resolve_changelog_file(config, args.component, args.input_file)
     enforce_preamble = bool(
@@ -117,36 +121,56 @@ def load_changelog_for_validate_fix(
         preamble_keywords=preamble_keywords,
         versioning_scheme=versioning_scheme,
     )
-    fixed_text, raw_applied = reader.autofix_text()
+    original_text = (
+        Path(file_path).read_text(encoding="UTF-8") if Path(file_path).is_file() else ""
+    )
+    # Capture pre-fix error count for before/after reporting.
+    args.pre_fix_error_count = reader.count_layout_errors(text=original_text)
+    fixed_text, raw_applied = reader.autofix_text(text=original_text)
     args.raw_autofixes = raw_applied
 
-    read_path = file_path
-    temp_path: str | None = None
-    if raw_applied:
-        if getattr(args, "dry_run", False):
-            with tempfile.NamedTemporaryFile(
-                mode="w",
-                encoding="UTF-8",
-                suffix=".md",
-                dir=str(Path(file_path).resolve().parent),
-                delete=False,
-            ) as temp_handle:
-                temp_handle.write(fixed_text)
-                temp_path = temp_handle.name
-            read_path = temp_path
-        else:
-            Path(file_path).write_text(fixed_text, encoding="UTF-8")
-
-    try:
+    if not raw_applied:
+        # No raw fixes needed; parse directly from the in-memory text.
         changelog_dict = ChangelogReader(
-            file_path=read_path,
+            file_path=file_path,
             enforce_preamble=enforce_preamble,
             preamble_keywords=preamble_keywords,
             versioning_scheme=versioning_scheme,
-        ).read()
+        ).read(text=original_text)
+        return Changelog(
+            file_path=file_path,
+            changelog=changelog_dict,
+            versioning_scheme=versioning_scheme,
+        )
+
+    # Validate the fixed text via a temp file before touching the real file.
+    temp_path: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="UTF-8",
+            suffix=".md",
+            dir=str(Path(file_path).resolve().parent),
+            delete=False,
+        ) as temp_handle:
+            temp_handle.write(fixed_text)
+            temp_path = temp_handle.name
+
+        temp_reader = ChangelogReader(
+            file_path=temp_path,
+            enforce_preamble=enforce_preamble,
+            preamble_keywords=preamble_keywords,
+            versioning_scheme=versioning_scheme,
+        )
+        # Validate by parsing the fixed text; raises if the result is broken.
+        changelog_dict = temp_reader.read(text=fixed_text)
     finally:
         if temp_path:
             Path(temp_path).unlink(missing_ok=True)
+
+    # Validation passed — atomically commit the fix to the real file.
+    if not getattr(args, "dry_run", False):
+        Path(file_path).write_text(fixed_text, encoding="UTF-8")
 
     return Changelog(
         file_path=file_path,

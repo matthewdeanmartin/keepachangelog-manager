@@ -66,8 +66,6 @@ from changelogmanager.cli.parser import (
     add_dry_run_argument,
     build_parser,
 )
-from changelogmanager.gitlab import GitLab as GitLab  # noqa: PLC0414 (re-exported)
-
 from changelogmanager.cli.prompts import (
     component_defaults,
     interactive_enabled,
@@ -79,6 +77,7 @@ from changelogmanager.cli.prompts import (
     resolve_entry_selection,
     resolve_required_value,
 )
+from changelogmanager.gitlab import GitLab as GitLab  # noqa: PLC0414 (re-exported)
 from changelogmanager.services import build_updated_config, classify_commit
 
 

@@ -330,9 +330,7 @@ def prompt_text(message: str, *, default: str | None = None) -> str:
     """Prompts for a single line of text, returning the stripped answer."""
 
     inq = _get_inquirer()
-    answers = inq.prompt(
-        [inq.Text("value", message=message, default=default or "")]
-    )
+    answers = inq.prompt([inq.Text("value", message=message, default=default or "")])
     if not answers:
         raise logging.Info(message=f"{message} cancelled by user")
     return str(answers.get("value", "")).strip()

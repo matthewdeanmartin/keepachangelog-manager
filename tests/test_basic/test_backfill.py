@@ -51,7 +51,7 @@ def commit_git_outputs(*, for_each_ref, rows, count=None):
         "for-each-ref": for_each_ref,
         "rev-list --no-merges --count": str(len(rows) if count is None else count)
         + "\n",
-        f"log --no-merges --pretty=%H%x1f%D%x1f%s": decorated_log(rows),
+        "log --no-merges --pretty=%H%x1f%D%x1f%s": decorated_log(rows),
     }
 
 

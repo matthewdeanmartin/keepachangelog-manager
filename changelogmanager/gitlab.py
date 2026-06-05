@@ -2,7 +2,6 @@
 
 """GitLab"""
 
-import orjson
 from collections.abc import Mapping
 from enum import Enum
 from textwrap import dedent
@@ -10,6 +9,8 @@ from typing import Any, Optional
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
+
+import orjson
 
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import CATEGORIES, UNRELEASED_ENTRY

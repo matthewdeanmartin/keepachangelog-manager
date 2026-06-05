@@ -95,10 +95,15 @@ class TestCommitParsers:
         scope = "(api)" if scoped else ""
         bang = "!" if breaking else ""
         subject = f"{commit_type}{scope}{bang}: {prefix}{body}{suffix}"
-        expected_type = (
-            "removed" if breaking else backfill.CONVENTIONAL_TO_KAC[commit_type]
-        )
-        assert backfill.parse_conventional_commit(subject) == (expected_type, body)
+        kac_type = backfill.CONVENTIONAL_TO_KAC[commit_type]
+        if breaking:
+            # Breaking changes always map to "removed" regardless of type.
+            assert backfill.parse_conventional_commit(subject) == ("removed", body)
+        elif kac_type is None:
+            # Non-user-facing types are skipped (return None).
+            assert backfill.parse_conventional_commit(subject) is None
+        else:
+            assert backfill.parse_conventional_commit(subject) == (kac_type, body)
 
     @given(
         commit_type=st.text(
