@@ -4,9 +4,10 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Sequence
 from pathlib import Path
+
+import orjson
 
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.changelog import Changelog
@@ -76,7 +77,7 @@ def main(  # pylint: disable=too-many-return-statements
             )
             exit_code = run_validate_all(args, ctx, resolved_config)
             if args.json:
-                print(json.dumps(ctx.json_payload, indent=2))
+                print(orjson.dumps(ctx.json_payload, option=orjson.OPT_INDENT_2).decode())
             logger.info(
                 "Finished CLI command %s with exit code %d", args.command, exit_code
             )
@@ -91,7 +92,7 @@ def main(  # pylint: disable=too-many-return-statements
             )
             args.handler(args, ctx)
             if args.json:
-                print(json.dumps(ctx.json_payload, indent=2))
+                print(orjson.dumps(ctx.json_payload, option=orjson.OPT_INDENT_2).decode())
             logger.info("Finished CLI command %s successfully", args.command)
             return 0
 
@@ -121,7 +122,7 @@ def main(  # pylint: disable=too-many-return-statements
             )
             args.handler(args, context)
             if args.json:
-                print(json.dumps(context.json_payload, indent=2))
+                print(orjson.dumps(context.json_payload, option=orjson.OPT_INDENT_2).decode())
             logger.info("Finished CLI command %s successfully", args.command)
             return 0
 
@@ -141,7 +142,7 @@ def main(  # pylint: disable=too-many-return-statements
         )
         args.handler(args, context)
         if args.json:
-            print(json.dumps(context.json_payload, indent=2))
+            print(orjson.dumps(context.json_payload, option=orjson.OPT_INDENT_2).decode())
         logger.info("Finished CLI command %s successfully", args.command)
         return 0
     except (logging.Info, logging.Warning) as exc_info:

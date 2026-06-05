@@ -41,6 +41,10 @@ class DummyChangelog:
     def add(self, change_type, message):
         self.calls.append(("add", change_type, message))
 
+    def add_many(self, entries):
+        for change_type, message in entries:
+            self.calls.append(("add", change_type, message))
+
     def get(self, version=None):
         self.calls.append(("get", version))
         return {"metadata": {"version": version or UNRELEASED_ENTRY}}

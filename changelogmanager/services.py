@@ -222,13 +222,15 @@ def apply_classified_to_changelog(
 
     existing = existing_unreleased_keys(changelog)
     added: list[dict[str, str]] = []
+    to_add: list[tuple[str, str]] = []
     for change_type, message in classified:
         key = (change_type, message.strip().lower())
         if key in existing:
             continue
         existing.add(key)
-        changelog.add(change_type=change_type, message=message)
+        to_add.append((change_type, message))
         added.append({"change_type": change_type, "message": message})
+    changelog.add_many(to_add)
     return added
 
 
@@ -486,8 +488,7 @@ def backfill_unreleased(
     ]
 
     if added and not dry_run:
-        for entry in added:
-            changelog.add(change_type=entry["change_type"], message=entry["message"])
+        changelog.add_many([(e["change_type"], e["message"]) for e in added])
         changelog.write_to_file()
 
     return UnreleasedBackfillResult(added=added, since=since)

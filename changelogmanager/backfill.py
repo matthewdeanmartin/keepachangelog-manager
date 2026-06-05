@@ -394,10 +394,7 @@ def discover_commit_releases(
         releases.append(release)
         previous_tag = tag_release.tag
 
-    releases.sort(
-        key=lambda release: parse_version(release.version, versioning_scheme),
-        reverse=True,
-    )
+    releases.reverse()
     return releases, skipped
 
 

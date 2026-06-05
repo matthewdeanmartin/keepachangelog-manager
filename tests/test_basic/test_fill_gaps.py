@@ -42,6 +42,10 @@ class DummyChangelog:
     def add(self, change_type, message):
         self.added.append((change_type, message))
 
+    def add_many(self, entries):
+        for change_type, message in entries:
+            self.added.append((change_type, message))
+
     def write_to_file(self):
         self.calls.append(("write_to_file",))
 

@@ -3,13 +3,15 @@
 """Changelog"""
 
 import html
-import json
 import re
 from collections import OrderedDict
 from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
+
+import orjson
+import re2
 
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import (
@@ -129,6 +131,20 @@ class Changelog:
         # Ensure that the new entry is on top
         changelog.move_to_end(UNRELEASED_ENTRY, last=False)
 
+        self.changelog = dict(changelog)
+
+    def add_many(self, entries: list[tuple[str, str]]) -> None:
+        """Adds multiple (change_type, message) pairs in a single copy."""
+        if not entries:
+            return
+        changelog: OrderedDict[str, Any] = OrderedDict(self.changelog.copy())
+        changelog.setdefault(
+            UNRELEASED_ENTRY,
+            {"metadata": {"version": UNRELEASED_ENTRY, "release_date": None}},
+        )
+        for change_type, message in entries:
+            changelog[UNRELEASED_ENTRY].setdefault(change_type, []).append(message)
+        changelog.move_to_end(UNRELEASED_ENTRY, last=False)
         self.changelog = dict(changelog)
 
     def list_unreleased(self) -> list[tuple[str, int, str]]:
@@ -440,7 +456,8 @@ class Changelog:
             schema_version=schema_version,
             file_path=self.changelog_file_path,
         )
-        return json.dumps(json_data, indent=4)
+        # orjson returns bytes; decode to str. OPT_INDENT_2 provides pretty printing.
+        return orjson.dumps(json_data, option=orjson.OPT_INDENT_2).decode()
 
     def write_to_html(self, file: str, version: Optional[str] = None) -> None:
         """Stores the Changelog file in HTML format."""
@@ -539,7 +556,7 @@ class Changelog:
             r"and this project adheres to "
             r"\[Semantic Versioning\]\(https://semver\.org/spec/v2\.0\.0\.html\)\."
         )
-        return re.sub(
+        return re2.sub(
             semver_preamble,
             replacement,
             rendered,

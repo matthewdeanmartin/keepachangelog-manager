@@ -12,6 +12,8 @@ from collections.abc import Generator, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+import re2
+
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import (
     DEFAULT_CHANGELOG_FILE,
@@ -31,6 +33,51 @@ from changelogmanager.versioning import (
 
 PREAMBLE_KEYWORDS = ("keep a changelog", "semantic versioning")
 logger = get_logger(__name__)
+
+# Pre-compiled regexes for performance using re2
+VERSION_TAG_RE = re2.compile(r"\[(.*)\](.*)")
+METADATA_RE = re2.compile(r" - (.*)")
+DATE_RE = re2.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+HEADING_RE = re2.compile(r"^(#{1,6}) (.*)")
+ENTRY_RE = re2.compile(r"(\s*)[-+*] (.*)")
+HEADING_BODY_RE = re2.compile(r"^(#{1,6}) (.*)$")
+ENTRY_BODY_RE = re2.compile(r"^(\s*)[-+*] (.*)$")
+UNRELEASED_CASE_RE = re2.compile(r"(?i)^unreleased$")
+BRACKETED_UNRELEASED_RE = re2.compile(r"(?i)^\[unreleased\]$")
+VERSION_PATTERN_STR = r"v?[0-9A-Za-z]+(?:[._!+-]?[0-9A-Za-z]+)*"
+BARE_VERSION_RE = re2.compile(rf"^({VERSION_PATTERN_STR})(.*)$")
+BRACKETED_VERSION_RE = re2.compile(rf"^\[({VERSION_PATTERN_STR})\](.*)$")
+NORMALIZED_DATE_RE = re2.compile(r"^- (\d{4})[/.](\d{2})[/.](\d{2})$")
+
+ENTRY_RULES = [
+    {
+        "pattern": re2.compile(r"^(#{1,6}) .*"),
+        "error": "Block quotes are not permitted in changelog entries",
+        "hint": "Remove the heading marker; entries are plain '- ' bullets",
+    },
+    {
+        "pattern": re2.compile(r"^([0-9]+\.) .*"),
+        "error": "Numbered lists are not permitted in changelog entries",
+        "hint": "Use a '- ' bullet instead of a numbered '1.' list",
+    },
+    {
+        "pattern": re2.compile(r"^([+*-]) .*"),
+        "error": "Sub-lists are not permitted in changelog entries",
+        "hint": "Use a single '- ' bullet per entry; no nested bullets",
+    },
+    {
+        "pattern": re2.compile(r"^([>]+) .*"),
+        "error": "Block quotes are not permitted in changelog entries",
+        "hint": "Remove the '>' block-quote marker; entries are plain text",
+    },
+]
+
+AUTOFIX_PATTERNS = [
+    (re2.compile(r"^#{1,6}\s+(.*)$"), "Removed heading marker from changelog entry"),
+    (re2.compile(r"^[0-9]+\.\s+(.*)$"), "Removed numbered-list marker from changelog entry"),
+    (re2.compile(r"^[-+*]\s+(.*)$"), "Removed nested-list marker from changelog entry"),
+    (re2.compile(r"^>+\s+(.*)$"), "Removed block-quote marker from changelog entry"),
+]
 
 
 class ChangelogReader:
@@ -154,7 +201,7 @@ class ChangelogReader:
         self, line_number: int, line: str, depth: int, content: str
     ) -> Generator[logging.Error, None, None]:
         # Check if version tag ([x.y.z]) is present
-        match = re.compile(r"\[(.*)\](.*)").match(content)
+        match = VERSION_TAG_RE.match(content)
 
         if not match:
             # A very common mistake: writing a change section ("## Changed")
@@ -208,7 +255,7 @@ class ChangelogReader:
             return
 
         # Validate the availability of meta data (' - ')
-        match = re.compile(r" - (.*)").match(match.group(2))
+        match = METADATA_RE.match(match.group(2))
 
         if not match:
             yield logging.Error(
@@ -226,7 +273,7 @@ class ChangelogReader:
         release_date = match.group(1)
 
         # Verify that a date is present ('####-##-##')
-        match = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}").match(release_date)
+        match = DATE_RE.match(release_date)
 
         if not match:
             yield logging.Error(
@@ -266,7 +313,7 @@ class ChangelogReader:
     def validate_heading(
         self, line_number: int, line: str
     ) -> Generator[logging.Error, None, None]:
-        match = re.compile(r"^(#{1,6}) (.*)").match(line)
+        match = HEADING_RE.match(line)
 
         if not match:
             # Not a header, no validation required.
@@ -305,7 +352,7 @@ class ChangelogReader:
     def validate_entry(
         self, line_number: int, line: str
     ) -> Generator[logging.Error, None, None]:
-        match = re.compile(r"(\s*)[-+*] (.*)").match(line)
+        match = ENTRY_RE.match(line)
 
         if not match:
             # Not an entry, no validation required.
@@ -328,31 +375,8 @@ class ChangelogReader:
             )
             return
 
-        rules = [
-            {
-                "pattern": r"^(#{1,6}) .*",
-                "error": "Block quotes are not permitted in changelog entries",
-                "hint": "Remove the heading marker; entries are plain '- ' bullets",
-            },
-            {
-                "pattern": r"^([0-9]+\.) .*",
-                "error": "Numbered lists are not permitted in changelog entries",
-                "hint": "Use a '- ' bullet instead of a numbered '1.' list",
-            },
-            {
-                "pattern": r"^([+*-]) .*",
-                "error": "Sub-lists are not permitted in changelog entries",
-                "hint": "Use a single '- ' bullet per entry; no nested bullets",
-            },
-            {
-                "pattern": r"^([>]+) .*",
-                "error": "Block quotes are not permitted in changelog entries",
-                "hint": "Remove the '>' block-quote marker; entries are plain text",
-            },
-        ]
-
-        for rule in rules:
-            match = re.compile(rule["pattern"]).match(entry)
+        for rule in ENTRY_RULES:
+            match = rule["pattern"].match(entry)
             if match:
                 yield logging.Error(
                     file_path=self.file_path,
@@ -461,7 +485,7 @@ class ChangelogReader:
         body = line[:-1] if newline else line
         applied: list[str] = []
 
-        heading = re.compile(r"^(#{1,6}) (.*)$").match(body)
+        heading = HEADING_BODY_RE.match(body)
         if heading:
             hashes = heading.group(1)
             content = heading.group(2)
@@ -487,7 +511,7 @@ class ChangelogReader:
 
             return line, []
 
-        entry = re.compile(r"^(\s*)[-+*] (.*)$").match(body)
+        entry = ENTRY_BODY_RE.match(body)
         if not entry:
             return line, []
 
@@ -497,13 +521,8 @@ class ChangelogReader:
             applied.append("Removed leading indentation from changelog entry")
 
         fixed_entry = entry_text
-        for pattern, message in (
-            (r"^#{1,6}\s+(.*)$", "Removed heading marker from changelog entry"),
-            (r"^[0-9]+\.\s+(.*)$", "Removed numbered-list marker from changelog entry"),
-            (r"^[-+*]\s+(.*)$", "Removed nested-list marker from changelog entry"),
-            (r"^>+\s+(.*)$", "Removed block-quote marker from changelog entry"),
-        ):
-            marker = re.compile(pattern).match(fixed_entry)
+        for pattern_re, message in AUTOFIX_PATTERNS:
+            marker = pattern_re.match(fixed_entry)
             if marker:
                 fixed_entry = marker.group(1)
                 applied.append(message)
@@ -517,27 +536,24 @@ class ChangelogReader:
         fixed = content.strip()
         applied: list[str] = []
 
-        unreleased_match = re.compile(r"^unreleased$", re.IGNORECASE).match(fixed)
+        unreleased_match = UNRELEASED_CASE_RE.match(fixed)
         if unreleased_match:
             return f"[{UNRELEASED_ENTRY.title()}]", [
                 "Added brackets around Unreleased heading"
             ]
 
-        bracketed_unreleased = re.compile(r"^\[unreleased\]$", re.IGNORECASE).match(
-            fixed
-        )
+        bracketed_unreleased = BRACKETED_UNRELEASED_RE.match(fixed)
         if bracketed_unreleased and fixed != f"[{UNRELEASED_ENTRY.title()}]":
             return f"[{UNRELEASED_ENTRY.title()}]", [
                 "Canonicalized Unreleased heading casing"
             ]
 
-        version_pattern = r"v?[0-9A-Za-z]+(?:[._!+-]?[0-9A-Za-z]+)*"
-        bare_version = re.compile(rf"^({version_pattern})(.*)$").match(fixed)
+        bare_version = BARE_VERSION_RE.match(fixed)
         if bare_version:
             fixed = f"[{bare_version.group(1)}]{bare_version.group(2)}"
             applied.append("Added brackets around release version")
 
-        bracketed = re.compile(rf"^\[({version_pattern})\](.*)$").match(fixed)
+        bracketed = BRACKETED_VERSION_RE.match(fixed)
         if not bracketed:
             return content, []
 
@@ -551,7 +567,7 @@ class ChangelogReader:
             suffix = f"- {suffix.lstrip('-').strip()}"
             applied.append("Added metadata '-' separator to release heading")
 
-        date_match = re.compile(r"^- (\d{4})[/.](\d{2})[/.](\d{2})$").match(suffix)
+        date_match = NORMALIZED_DATE_RE.match(suffix)
         if date_match:
             candidate = "- " + "-".join(date_match.groups())
             try:

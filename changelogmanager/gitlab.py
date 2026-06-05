@@ -2,7 +2,7 @@
 
 """GitLab"""
 
-import json
+import orjson
 from collections.abc import Mapping
 from enum import Enum
 from textwrap import dedent
@@ -80,13 +80,13 @@ class GitLab:
         request = Request(
             method=method.value,
             url=url,
-            data=json.dumps(data).encode() if data else None,
+            data=orjson.dumps(data) if data else None,
             headers=self.headers,
         )
 
         try:
             with urlopen(request) as resp:  # nosec
-                response = resp.read().decode()
+                response = resp.read()
             if not response:
                 logger.warning(
                     "GitLab API %s %s returned an empty response", method.value, url
@@ -99,7 +99,7 @@ class GitLab:
                 url,
                 len(response),
             )
-            return json.loads(response)
+            return orjson.loads(response)
         except HTTPError as http_error:
             # 404 on a release lookup simply means "does not exist yet".
             if http_error.code == 404 and method is HttpMethods.GET:

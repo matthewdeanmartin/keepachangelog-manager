@@ -2,7 +2,6 @@
 
 """GitHub"""
 
-import json
 import os
 from collections.abc import Mapping, Sequence
 from enum import Enum
@@ -11,6 +10,8 @@ from typing import Any, Optional
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+
+import orjson
 
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import CATEGORIES, UNRELEASED_ENTRY
@@ -55,7 +56,7 @@ class GitHub:
             separator = "&" if "?" in url else "?"
             url = f"{url}{separator}{urlencode(data)}"
         elif data:
-            request_data = json.dumps(data).encode()
+            request_data = orjson.dumps(data)
             headers["Content-Type"] = "application/json"
 
         logger.info("Calling GitHub API %s %s", method.value, url)
@@ -71,10 +72,10 @@ class GitHub:
             headers=headers,
         )
 
-        response = ""
+        response = b""
         try:
             with urlopen(request) as resp:  # nosec
-                response = resp.read().decode()
+                response = resp.read()
 
             if not response:
                 logger.warning(
@@ -89,7 +90,7 @@ class GitHub:
                 url,
                 len(response),
             )
-            return json.loads(response)
+            return orjson.loads(response)
         except HTTPError as http_error:
             response_body = http_error.read().decode(errors="replace").strip()
             logger.error(

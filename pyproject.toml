@@ -13,6 +13,8 @@ dependencies = [
     "urllib3>=2.6.3,<3",
     "inquirer>=3.4.0,<4",
     "tomli>=2.4.1; python_version < '3.11'",
+    "google-re2>=1.1.20251105",
+    "orjson>=3.11.5",
 ]
 authors = [
     { name = "KevinDeJong-TomTom" },
