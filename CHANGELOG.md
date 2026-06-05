@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - backfill --max-commits guard refuses runaway histories and caps per-release entries to keep the changelog usable
+- All mutations run validation and warn on invalid initial and final states
 
 ## [6.0.0] - 2026-06-04
 ### Added

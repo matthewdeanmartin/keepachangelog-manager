@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import orjson
-import re2
+import re2  # type: ignore
 
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import (
@@ -555,9 +555,11 @@ class Changelog:
             r"and this project adheres to "
             r"\[Semantic Versioning\]\(https://semver\.org/spec/v2\.0\.0\.html\)\."
         )
-        return re2.sub(
-            semver_preamble,
-            replacement,
-            rendered,
-            count=1,
+        return str(
+            re2.sub(
+                semver_preamble,
+                replacement,
+                rendered,
+                count=1,
+            )
         )

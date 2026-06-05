@@ -11,7 +11,7 @@ from collections.abc import Generator, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-import re2
+import re2  # type: ignore
 
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import (

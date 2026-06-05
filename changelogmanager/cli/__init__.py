@@ -125,7 +125,7 @@ __all__ = [
     "configure_logging",
     "discover_formatter",
     "emit",
-    "inquirer",
+    "inquirer",  # pylint: disable=undefined-all-variable
     "interactive_enabled",
     "load_changelog",
     "load_changelog_for_validate_fix",

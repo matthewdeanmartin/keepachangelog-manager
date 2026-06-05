@@ -16,9 +16,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import changelogmanager.llvm_diagnostics as logging
-
-if TYPE_CHECKING:
-    import inquirer as inquirer  # type: ignore  # noqa: PLC0414
 from changelogmanager.change_types import TYPES_OF_CHANGE
 from changelogmanager.changelog import Changelog
 from changelogmanager.config import VERSIONING_SCHEMES
@@ -29,6 +26,9 @@ from changelogmanager.skill_bundle import (
     COPILOT_SKILLS_DIR,
 )
 
+if TYPE_CHECKING:
+    pass
+
 logger = get_logger(__name__)
 
 # Module-level cache so we only pay the import cost once per process.
@@ -38,7 +38,7 @@ _inquirer_module: Any = None
 def _get_inquirer() -> Any:
     global _inquirer_module  # noqa: PLW0603
     if _inquirer_module is None:
-        import inquirer as _inq  # type: ignore  # noqa: PLC0415
+        import inquirer as _inq  # type: ignore # noqa: PLC0415
 
         _inquirer_module = _inq
     return _inquirer_module

@@ -405,28 +405,33 @@ def discover_commit_releases(
 
     # Walk only up to the newest in-scope tag; commits after it are [Unreleased].
     newest_tag = tagged[-1].tag
-    assert newest_tag is not None  # noqa: S101 - narrowed by the filter above
+    if newest_tag is None:
+        return [], skipped
     enforce_commit_budget(newest_tag, max_commits=max_commits, cwd=cwd)
 
     commit_rows = git_log_all_decorated(newest_tag, cwd=cwd)
     commits_by_tag = partition_commits_by_tag(
-        commit_rows, ascending_tags=[release.tag for release in tagged]
+        commit_rows,
+        ascending_tags=[str(release.tag) for release in tagged if release.tag],
     )
 
     releases: list[BackfillRelease] = []
     for tag_release in tagged:
-        commits = commits_by_tag.get(tag_release.tag, [])
+        tag = tag_release.tag
+        if tag is None:
+            continue
+        commits = commits_by_tag.get(tag, [])
         entries = entries_from_commits(commits, commit_schema=commit_schema)
         entries = cap_release_entries(entries, len(commits))
         release = BackfillRelease(
             version=tag_release.version,
             date=tag_release.date,
-            tag=tag_release.tag,
+            tag=tag,
             title=None,
             body=None,
             entries=entries or tag_release.entries,
             sources=[
-                BackfillSource(name="commits", identifier=tag_release.tag),
+                BackfillSource(name="commits", identifier=tag),
                 *tag_release.sources,
             ],
         )
