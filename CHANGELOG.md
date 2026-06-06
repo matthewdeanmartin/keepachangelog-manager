@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Readme improvements
+
 ## [6.1.0] - 2026-06-05
 
 ### Changed
@@ -22,17 +28,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Support for pep440 and calver
 - Implemented backfill
-- Interactive (inquirer) prompts for remove, edit, github-release, github-pr, and gitlab-release when required arguments are omitted in a TTY
+- Interactive (inquirer) prompts for remove, edit, github-release, github-pr, and gitlab-release when required arguments
+  are omitted in a TTY
 - backfill --include-unreleased seeds [Unreleased] from commits since the latest release tag
 - from-commits --all routes commits to components by the files they touch, using per-component match globs
-- Configuration in [tool.changelogmanager] (pyproject.toml) or a standalone changelogmanager.toml; [defaults]/[github]/[gitlab] tables back CLI flag defaults (flag > env > config > built-in default)
+- Configuration in [tool.changelogmanager] (pyproject.toml) or a standalone
+  changelogmanager.toml; [defaults]/[github]/[gitlab] tables back CLI flag defaults (flag > env > config > built-in
+  default)
 
 ### Changed
 
 - Configuration is now TOML-only; YAML config files are no longer read or written
 - config command now displays the effective configuration as TOML
-- Backfill `--strategy replace` is now an explicit unsupported error: changelog entries have no stable identity, so replacing them is unsafe
-- Backfill `--strategy merge` additively fills entries into existing versions while preserving existing text (idempotent on re-runs)
+- Backfill `--strategy replace` is now an explicit unsupported error: changelog entries have no stable identity, so
+  replacing them is unsafe
+- Backfill `--strategy merge` additively fills entries into existing versions while preserving existing text (idempotent
+  on re-runs)
 - Lazy imports cut CLI startup time by ~45%
 
 ### Removed

@@ -129,3 +129,8 @@ dont-be-lazy:
 .PHONY: pydoc-docs
 pydoc-docs:
 	@$(UV) pydoc_fork keepachangelog -o ./pydoc/
+
+.PHONY: gui
+gui:
+	@$(UV) run changelogmanager gui
+
