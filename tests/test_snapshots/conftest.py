@@ -17,6 +17,25 @@ from typing import Any
 
 import mdformat
 import pytest
+from freezegun import freeze_time
+
+# A fixed "today" so any command that stamps the current date (e.g. ``release``
+# writes ``## [x.y.z] - <today>``) produces deterministic, snapshot-stable output.
+# Chosen distinct from the 2024-* fixture dates so it is easy to spot.
+FROZEN_TODAY = "2025-07-15"
+
+
+@pytest.fixture(autouse=True)
+def _freeze_today():
+    """Pins ``datetime.now()`` for every snapshot test.
+
+    The ``release`` command stamps the current date into the changelog; without
+    freezing, the resulting snapshot would only match on the calendar day it was
+    regenerated and fail every day after. Freezing makes it deterministic.
+    """
+
+    with freeze_time(FROZEN_TODAY):
+        yield
 
 # ---------------------------------------------------------------------------
 # Re-use the repo-level isolate_cwd so snapshot tests also run in a temp dir.
@@ -161,9 +180,22 @@ def run_cli():
 # ---------------------------------------------------------------------------
 
 
+def _mask_today(text: str) -> str:
+    """Replaces the frozen "today" date with a stable placeholder.
+
+    Defence in depth on top of the ``_freeze_today`` fixture: even if a future
+    change stamps the real current date somewhere, masking the frozen value keeps
+    the assertion from silently re-becoming a calendar time-bomb. Static
+    fixture dates (2024-*) are deliberately left untouched so they still pin
+    exact expected content.
+    """
+
+    return text.replace(FROZEN_TODAY, "<TODAY>")
+
+
 def normalise_md(text: str) -> str:
     """Run mdformat so cosmetic whitespace differences don't cause snapshot mismatches."""
-    return mdformat.text(text)
+    return _mask_today(mdformat.text(text))
 
 
 def normalise_json(text: str) -> str:
@@ -185,4 +217,5 @@ def normalise_paths(text: str, root: Path) -> str:
     # cross-platform if someone regenerates on a different OS.
     normalized = normalized.replace("\\", "/")
     # Normalise the placeholder itself just in case.
-    return normalized.replace(str(root).replace("\\", "/"), placeholder)
+    normalized = normalized.replace(str(root).replace("\\", "/"), placeholder)
+    return _mask_today(normalized)

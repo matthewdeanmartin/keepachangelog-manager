@@ -905,6 +905,84 @@ examples:
     add_dry_run_argument(lint_commits_parser)
     lint_commits_parser.set_defaults(handler=commands.command_lint_commits)
 
+    rewrite_messages_parser = subparsers.add_parser(
+        "rewrite-messages",
+        help=(
+            "Plan subject rewrites over UNPUSHED commits (apply not yet "
+            "implemented)"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+Scoped to unpushed commits only (@{upstream}..HEAD), so it can never touch
+shared history. The plan path is read-only; --apply is not yet implemented.
+
+examples:
+  # show suggested rewrites for unclassifiable unpushed commits
+  changelogmanager rewrite-messages
+
+  # write the plan to a file you can review/edit
+  changelogmanager rewrite-messages --plan-out rewrite-plan.tsv
+
+  # machine-readable plan
+  changelogmanager --json rewrite-messages
+
+  # force every suggestion to use the 'Changed:' prefix
+  changelogmanager rewrite-messages --auto-prefix changed
+
+  # apply is intentionally disabled until full safeties exist:
+  changelogmanager rewrite-messages --apply --yes   # -> not implemented (exit 1)
+""",
+    )
+    rewrite_messages_parser.add_argument(
+        "--commit-schema",
+        choices=["auto", "conventional", "gitmoji", "keepachangelog"],
+        default=None,
+        help="Commit message schema to lint against (default: config or auto)",
+    )
+    rewrite_messages_parser.add_argument(
+        "--plan-out",
+        dest="plan_out",
+        default=None,
+        help="Write the rewrite plan (TSV) to this file instead of stdout",
+    )
+    rewrite_messages_parser.add_argument(
+        "--auto-prefix",
+        dest="auto_prefix",
+        choices=TYPES_OF_CHANGE,
+        default=None,
+        help=(
+            "Force every suggested subject to use this category prefix instead "
+            "of guessing one from keywords"
+        ),
+    )
+    rewrite_messages_parser.add_argument(
+        "--apply",
+        action="store_true",
+        default=False,
+        help=(
+            "Apply the rewrite (NOT YET IMPLEMENTED; requires --yes or an "
+            "interactive confirmation, then fails fast)"
+        ),
+    )
+    rewrite_messages_parser.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        default=False,
+        help="Consent to apply non-interactively (for the future apply path)",
+    )
+    rewrite_messages_parser.add_argument(
+        "--max-commits",
+        dest="max_commits",
+        type=int,
+        default=None,
+        help=(
+            "Refuse when the unpushed range exceeds this many commits "
+            "(default 5000); pass 0 to disable the guard"
+        ),
+    )
+    rewrite_messages_parser.set_defaults(handler=commands.command_rewrite_messages)
+
     credentials_parser = subparsers.add_parser(
         "credentials",
         help="Manage stored API tokens in the OS keyring",

@@ -1,11 +1,12 @@
 # Commit message linting design
 
-Status: **Phases 1–2 implemented** · Owner: TBD · Last updated: 2026-06-06
+Status: **Phases 1–3 implemented (Phase 3 apply intentionally stubbed)** · Owner: TBD · Last updated: 2026-06-06
 
-> **Implementation progress.** Phase 1 (core + pre-commit hook) and Phase 2
-> (the read-only `lint-commits` audit) are implemented and tested; see the
-> "Implementation status" section at the end of this spec. Phases 3–4 remain
-> proposed.
+> **Implementation progress.** Phase 1 (core + pre-commit hook), Phase 2 (the
+> read-only `lint-commits` audit), and Phase 3 (the `rewrite-messages` plan path,
+> scoped to unpushed commits, with `--apply` left as a deliberate fail-fast stub)
+> are implemented and tested; see the "Implementation status" section at the end
+> of this spec. Phase 4 (GUI rewriter) remains proposed.
 
 ## Goal
 
@@ -301,117 +302,115 @@ set; otherwise `0` (audit is informational by default).
 
 ## Feature 3 — rewrite old messages (`rewrite-messages`)
 
-The dangerous one. Help maintainers fix historical subjects so backfill
-classifies them. This rewrites commit hashes for every descendant commit — it is
-the "successor to BFG" piece and must be treated with the same caution.
+The dangerous one — so it is **deliberately scoped down and the apply path is
+left unimplemented** until full safeties are in place. Rewriting history that has
+already been pushed corrupts collaborators' clones and is irreversible; we refuse
+to ship that risk on a convenience command.
 
-`rewrite-messages` is a **top-level CLI command**, designed for **LLM/agent
-consumption**: deterministic flags, no interactive prompts on the LLM path, a
-JSON-first contract, and a mapping file as the unit of work an agent can read,
-edit, and re-feed. **Humans are expected to drive the rewriter from the GUI**
-(Feature 4), not from the bare CLI. The CLI is therefore optimized for
-scriptability; the safety ergonomics that a human needs (preview, per-commit
-review, confirmation) live in the GUI on top of the same core.
+### Hard scope: unpushed commits only
 
-### Tooling choice
+`rewrite-messages` will **only ever** consider commits that are **not yet
+pushed** to any remote-tracking branch. Concretely the candidate range is
+bounded by the upstream:
 
-Use **`git filter-repo`** (the modern, Git-project-recommended successor to
-`git filter-branch` and the spiritual successor to BFG) via its
-`--message-callback`. Do **not** shell out to `git filter-branch` (slow, footgun
-defaults) and do **not** depend on `bfg` (Java, jar distribution, aimed at blob
-removal not message edits).
+```
+@{upstream}..HEAD      # or @{push}..HEAD when configured
+```
 
-`git filter-repo` is an external dependency. Treat it like `jiggle-version` for
-`--bump-versions`: an **optional** extra. Detect it at runtime; if absent, fail
-with an actionable install hint (`pip install git-filter-repo`) rather than a
-traceback. Add a `rewrite` optional-dependency group / document the requirement.
+Commits reachable from any remote-tracking ref are **out of scope, permanently**
+— the command must refuse to include them, not merely warn. This bounds the blast
+radius to local-only history a developer can safely amend, and sidesteps the
+"force-push + everyone re-clones" catastrophe entirely. If there is no upstream
+(a brand-new local branch), the range is still bounded and the command states
+clearly that it is operating on local-only commits.
+
+This makes `rewrite-messages` a *bulk local cleanup* tool — the safe middle
+ground between `git commit --amend` (last commit only) and
+`git rebase -i`/`filter-repo` over shared history (out of scope). For the most
+recent commit, the docs should still recommend plain `git commit --amend`.
+
+### Confirmation is mandatory
+
+Even within the unpushed-only scope, applying requires explicit consent:
+
+- **`--yes`** on the CLI (the agent/non-interactive path), **or**
+- an interactive **`input()` confirmation** in a TTY (the human-at-a-terminal
+  path), reusing the existing `release` confirmation pattern.
+
+A bare apply attempt in a non-TTY without `--yes` is a usage error (exit 2) that
+names the missing flag — never a hang, never an implicit "yes".
+
+### Apply is UNIMPLEMENTED for now
+
+The **plan/preview path is implemented**; the **apply path is an explicit
+fail-fast stub**, following this project's established "hide until real" pattern
+for not-yet-safe branches (see the future-phase backfill branches in
+`spec/fill_gaps.md`). Until the full safety envelope below is built and tested,
+`--apply` raises a handled error explaining that history rewriting is not yet
+implemented and pointing at `git commit --amend` / `git rebase -i` for now.
+
+Reasons the apply path stays stubbed until later:
+
+- The actual rewrite must be proven to never touch pushed commits, never touch
+  bodies, never touch merge commits, and to refuse on a dirty tree — each needs
+  isolated tests against throwaway repos.
+- `git filter-repo` (the intended engine) is an external optional dependency
+  that still needs runtime detection + an install hint.
+- Re-lint-before-write (fail-closed) and a verified post-rewrite state need to
+  be in place so a rewrite can't land history in a *still-wrong* state.
 
 ### Command shape (LLM-facing CLI)
 
 ```sh
-changelogmanager rewrite-messages [--since REF] [--until REF]
-                                  [--commit-schema …]
+changelogmanager rewrite-messages [--commit-schema …]
                                   [--plan-out FILE]       # write mapping plan (default action)
-                                  [--mapping FILE]        # apply this (edited) mapping
                                   [--auto-prefix changed] # bulk-prefix unclassified in the plan
-                                  [--apply]               # actually rewrite history
-                                  [--force]               # bypass dirty/unsafe-repo refusal
-                                  [--yes]                 # skip the confirmation gate (non-TTY)
-                                  [--json]                # machine-readable plan/result
+                                  [--apply]               # UNIMPLEMENTED: fail-fast stub
+                                  [--yes]                 # consent for a future apply path
+                                  [--json]                # machine-readable plan
 ```
 
-Two complementary modes — the split is deliberate so an agent does the
-**read → propose → (human-or-agent edits) → apply** loop with two discrete,
-inspectable CLI calls:
+Note there is **no `--since`/`--until`**: the range is fixed to unpushed commits
+(`@{upstream}..HEAD`) and is not user-overridable, by design. There is **no
+`--force`**: nothing about this command may reach pushed history, so there is
+nothing to force past.
 
-1. **Plan mode (default; no history touched).** Runs the audit and, for each
-   non-exempt `UNCLASSIFIED` commit, proposes a rewritten subject (prepend
-   `Changed: `, or a keyword-guessed category). Writes a mapping plan to
-   `--plan-out` (or stdout under `--json`). The record shape is stable and
-   round-trippable:
+**Plan mode (default; implemented; no history touched).** Runs the audit over the
+unpushed range and, for each non-exempt `UNCLASSIFIED` commit, proposes a
+rewritten subject (prepend `Changed: `, or a keyword-guessed category). Writes a
+mapping plan to `--plan-out` (or stdout under `--json`). The record shape is
+stable and round-trippable:
 
-   ```
-   sha<TAB>old_subject<TAB>suggested_subject<TAB>outcome_after
-   ```
+```
+sha<TAB>old_subject<TAB>suggested_subject<TAB>outcome_after
+```
 
-   Under `--json`, the same as an array of objects plus the audit counts. This
-   is the artifact an LLM reads, reasons over, and rewrites before applying.
-   **No history is touched in this mode**, so it is always safe to run.
-2. **Apply mode (`--apply --mapping FILE`).** Consumes a (possibly edited)
-   mapping file and runs `git filter-repo --message-callback` to apply exactly
-   those subject rewrites, leaving bodies untouched. Re-lints each rewritten
-   subject *before* applying and refuses the whole batch if any proposed
-   subject is still `UNCLASSIFIED` (fail-closed: never rewrite history into a
-   state that is still wrong).
+Under `--json`, the same as an array of objects plus the audit counts and the
+`unpushed_range` it was computed over. This is the artifact an LLM reads, reasons
+over, and edits — and, once apply lands, re-feeds. **No history is touched in
+plan mode, ever**, so it is always safe to run.
 
-The two-call contract matters for agents: the plan is a checkpoint the LLM (or a
-human in the GUI) can diff and approve, and apply is a separate, explicit,
-auditable step. Never fold plan+apply into one call.
+**Apply mode (`--apply`; UNIMPLEMENTED).** Currently a fail-fast stub as above.
+When built, it will: re-verify the range is still entirely unpushed; require
+`--yes` or an `input()` confirmation; re-lint each proposed subject and refuse
+the batch if any is still `UNCLASSIFIED` (fail-closed); refuse on a dirty tree;
+and only then run `git filter-repo --message-callback` over the unpushed range,
+editing subjects only and never merge commits.
 
-### Safety requirements (shared core)
+### Future tooling choice (when apply is built)
 
-History rewriting is irreversible from the tool's perspective, so the **core**
-enforces — regardless of caller (CLI or GUI):
+The intended engine is **`git filter-repo`** (the modern successor to
+`git filter-branch` / BFG) via `--message-callback`, as an **optional**
+dependency (like `jiggle-version` for `--bump-versions`): detected at runtime
+with an install hint, never a traceback. Plan mode never needs it.
 
-- **Apply is opt-in.** Without `--apply` the command only ever produces a plan.
-  There is no "do everything" default.
-- **Refuse on a dirty working tree** (uncommitted changes) and on a repo
-  `git filter-repo` considers unsafe (not a fresh clone), mirroring its own
-  `--force`-gated check. `--force` forwards that override; surface
-  filter-repo's guidance rather than suppressing it.
-- **Re-lint before write, fail-closed** as above.
-- **Only edit subjects, never bodies**, and never touch merge commits.
-- **`git filter-repo` is an optional dependency.** Plan mode must work without
-  it (pure audit + suggestion). Apply mode detects it and fails with an install
-  hint (`pip install git-filter-repo`) when missing — never a traceback.
-- **Never run against a real repo in this project's own tests.** Per
-  `CLAUDE.md`, the `isolate_cwd` fixture `chdir`s tests into temp dirs; rewrite
-  tests must build a throwaway git repo in `tmp_path` and operate only there.
-  Smoke scripts under `scripts/` must confine any rewrite to their `build/`
-  temp dirs.
+### Testing constraint
 
-### CLI-specific (LLM) ergonomics
-
-- **No interactive prompt on the CLI apply path.** The LLM path is
-  non-interactive: apply requires `--apply` *and* (`--force` to clear the
-  dirty/unsafe gate when applicable) *and* `--yes` to clear the
-  confirmation gate. A bare `--apply` in a non-TTY without `--yes` is a usage
-  error (exit 2) that prints exactly which flags are missing — so an agent gets
-  a deterministic, recoverable failure rather than a hang.
-- **Print/emit the blast radius** in both plan and apply output: number of
-  commits whose hash will change, plus the standard "this rewrites shared
-  history; collaborators must re-clone or force-pull" warning. Under `--json`
-  this is a `blast_radius` field, not prose, so an agent can gate on it.
-- The human confirmation experience (preview, per-commit review, "type the
-  branch name to confirm") is **not** in the CLI; it is the GUI's job
-  (Feature 4). The CLI's confirmation is the single `--yes` flag.
-
-### Why not just amend?
-
-For the most-recent commit, `git commit --amend` is simpler and the docs should
-recommend it. `rewrite-messages` exists for *bulk* historical cleanup where
-amend/`rebase -i` across hundreds of commits is impractical — which is precisely
-the BFG-style use case.
+Per `CLAUDE.md`, the `isolate_cwd` fixture `chdir`s tests into temp dirs. Any
+future rewrite test must build a throwaway git repo in `tmp_path` (with a fake
+"remote" to exercise the pushed/unpushed boundary) and operate only there; smoke
+scripts under `scripts/` must confine any rewrite to their `build/` temp dirs.
+The repo must never rewrite its own history during a test run.
 
 ## Feature 4 — GUI message rewriter (the human path)
 
@@ -431,51 +430,44 @@ screen** (closer to `EditScreen`'s live model than to `BackfillScreen`'s CLI
 transcript), calling the rewrite core's plan/apply functions directly rather
 than shelling argv through `run_cli`.
 
+Like the CLI, the GUI is scoped to **unpushed commits only** and its **apply
+path stays unimplemented** until the full safety envelope ships. The screen is a
+review-and-suggest surface for now; the Apply button is present but disabled with
+an explanatory note.
+
 ### Screen shape
 
 Add `gui/screens/rewrite.py` (`RewriteMessagesScreen(Screen)`, registered in
 `app.SCREEN_CLASSES` and the Screens menu) following the existing `Screen`
 contract (`build_body`, left `CommandList`, shared `app_state`). Layout:
 
-- **Range controls** — Since / Until / "all history" / commit-schema combo,
-  reusing the same widgets as `BackfillScreen` (factor the `combo` helper into
-  `gui/widgets.py` so both screens share it).
+- **Scope banner** — states "unpushed commits only (`@{upstream}..HEAD`)" so the
+  user understands the command can never touch shared history. A commit-schema
+  combo (reusing the `combo` helper, factored into `gui/widgets.py`) is the only
+  range control; there is intentionally no since/until.
 - **Scan** button → runs **plan mode** of the core (read-only) and populates a
   table.
-- **Plan table** — one row per non-exempt `UNCLASSIFIED` commit: short sha,
-  old subject, and an **editable** "new subject" cell (default = the core's
+- **Plan table** — one row per non-exempt `UNCLASSIFIED` unpushed commit: short
+  sha, old subject, and an **editable** "new subject" cell (default = the core's
   suggestion). The human fixes each line in place; live re-lint colors the row
-  green (now `CHANGELOG`/`SKIP`) or red (still `UNCLASSIFIED`). The Apply button
-  stays disabled while any row is red — the GUI enforces the same fail-closed
-  rule the CLI does, but visibly.
-- **Apply** button → the destructive step, gated by an explicit confirmation
-  dialog described below. Disabled entirely when `git filter-repo` is not
-  installed, with an inline "install git-filter-repo to enable" note (parallel
-  to how `--bump-versions` surfaces the missing `jiggle-version`).
+  green (now `CHANGELOG`/`SKIP`) or red (still `UNCLASSIFIED`).
+- **Apply** button → **disabled (unimplemented)** with an inline note that
+  history rewriting is not yet enabled and pointing at `git commit --amend` /
+  `git rebase -i`. When apply is eventually built, the button enables only when
+  every row is green (fail-closed) and the working tree is clean.
 
-### Human confirmation gate (GUI only)
+### Future human confirmation gate (when apply is built)
 
-Before applying, the GUI must show a modal that:
-
-- States the **blast radius** (N commits will get new hashes) and the
-  shared-history warning verbatim.
-- Refuses if the working tree is dirty (reuse the core's dirty-tree check) and
-  explains how to clean it, rather than letting filter-repo error mid-run.
-- Requires a deliberate confirmation stronger than a single OK — e.g. typing the
-  current branch name (the analog of the CLI's `--yes`, but human-proofed). This
-  is the GUI counterpart to the CLI's `--force`/`--yes` flags and is where the
-  "are you sure" weight lives.
-
-After a successful apply the screen calls `controller.reload()` so downstream
-screens see the rewritten state, and shows the new HEAD plus a reminder that a
-force-push / re-clone is now required.
+The eventual apply path will, in addition to being unpushed-only, require a
+deliberate confirmation (e.g. typing the branch name — the GUI analog of the
+CLI's `--yes`/`input()`), refuse on a dirty working tree, and call
+`controller.reload()` afterward. None of this is wired while apply is stubbed.
 
 ### Respecting GUI dry-run
 
-The shared top-panel **Dry run** checkbox (`app_state.dry_run`) maps to "plan
-only, never apply": when set, the Apply button is replaced by a "Preview apply
-(dry run)" that runs filter-repo's own dry-run / prints the planned callback
-without writing, so a cautious user can exercise the whole flow harmlessly.
+While apply is unimplemented the screen is effectively always "plan only". The
+shared top-panel **Dry run** checkbox remains consistent with that: scanning and
+suggesting never write anything.
 
 ## Cross-cutting: keep lint and backfill in lockstep
 
@@ -498,8 +490,8 @@ actually use".
 |---|---|---|
 | `changelogmanager-lint-message` (pre-commit) | commit-msg hook | reject `UNCLASSIFIED` subjects at commit time |
 | `lint-commits` (CLI) | humans + agents + CI | read-only audit of past commits |
-| `rewrite-messages` (top-level CLI) | **LLMs / agents** | plan→apply history rewrite, JSON contract, no prompts |
-| Rewrite Messages GUI screen | **humans** | review-and-confirm rewrite over the same core |
+| `rewrite-messages` (top-level CLI) | **LLMs / agents** | plan/suggest over **unpushed** commits; apply is an unimplemented stub |
+| Rewrite Messages GUI screen | **humans** | review-and-suggest over the same core; apply disabled until safe |
 
 ## Phasing
 
@@ -508,13 +500,16 @@ actually use".
    property test for the lockstep invariant. Highest value, lowest risk.
 2. **Phase 2 — audit.** `lint-commits` command (read-only) reusing the git
    walk; JSON output for CI gating.
-3. **Phase 3 — rewrite core + LLM CLI.** Shared plan/apply core; top-level
-   `rewrite-messages` command with the LLM-facing plan-mode default and
-   `--apply` mode behind `git filter-repo`. Optional dependency, fail-closed
-   re-lint, isolated tests only.
-4. **Phase 4 — GUI rewriter.** `RewriteMessagesScreen` on top of the Phase 3
-   core: editable plan table, live re-lint, human confirmation gate. This is the
-   primary human entry point; ships after the core it depends on.
+3. **Phase 3 — rewrite plan/suggest core + LLM CLI (apply stubbed).** Shared
+   plan core scoped to **unpushed commits only** (`@{upstream}..HEAD`); top-level
+   `rewrite-messages` command with the LLM-facing plan-mode default. **`--apply`
+   ships as an explicit fail-fast stub** requiring `--yes`/`input()` consent in
+   its eventual form; the real rewrite (via `git filter-repo`, fail-closed
+   re-lint, dirty-tree/pushed-commit refusal) is deferred until full safeties
+   and isolated tests are in place.
+4. **Phase 4 — GUI rewriter (apply stubbed).** `RewriteMessagesScreen` on top of
+   the Phase 3 core: editable plan table, live re-lint, unpushed-only scope
+   banner. The Apply button is present but disabled until the apply path is real.
 
 ## Open questions
 
@@ -536,8 +531,9 @@ actually use".
 ### Phase 1 — core + hook — DONE (2026-06-06)
 
 Implemented and covered by tests (`tests/test_basic/test_message_lint.py` and
-`tests/test_hypothesis/test_message_lint_properties.py`; full suite green apart
-from one pre-existing, date-sensitive release snapshot unrelated to this work).
+`tests/test_hypothesis/test_message_lint_properties.py`). The full suite is now
+green; a pre-existing, date-sensitive release snapshot time-bomb that surfaced
+during this work was fixed separately (see "Snapshot determinism fix" below).
 
 - **`changelogmanager/message_lint.py`** — the shared core. `LintOutcome`,
   `LintResult` (with `.ok`), `LintOptions`, and `classify_subject`. Reuses
@@ -589,6 +585,62 @@ including a real throwaway-repo integration test).
   `cli/entry.py`: it never loads or touches the changelog (placeholder
   `<commits>` context), so it works in repos with no `CHANGELOG.md`.
 
-### Phases 3–4 — not yet started
+### Phase 3 — rewrite plan core + LLM CLI (apply stubbed) — DONE (2026-06-06)
 
-`rewrite-messages` (LLM CLI) and the GUI rewriter remain as specified above.
+Implemented and covered by `tests/test_basic/test_rewrite_messages.py` (22 tests,
+including a real repo + fake-remote test proving pushed commits are excluded).
+Per the user's safety request, the command is **scoped to unpushed commits only**
+and the **apply path is a deliberate fail-fast stub**.
+
+- **`message_lint.resolve_unpushed_range()`** + `UnpushedRange` — bounds the range
+  to `@{push}..HEAD` (then `@{upstream}..HEAD`), or `HEAD` for a branch with no
+  upstream (all local-only). Pushed commits are provably excluded; errors cleanly
+  outside a work tree.
+- **`message_lint.plan_rewrite()`** + `RewritePlan`/`RewriteEntry`, plus
+  `suggest_subject()`/`guess_category()` — audits the unpushed range, proposes a
+  classifying subject per unclassified commit (keyword-guessed category or
+  `--auto-prefix`), re-lints each suggestion (`outcome_after`), and renders a
+  round-trippable TSV / JSON plan. **Touches no history.**
+- **`command_rewrite_messages` + `rewrite-messages` subparser** — plan mode is the
+  default (`--plan-out` / `--json`); `--commit-schema`, `--auto-prefix`,
+  `--max-commits`. Intentionally **no `--since/--until/--force`** (range is fixed
+  to unpushed). `--apply` enforces consent (`--yes` or interactive `input()`),
+  then fails fast: missing consent in a non-TTY → exit 2 naming the flag; with
+  consent → exit 1 "not yet implemented" pointing at `git commit --amend` /
+  `git rebase -i`. Wired as a no-changelog-load branch in `cli/entry.py`.
+
+#### Incidental fix
+
+`tests/test_llvm_diagnostics/test_messages.py` had a latent ordering bug: those
+tests render via the process-global diagnostics formatter and assumed Llvm, so any
+prior `--error-format github` test could break them. Added an autouse fixture that
+pins/restores the default formatter, making them order-independent.
+
+### Snapshot determinism fix — DONE (2026-06-06)
+
+`tests/test_snapshots/test_cli_snapshots.py::TestReleaseSnapshot::test_release_writes_file`
+had been failing on every calendar day after its last regeneration. Root cause:
+the `release` command stamps `datetime.now()` into the changelog
+(`changelog.py:350` → `## [1.3.0] - <today>`), but the snapshot is a committed
+static file and the snapshot normalisers did not mask the date, so the frozen
+value (`2026-06-05`) only matched on that one day. It was the *only*
+nondeterministic snapshot (every other date is a `2024-*` fixture value).
+
+Fix (two independent layers, in `tests/test_snapshots/conftest.py`):
+
+1. **Freeze time** — an autouse `freeze_time(FROZEN_TODAY)` fixture (using the
+   already-present `freezegun` dev dep) pins `now()` for every snapshot test, so
+   the released date is deterministic.
+2. **Mask the frozen date** — `normalise_md`/`normalise_paths` replace the frozen
+   value with a `<TODAY>` placeholder. This is defence-in-depth: the snapshot
+   passes regardless of the specific frozen date (verified by temporarily setting
+   it to `2099-12-31` — still green), while the static `2024-*` fixture dates stay
+   unmasked so those snapshots still pin exact content.
+
+The affected `.ambr` snapshot was regenerated once (one line:
+`## [1.3.0] - 2026-06-05` → `## [1.3.0] - <TODAY>`).
+
+### Phase 4 — not yet started
+
+The GUI rewriter remains as specified above (and, like the CLI, its apply path
+stays disabled until the full rewrite engine is built).

@@ -25,14 +25,17 @@ The classifier deliberately reuses the parser registry in
 from __future__ import annotations
 
 import re
+import subprocess  # nosec
 from dataclasses import dataclass, field
 from enum import Enum
 
+import changelogmanager.llvm_diagnostics as logging
 from changelogmanager import backfill
 from changelogmanager.backfill import (
     CONVENTIONAL_RE,
     CONVENTIONAL_TO_KAC,
     MAX_COMMITS_DEFAULT,
+    git_executable,
 )
 from changelogmanager.change_types import TYPES_OF_CHANGE
 from changelogmanager.runtime_logging import get_logger
@@ -352,3 +355,234 @@ def audit_commits(
         AuditReport(commits=linted, revision=revision).counts,
     )
     return AuditReport(commits=linted, revision=revision)
+
+
+# ----------------------------------------------------------------------
+# Unpushed-range resolution (the only range `rewrite-messages` may touch)
+# ----------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class UnpushedRange:
+    """The local-only commit range that is safe to rewrite.
+
+    ``revision`` is a git range expression (``<base>..HEAD``) when an upstream
+    exists, or ``HEAD`` when the branch has no upstream at all (a brand-new local
+    branch whose commits have never been pushed). ``has_upstream`` distinguishes
+    the two so callers can explain the scope.
+    """
+
+    revision: str
+    has_upstream: bool
+    upstream: str | None
+
+
+def _git(args: list[str], *, cwd: str | None) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(  # nosec B603
+        [git_executable(), *args],
+        capture_output=True,
+        text=True,
+        cwd=cwd,
+    )
+
+
+def resolve_unpushed_range(*, cwd: str | None = None) -> UnpushedRange:
+    """Resolves the unpushed commit range for the current branch.
+
+    Prefers ``@{push}`` (the branch commits are pushed *to*), then
+    ``@{upstream}``. When neither is configured the branch has no upstream and
+    *all* of its commits are local-only, so the range is ``HEAD``.
+
+    This is the **only** range ``rewrite-messages`` is ever allowed to operate
+    on: every commit it returns is provably not present on any remote-tracking
+    branch, so a rewrite can never corrupt pushed history.
+    """
+
+    # Confirm we are in a git work tree first for a clean error.
+    inside = _git(["rev-parse", "--is-inside-work-tree"], cwd=cwd)
+    if inside.returncode != 0 or inside.stdout.strip() != "true":
+        raise logging.Error(
+            message="rewrite-messages must be run inside a git working tree"
+        )
+
+    for ref in ("@{push}", "@{upstream}"):
+        resolved = _git(["rev-parse", "--verify", "--quiet", ref], cwd=cwd)
+        if resolved.returncode == 0 and resolved.stdout.strip():
+            logger.info("Unpushed range bounded by %s", ref)
+            return UnpushedRange(
+                revision=f"{ref}..HEAD", has_upstream=True, upstream=ref
+            )
+
+    logger.info("No upstream configured; treating all of HEAD as local-only")
+    return UnpushedRange(revision="HEAD", has_upstream=False, upstream=None)
+
+
+# ----------------------------------------------------------------------
+# Rewrite planning (the `rewrite-messages` command; plan-only for now)
+# ----------------------------------------------------------------------
+
+#: Keyword → KAC category hints used when guessing a category for an
+#: unclassified subject. First match wins; order matters (most specific first).
+_CATEGORY_KEYWORDS: tuple[tuple[str, str], ...] = (
+    ("secur", "security"),
+    ("vuln", "security"),
+    ("cve", "security"),
+    ("deprecat", "deprecated"),
+    ("remov", "removed"),
+    ("delet", "removed"),
+    ("drop", "removed"),
+    ("fix", "fixed"),
+    ("bug", "fixed"),
+    ("patch", "fixed"),
+    ("repair", "fixed"),
+    ("add", "added"),
+    ("introduc", "added"),
+    ("new ", "added"),
+    ("implement", "added"),
+    ("support", "added"),
+)
+
+
+def guess_category(subject: str) -> str:
+    """Guesses a KAC category from keywords in a subject, defaulting to changed."""
+
+    lowered = subject.lower()
+    for keyword, category in _CATEGORY_KEYWORDS:
+        if keyword in lowered:
+            return category
+    return "changed"
+
+
+def suggest_subject(
+    subject: str, *, auto_prefix: str | None = None
+) -> str:
+    """Proposes a rewritten subject that classifies as a KAC change.
+
+    ``auto_prefix`` forces a specific category prefix (e.g. ``changed``); when
+    ``None`` a category is guessed from the subject's keywords. The original
+    text is preserved as the body of the new subject.
+    """
+
+    category = auto_prefix or guess_category(subject)
+    title = category.capitalize()
+    return f"{title}: {subject.strip()}"
+
+
+@dataclass(frozen=True)
+class RewriteEntry:
+    """A single proposed subject rewrite for one unpushed commit."""
+
+    sha: str
+    old_subject: str
+    suggested_subject: str
+    outcome_after: str
+
+    def to_json(self) -> dict[str, str]:
+        return {
+            "sha": self.sha,
+            "old_subject": self.old_subject,
+            "suggested_subject": self.suggested_subject,
+            "outcome_after": self.outcome_after,
+        }
+
+    def to_tsv(self) -> str:
+        # Tabs separate fields; strip any stray tabs/newlines from subjects so a
+        # record stays on one line and round-trips cleanly.
+        def clean(text: str) -> str:
+            return text.replace("\t", " ").replace("\n", " ").strip()
+
+        return "\t".join(
+            (
+                self.sha,
+                clean(self.old_subject),
+                clean(self.suggested_subject),
+                self.outcome_after,
+            )
+        )
+
+
+@dataclass(frozen=True)
+class RewritePlan:
+    """A plan of proposed rewrites over the unpushed commit range."""
+
+    unpushed_range: str
+    has_upstream: bool
+    entries: list[RewriteEntry]
+    audit: AuditReport
+
+    @property
+    def still_unclassified(self) -> list[RewriteEntry]:
+        """Proposed rewrites whose suggestion still does not classify."""
+
+        return [
+            entry
+            for entry in self.entries
+            if entry.outcome_after == LintOutcome.UNCLASSIFIED.value
+        ]
+
+    def to_tsv(self) -> str:
+        return "\n".join(entry.to_tsv() for entry in self.entries)
+
+    def to_json(self) -> dict[str, object]:
+        return {
+            "unpushed_range": self.unpushed_range,
+            "has_upstream": self.has_upstream,
+            "counts": self.audit.counts,
+            "entries": [entry.to_json() for entry in self.entries],
+        }
+
+
+def plan_rewrite(
+    *,
+    cwd: str | None = None,
+    options: LintOptions | None = None,
+    auto_prefix: str | None = None,
+    max_commits: int = MAX_COMMITS_DEFAULT,
+) -> RewritePlan:
+    """Builds a rewrite plan over the unpushed range. **Touches no history.**
+
+    Audits the unpushed commits, and for each non-exempt ``UNCLASSIFIED`` commit
+    proposes a rewritten subject (re-linted so ``outcome_after`` reflects whether
+    the suggestion actually classifies). The returned plan is the artifact a
+    human/agent reviews and edits before any (future) apply step.
+    """
+
+    opts = options or LintOptions()
+    unpushed = resolve_unpushed_range(cwd=cwd)
+    # unpushed.revision is either "<base>..HEAD" (upstream exists) or "HEAD"
+    # (local-only branch). audit_commits builds the same shape from a `since`
+    # base, so derive the base: the part before ".." or None for bare HEAD.
+    base, sep, _ = unpushed.revision.partition("..")
+    since = base if sep else None
+    report = audit_commits(
+        since=since,
+        until=None,
+        cwd=cwd,
+        options=opts,
+        max_commits=max_commits,
+    )
+
+    entries: list[RewriteEntry] = []
+    for commit in report.unclassified:
+        suggestion = suggest_subject(commit.subject, auto_prefix=auto_prefix)
+        relinted = classify_subject(suggestion, options=opts)
+        entries.append(
+            RewriteEntry(
+                sha=commit.sha,
+                old_subject=commit.subject,
+                suggested_subject=suggestion,
+                outcome_after=relinted.outcome.value,
+            )
+        )
+
+    logger.info(
+        "Planned %d rewrite(s) over unpushed range %s",
+        len(entries),
+        unpushed.revision,
+    )
+    return RewritePlan(
+        unpushed_range=unpushed.revision,
+        has_upstream=unpushed.has_upstream,
+        entries=entries,
+        audit=report,
+    )

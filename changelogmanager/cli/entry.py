@@ -100,9 +100,9 @@ def main(  # pylint: disable=too-many-return-statements
             logger.info("Finished CLI command %s successfully", args.command)
             return 0
 
-        # lint-commits is a read-only git audit; it does not load or touch the
-        # changelog, so it gets a placeholder context and never reads from disk.
-        if args.command == "lint-commits":
+        # lint-commits and rewrite-messages operate on git history, not the
+        # changelog: placeholder context, never reads the changelog from disk.
+        if args.command in {"lint-commits", "rewrite-messages"}:
             ctx = CliContext(
                 changelog=Changelog(file_path="<commits>"),
                 quiet=args.quiet,

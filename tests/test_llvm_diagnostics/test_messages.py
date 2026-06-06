@@ -2,10 +2,30 @@
 
 import re
 
+import pytest
+
 import changelogmanager.llvm_diagnostics as llvm_diagnostics
-from changelogmanager.llvm_diagnostics import utils
+from changelogmanager.llvm_diagnostics import formatters, utils
 
 ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+
+
+@pytest.fixture(autouse=True)
+def _reset_global_formatter():
+    """Pins the default Llvm formatter around each test.
+
+    ``str(Message)`` renders via the process-global formatter, which other tests
+    (anything using ``--error-format github``) can leave switched to GitHub. These
+    tests assume the default Llvm output, so restore it before and after to make
+    them independent of test ordering.
+    """
+
+    saved = formatters.get_config()
+    formatters.config(formatters.Llvm())
+    try:
+        yield
+    finally:
+        formatters.config(saved)
 
 
 def normalized_output(output: str) -> str:

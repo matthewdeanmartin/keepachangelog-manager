@@ -45,7 +45,7 @@ from changelogmanager.skill_bundle import SKILL_NAME, export_skill
 from changelogmanager.versioning import version_scheme_label
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from changelogmanager.message_lint import AuditReport, CommitLint
+    from changelogmanager.message_lint import AuditReport, CommitLint, RewritePlan
 
 logger = get_logger(__name__)
 
@@ -960,6 +960,135 @@ def _commits_to_show(
     if wanted is None:
         return report.unclassified
     return [commit for commit in report.commits if commit.result.outcome is wanted]
+
+
+def command_rewrite_messages(args: argparse.Namespace, ctx: CliContext) -> None:
+    """Plans subject rewrites over the **unpushed** commit range.
+
+    Scoped, by design, to commits not yet pushed to any remote
+    (``@{upstream}..HEAD``) so a rewrite can never corrupt shared history. The
+    plan path is implemented and touches no history; the ``--apply`` path is an
+    explicit fail-fast stub (history rewriting is not yet implemented) that still
+    exercises the consent gate so it is wired when apply lands.
+    """
+
+    from dataclasses import replace  # noqa: PLC0415
+
+    from changelogmanager import backfill, message_lint  # noqa: PLC0415
+    from changelogmanager.config import get_message_lint_options  # noqa: PLC0415
+
+    config = resolved_config_path(args)
+    options = get_message_lint_options(config)
+    schema = getattr(args, "commit_schema", None)
+    if schema is not None:
+        options = replace(options, schema=schema)
+
+    max_commits = getattr(args, "max_commits", None)
+    plan = message_lint.plan_rewrite(
+        options=options,
+        auto_prefix=getattr(args, "auto_prefix", None),
+        max_commits=(
+            max_commits if max_commits is not None else backfill.MAX_COMMITS_DEFAULT
+        ),
+    )
+
+    if getattr(args, "apply", False):
+        _rewrite_apply_stub(args, plan)
+        return
+
+    _rewrite_emit_plan(args, ctx, plan)
+
+
+def _rewrite_emit_plan(
+    args: argparse.Namespace, ctx: CliContext, plan: RewritePlan
+) -> None:
+    """Renders / writes a rewrite plan. Never touches history."""
+
+    ctx.json_payload.update(plan.to_json())
+
+    scope = (
+        plan.unpushed_range
+        if plan.has_upstream
+        else f"{plan.unpushed_range} (no upstream; all commits are local-only)"
+    )
+    emit(
+        ctx,
+        text=(
+            f"Rewrite plan over unpushed range {scope}\n"
+            f"  {len(plan.entries)} commit(s) would be rewritten"
+        ),
+    )
+
+    plan_out = getattr(args, "plan_out", None)
+    if plan_out:
+        Path(plan_out).write_text(plan.to_tsv() + "\n", encoding="utf-8")
+        emit(ctx, text=f"Wrote plan to {plan_out}", json_key="plan_out", json_value=plan_out)
+    else:
+        for entry in plan.entries:
+            emit(
+                ctx,
+                text=(
+                    f"  {entry.sha[:8]}  {entry.old_subject!r} "
+                    f"-> {entry.suggested_subject!r} [{entry.outcome_after}]"
+                ),
+            )
+
+    if not plan.entries:
+        emit(ctx, text="Nothing to rewrite: no unpushed unclassifiable commits.")
+
+
+def _rewrite_apply_stub(args: argparse.Namespace, plan: RewritePlan) -> None:
+    """The (unimplemented) apply path: enforce consent, then fail-fast.
+
+    Consent is required *now* so the gate is in place for when apply is real:
+    ``--yes`` (non-interactive) or a ``y``/``yes`` answer to an interactive
+    ``input()`` prompt. Missing consent in a non-TTY is a usage error (exit 2);
+    with consent, the command still refuses because history rewriting is not yet
+    implemented (exit 1).
+    """
+
+    import sys  # noqa: PLC0415
+
+    consented = bool(getattr(args, "yes", False))
+    if not consented:
+        if sys.stdin.isatty():
+            try:
+                answer = (
+                    input(
+                        f"Rewrite {len(plan.entries)} unpushed commit message(s) "
+                        f"in {plan.unpushed_range}? [y/N] "
+                    )
+                    .strip()
+                    .lower()
+                )
+            except EOFError:
+                answer = ""
+            consented = answer in {"y", "yes"}
+            if not consented:
+                raise logging.Info(message="Rewrite cancelled by user")
+        else:
+            # Missing consent in a non-interactive context is a usage error:
+            # exit 2 (argparse convention) naming the flag, so an agent gets a
+            # deterministic, recoverable failure instead of a hang.
+            logging.Error(
+                message=(
+                    "Refusing to --apply without consent (non-interactive). "
+                    "Pass --yes to confirm. (Note: history rewriting is not yet "
+                    "implemented.)"
+                ),
+            ).report()
+            raise SystemExit(2)
+
+    # Consent given — but the rewrite engine is deliberately not built yet.
+    raise logging.Error(
+        message=(
+            "rewrite-messages --apply is not yet implemented: history rewriting "
+            "is intentionally disabled until full safety checks are in place. "
+            "For now, fix unpushed commits with `git commit --amend` (last "
+            "commit) or `git rebase -i` (a few commits). The plan above shows "
+            "the suggested subjects."
+        ),
+    )
 
 
 def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
