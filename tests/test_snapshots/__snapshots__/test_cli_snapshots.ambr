@@ -1,0 +1,329 @@
+# serializer version: 1
+# name: TestAddSnapshot.test_add_entry_updates_file
+  '''
+  # Changelog
+  
+  All notable changes to this project will be documented in this file.
+  
+  The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+  and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+  
+  ## [Unreleased]
+  
+  ### Added
+  
+  - New widget component
+  - Snapshot test entry
+  
+  ### Fixed
+  
+  - Off-by-one error in pagination
+  
+  ## [1.2.0] - 2024-06-01
+  
+  ### Added
+  
+  - Dark mode support
+  
+  ### Changed
+  
+  - Improved startup performance
+  
+  ## [1.1.0] - 2024-03-15
+  
+  ### Added
+  
+  - Export to CSV feature
+  
+  ### Deprecated
+  
+  - Legacy XML export
+  
+  ## [1.0.0] - 2024-01-01
+  
+  ### Added
+  
+  - Initial public release
+  
+  [1.0.0]: https://github.com/example/repo/releases/tag/v1.0.0
+  [1.1.0]: https://github.com/example/repo/compare/v1.0.0...v1.1.0
+  [1.2.0]: https://github.com/example/repo/compare/v1.1.0...v1.2.0
+  [unreleased]: https://github.com/example/repo/compare/v1.2.0...HEAD
+  
+  '''
+# ---
+# name: TestAddSnapshot.test_add_fixed_entry
+  '''
+  # Changelog
+  
+  All notable changes to this project will be documented in this file.
+  
+  The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+  and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+  
+  ## [Unreleased]
+  
+  ### Fixed
+  
+  - Fixed a regression in parsing
+  
+  ## [1.0.0] - 2024-01-01
+  
+  ### Added
+  
+  - Initial release
+  
+  [1.0.0]: https://github.com/example/repo/releases/tag/v1.0.0
+  
+  '''
+# ---
+# name: TestCreateSnapshot.test_create_produces_canonical_file
+  '''
+  # Changelog
+  
+  All notable changes to this project will be documented in this file.
+  
+  The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+  and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+  
+  '''
+# ---
+# name: TestReleaseSnapshot.test_release_dry_run_stdout
+  '''
+  Dry run: would release <CHANGELOG_PATH>/CHANGELOG.md
+  
+  '''
+# ---
+# name: TestReleaseSnapshot.test_release_writes_file
+  '''
+  # Changelog
+  
+  All notable changes to this project will be documented in this file.
+  
+  The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+  and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+  
+  ## [1.3.0] - 2026-06-05
+  
+  ### Added
+  
+  - New widget component
+  
+  ### Fixed
+  
+  - Off-by-one error in pagination
+  
+  ## [1.2.0] - 2024-06-01
+  
+  ### Added
+  
+  - Dark mode support
+  
+  ### Changed
+  
+  - Improved startup performance
+  
+  ## [1.1.0] - 2024-03-15
+  
+  ### Added
+  
+  - Export to CSV feature
+  
+  ### Deprecated
+  
+  - Legacy XML export
+  
+  ## [1.0.0] - 2024-01-01
+  
+  ### Added
+  
+  - Initial public release
+  
+  [1.0.0]: https://github.com/example/repo/releases/tag/v1.0.0
+  [1.1.0]: https://github.com/example/repo/compare/v1.0.0...v1.1.0
+  [1.2.0]: https://github.com/example/repo/compare/v1.1.0...v1.2.0
+  
+  '''
+# ---
+# name: TestRemoveListSnapshot.test_list_no_unreleased
+  '''
+  No [Unreleased] entries
+  
+  '''
+# ---
+# name: TestRemoveListSnapshot.test_list_unreleased_entries
+  '''
+    [added] 0: New widget component
+    [fixed] 0: Off-by-one error in pagination
+  
+  '''
+# ---
+# name: TestToJsonSnapshot.test_full_changelog_json_output
+  '''
+  [
+    {
+      "added": [
+        "New widget component"
+      ],
+      "fixed": [
+        "Off-by-one error in pagination"
+      ],
+      "metadata": {
+        "release_date": null,
+        "url": "https://github.com/example/repo/compare/v1.2.0...HEAD",
+        "version": "unreleased"
+      }
+    },
+    {
+      "added": [
+        "Dark mode support"
+      ],
+      "changed": [
+        "Improved startup performance"
+      ],
+      "metadata": {
+        "release_date": "2024-06-01",
+        "semantic_version": {
+          "buildmetadata": null,
+          "major": 1,
+          "minor": 2,
+          "patch": 0,
+          "prerelease": null
+        },
+        "url": "https://github.com/example/repo/compare/v1.1.0...v1.2.0",
+        "version": "1.2.0"
+      }
+    },
+    {
+      "added": [
+        "Export to CSV feature"
+      ],
+      "deprecated": [
+        "Legacy XML export"
+      ],
+      "metadata": {
+        "release_date": "2024-03-15",
+        "semantic_version": {
+          "buildmetadata": null,
+          "major": 1,
+          "minor": 1,
+          "patch": 0,
+          "prerelease": null
+        },
+        "url": "https://github.com/example/repo/compare/v1.0.0...v1.1.0",
+        "version": "1.1.0"
+      }
+    },
+    {
+      "added": [
+        "Initial public release"
+      ],
+      "metadata": {
+        "release_date": "2024-01-01",
+        "semantic_version": {
+          "buildmetadata": null,
+          "major": 1,
+          "minor": 0,
+          "patch": 0,
+          "prerelease": null
+        },
+        "url": "https://github.com/example/repo/releases/tag/v1.0.0",
+        "version": "1.0.0"
+      }
+    }
+  ]
+  '''
+# ---
+# name: TestToJsonSnapshot.test_minimal_changelog_json_output
+  '''
+  [
+    {
+      "added": [
+        "Initial release"
+      ],
+      "metadata": {
+        "release_date": "2024-01-01",
+        "semantic_version": {
+          "buildmetadata": null,
+          "major": 1,
+          "minor": 0,
+          "patch": 0,
+          "prerelease": null
+        },
+        "url": "https://github.com/example/repo/releases/tag/v1.0.0",
+        "version": "1.0.0"
+      }
+    }
+  ]
+  '''
+# ---
+# name: TestToJsonSnapshot.test_no_unreleased_json_output
+  '''
+  [
+    {
+      "added": [
+        "Major overhaul"
+      ],
+      "metadata": {
+        "release_date": "2024-12-01",
+        "semantic_version": {
+          "buildmetadata": null,
+          "major": 2,
+          "minor": 0,
+          "patch": 0,
+          "prerelease": null
+        },
+        "url": "https://github.com/example/repo/compare/v1.0.0...v2.0.0",
+        "version": "2.0.0"
+      }
+    },
+    {
+      "added": [
+        "Initial release"
+      ],
+      "metadata": {
+        "release_date": "2024-01-01",
+        "semantic_version": {
+          "buildmetadata": null,
+          "major": 1,
+          "minor": 0,
+          "patch": 0,
+          "prerelease": null
+        },
+        "url": "https://github.com/example/repo/releases/tag/v1.0.0",
+        "version": "1.0.0"
+      }
+    }
+  ]
+  '''
+# ---
+# name: TestValidateSnapshot.test_validate_full_changelog_passes
+  ''
+# ---
+# name: TestValidateSnapshot.test_validate_minimal_changelog_passes
+  ''
+# ---
+# name: TestVersionSnapshot.test_current_version
+  '''
+  1.2.0
+  
+  '''
+# ---
+# name: TestVersionSnapshot.test_future_version
+  '''
+  1.3.0
+  
+  '''
+# ---
+# name: TestVersionSnapshot.test_minimal_current_version
+  '''
+  1.0.0
+  
+  '''
+# ---
+# name: TestVersionSnapshot.test_previous_version
+  '''
+  1.1.0
+  
+  '''
+# ---

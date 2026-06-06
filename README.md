@@ -57,21 +57,19 @@ from-commits  Seed [Unreleased] from git commit history
 backfill      Backfill missing released versions from local git tags
 ```
 
-### Machine readability
+### Exports and scripting
 
-Commands and global flags for scripting and exporting structured data.
+Commands that produce structured output or integrate with CI:
 
 ```text
 version       Print previous/current/future version
 to-json       Export the changelog as JSON
 to-html       Export the changelog as HTML
 skill export  Export the bundled CLI skill for Copilot or Claude
-
---json        Emit a single machine-readable JSON object on stdout
---quiet       Suppress human-friendly output
---info        Runtime logging on stderr
---verbose     Verbose runtime logging on stderr (implies --info)
 ```
+
+For `--json`, `--quiet`, `jq` patterns, exit codes, and full `release.yml` examples, see
+[Scripting and CI integration](docs/scripting.md).
 
 ### Repo release tools
 
@@ -157,18 +155,6 @@ Export the bundled CLI skill:
 changelogmanager skill export
 ```
 
-Machine-readable mode for scripts:
-
-```sh
-changelogmanager --json version --reference future
-changelogmanager --quiet validate
-changelogmanager --info validate
-changelogmanager --verbose from-commits --dry-run
-```
-
-`--info` and `--verbose` enable stdlib runtime logging on stderr for diagnostics. `--verbose` is the more detailed level
-and implies `--info`. Existing validation diagnostics still use the configured LLVM or GitHub Actions annotation format.
-
 ## Configuration
 
 Use `--config` and `--component` for multi-component repositories:
@@ -229,5 +215,6 @@ screen for GitHub/GitLab, and a components screen for batch validation and `from
 - [Quick start](docs/quickstart.md)
 - [Installation](docs/installation.md)
 - [Key workflows](docs/workflows.md)
+- [Scripting and CI integration](docs/scripting.md)
 - [CLI reference](docs/cli.md)
 - [Desktop GUI](docs/gui.md)

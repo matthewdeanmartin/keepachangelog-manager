@@ -552,17 +552,5 @@ ______________________________________________________________________
 
 ## Automation-friendly output
 
-Suppress human-friendly output:
-
-```sh
-changelogmanager --quiet validate
-```
-
-Emit a single JSON object to stdout:
-
-```sh
-changelogmanager --json version --reference future
-changelogmanager --json remove --list
-```
-
-`--json` is useful for CI or wrapper scripts that need structured output. For destructive non-interactive workflows such as `release`, combine it with the command's explicit confirmation flags, for example `changelogmanager --json release --yes`.
+See [Scripting and CI integration](scripting.md) for `--json` / `--quiet` usage, exit codes,
+`jq` patterns, and complete `release.yml` examples.

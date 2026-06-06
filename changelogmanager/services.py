@@ -387,16 +387,30 @@ def seed_components_from_commits(
 # ----------------------------------------------------------------------
 
 
+_VALID_SOURCES = {"tags", "commits", "local", "all", "github-releases", "github-prs", "pypi"}
+
+
 def validate_backfill_options(
-    *, source: str, strategy: str, missing_only: bool
+    *, source: str, strategy: str, missing_only: bool, repository: str | None = None, package: str | None = None
 ) -> None:
     """Raises if the requested backfill option combination is unsupported."""
 
-    if source not in {"tags", "commits", "all"}:
+    if source not in _VALID_SOURCES:
         raise logging.Error(
             message=(
-                f"Backfill source '{source}' is not implemented yet; local sources are tags, commits, and all"
+                f"Unknown backfill source '{source}'; valid choices are: "
+                + ", ".join(sorted(_VALID_SOURCES))
             ),
+        )
+
+    if source in {"github-releases", "github-prs"} and not repository:
+        raise logging.Error(
+            message=f"--repository owner/repo is required when --source {source} is used",
+        )
+
+    if source == "pypi" and not package:
+        raise logging.Error(
+            message="--package name is required when --source pypi is used",
         )
     if strategy == "replace":
         raise logging.Error(
@@ -425,6 +439,9 @@ def plan_changelog_backfill(
     commit_schema: str,
     strategy: str,
     max_commits: int | None = None,
+    repository: str | None = None,
+    token: str | None = None,
+    package: str | None = None,
 ) -> Any:
     """Returns a backfill plan (see :func:`changelogmanager.backfill.plan_backfill`)."""
 
@@ -443,6 +460,9 @@ def plan_changelog_backfill(
         commit_schema=commit_schema,
         strategy=strategy,
         max_commits=MAX_COMMITS_DEFAULT if max_commits is None else max_commits,
+        repository=repository,
+        token=token,
+        package=package,
     )
 
 

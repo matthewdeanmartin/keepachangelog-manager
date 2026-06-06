@@ -33,6 +33,30 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     parser = argparse.ArgumentParser(
         prog="changelogmanager",
         description="(Keep a) Changelog Manager",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # add an entry to [Unreleased]
+  changelogmanager add --change-type added --message "Support dark mode"
+
+  # validate and autofix common issues
+  changelogmanager validate --fix
+
+  # release [Unreleased] non-interactively
+  changelogmanager release --yes
+
+  # release and sync pyproject.toml version in one step
+  changelogmanager release --bump-versions --yes
+
+  # print the next version that would be released
+  changelogmanager version --reference future
+
+  # seed [Unreleased] from git commit history
+  changelogmanager from-commits
+
+  # create a GitHub draft release from [Unreleased]
+  changelogmanager github-release --repository owner/repo
+""",
     )
     parser.add_argument("--config", default=None, help="Configuration file")
     parser.add_argument(
@@ -81,25 +105,80 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     create_parser = subparsers.add_parser(
-        "create", help="Command to create a new (empty) CHANGELOG.md"
+        "create",
+        help="Command to create a new (empty) CHANGELOG.md",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # create CHANGELOG.md in the current directory
+  changelogmanager create
+
+  # preview what would be created without writing
+  changelogmanager create --dry-run
+""",
     )
     add_dry_run_argument(create_parser)
     create_parser.set_defaults(handler=commands.command_create)
 
     config_parser = subparsers.add_parser(
-        "config", help="Show or initialize changelogmanager configuration"
+        "config",
+        help="Show or initialize changelogmanager configuration",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # show effective configuration and where it came from
+  changelogmanager config
+
+  # interactively create or update configuration
+  changelogmanager config init
+
+  # show config for a specific config file
+  changelogmanager --config changelogmanager.toml config
+""",
     )
     config_parser.set_defaults(handler=commands.command_config)
     config_subparsers = config_parser.add_subparsers(dest="config_command")
     config_init_parser = config_subparsers.add_parser(
-        "init", help="Create or update configuration interactively"
+        "init",
+        help="Create or update configuration interactively",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # create pyproject.toml config interactively (defaults to semver)
+  changelogmanager config init
+
+  # write config to a standalone file instead
+  changelogmanager --config changelogmanager.toml config init
+""",
     )
     config_init_parser.set_defaults(handler=commands.command_config_init)
 
-    skill_parser = subparsers.add_parser("skill", help="Export bundled AI skill files")
+    skill_parser = subparsers.add_parser(
+        "skill",
+        help="Export bundled AI skill files",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  changelogmanager skill export
+  changelogmanager skill export --path .github/skills
+""",
+    )
     skill_subparsers = skill_parser.add_subparsers(dest="skill_command", required=True)
     skill_export_parser = skill_subparsers.add_parser(
-        "export", help="Export the bundled changelogmanager skill"
+        "export",
+        help="Export the bundled changelogmanager skill",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # prompt for a target directory (Copilot / Claude locations offered)
+  changelogmanager skill export
+
+  # export to a specific path
+  changelogmanager skill export --path .github/skills
+
+  # preview without writing
+  changelogmanager skill export --path .github/skills --dry-run
+""",
     )
     skill_export_parser.add_argument(
         "--path",
@@ -110,7 +189,23 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     skill_export_parser.set_defaults(handler=commands.command_skill_export)
 
     version_parser = subparsers.add_parser(
-        "version", help="Command to retrieve versions from a CHANGELOG.md"
+        "version",
+        help="Command to retrieve versions from a CHANGELOG.md",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # print the most recently released version
+  changelogmanager version
+
+  # print the version before the current one
+  changelogmanager version --reference previous
+
+  # print what the next release would be based on [Unreleased] change types
+  changelogmanager version --reference future
+
+  # capture the future version into a shell variable
+  NEXT=$(changelogmanager --json version --reference future | jq -r '.version')
+""",
     )
     version_parser.add_argument(
         "-r",
@@ -123,7 +218,29 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     version_parser.set_defaults(handler=commands.command_version)
 
     validate_parser = subparsers.add_parser(
-        "validate", help="Command to validate the CHANGELOG.md for inconsistencies"
+        "validate",
+        help="Command to validate the CHANGELOG.md for inconsistencies",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # validate and report errors
+  changelogmanager validate
+
+  # validate with GitHub Actions inline annotations
+  changelogmanager --error-format github validate
+
+  # autofix safe layout issues without writing (preview)
+  changelogmanager validate --fix --dry-run
+
+  # autofix and write
+  changelogmanager validate --fix
+
+  # validate all components declared in config
+  changelogmanager --config changelogmanager.toml validate --all
+
+  # validate only components whose changelog changed in git
+  changelogmanager --config changelogmanager.toml validate --all --changed-only
+""",
     )
     validate_parser.add_argument(
         "--fix",
@@ -164,7 +281,26 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     validate_parser.set_defaults(handler=commands.command_validate)
 
     release_parser = subparsers.add_parser(
-        "release", help="Release changes added to [Unreleased] block"
+        "release",
+        help="Release changes added to [Unreleased] block",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # preview what would be released (no writes)
+  changelogmanager release --dry-run
+
+  # release non-interactively (required in CI)
+  changelogmanager release --yes
+
+  # release with an explicit version instead of the auto-calculated one
+  changelogmanager release --override-version 2.0.0 --yes
+
+  # release and update pyproject.toml + __version__ strings in one step
+  changelogmanager release --bump-versions --yes
+
+  # same but skip Python source files, only update pyproject.toml
+  changelogmanager release --bump-versions --pyproject-only --yes
+""",
     )
     release_parser.add_argument(
         "--override-version",
@@ -200,7 +336,20 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     release_parser.set_defaults(handler=commands.command_release)
 
     to_json_parser = subparsers.add_parser(
-        "to-json", help="Exports the contents of the CHANGELOG.md to a JSON file"
+        "to-json",
+        help="Exports the contents of the CHANGELOG.md to a JSON file",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # export to CHANGELOG.json (default)
+  changelogmanager to-json
+
+  # export to a custom file
+  changelogmanager to-json --file-name dist/changelog.json
+
+  # validate the export format without writing
+  changelogmanager to-json --dry-run
+""",
     )
     to_json_parser.add_argument(
         "--file-name", default="CHANGELOG.json", help="Filename of the JSON output"
@@ -215,7 +364,20 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     to_json_parser.set_defaults(handler=commands.command_to_json)
 
     to_html_parser = subparsers.add_parser(
-        "to-html", help="Exports the contents of the CHANGELOG.md to an HTML file"
+        "to-html",
+        help="Exports the contents of the CHANGELOG.md to an HTML file",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # export to CHANGELOG.html (default)
+  changelogmanager to-html
+
+  # export to a custom file
+  changelogmanager to-html --file-name docs/changelog.html
+
+  # validate without writing
+  changelogmanager to-html --dry-run
+""",
     )
     to_html_parser.add_argument(
         "--file-name", default="CHANGELOG.html", help="Filename of the HTML output"
@@ -224,7 +386,22 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     to_html_parser.set_defaults(handler=commands.command_to_html)
 
     add_parser = subparsers.add_parser(
-        "add", help="Command to add a new message to the CHANGELOG.md"
+        "add",
+        help="Command to add a new message to the CHANGELOG.md",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # add an entry interactively (prompts for type and message)
+  changelogmanager add
+
+  # add non-interactively
+  changelogmanager add --change-type added --message "Support dark mode"
+  changelogmanager add --change-type fixed --message "Prevent crash on empty input"
+  changelogmanager add --change-type security --message "Upgrade dependency with CVE"
+
+  # preview without writing
+  changelogmanager add --change-type added --message "New feature" --dry-run
+""",
     )
     add_parser.add_argument(
         "-t",
@@ -237,7 +414,23 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     add_parser.set_defaults(handler=commands.command_add)
 
     remove_parser = subparsers.add_parser(
-        "remove", help="Removes an entry from [Unreleased]"
+        "remove",
+        help="Removes an entry from [Unreleased]",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # list all [Unreleased] entries with their indices
+  changelogmanager remove --list
+
+  # print just the total count of [Unreleased] entries
+  changelogmanager remove --count
+
+  # remove a specific entry (use --list first to find the index)
+  changelogmanager remove --change-type added --index 0
+
+  # preview without writing
+  changelogmanager remove --change-type fixed --index 1 --dry-run
+""",
     )
     remove_parser.add_argument(
         "-t",
@@ -258,11 +451,36 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
         default=False,
         help="List all entries in [Unreleased] with their indices",
     )
+    remove_parser.add_argument(
+        "--count",
+        action="store_true",
+        default=False,
+        help="Print the total number of [Unreleased] entries as a plain integer",
+    )
     add_dry_run_argument(remove_parser)
     remove_parser.set_defaults(handler=commands.command_remove)
 
     edit_parser = subparsers.add_parser(
-        "edit", help="Edits an existing entry in [Unreleased]"
+        "edit",
+        help="Edits an existing entry in [Unreleased]",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # edit interactively (prompts for entry selection and new message)
+  changelogmanager edit
+
+  # update the text of a specific entry
+  changelogmanager edit --change-type added --index 0 --message "Revised description"
+
+  # move an entry into a different change-type bucket
+  changelogmanager edit --change-type changed --index 0 --new-change-type fixed
+
+  # update text and change type in one command
+  changelogmanager edit --change-type added --index 1 --message "Fix typo" --new-change-type fixed
+
+  # preview without writing
+  changelogmanager edit --change-type added --index 0 --message "Preview edit" --dry-run
+""",
     )
     edit_parser.add_argument(
         "-t",
@@ -291,6 +509,21 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     github_release_parser = subparsers.add_parser(
         "github-release",
         help="Deletes draft GitHub releases and creates a new one",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # create a draft GitHub release from [Unreleased] (default)
+  changelogmanager github-release --repository owner/repo
+
+  # publish the release immediately instead of leaving it as a draft
+  changelogmanager github-release --repository owner/repo --release
+
+  # preview without calling GitHub
+  changelogmanager github-release --repository owner/repo --dry-run
+
+  # typical GitHub Actions step (token comes from GITHUB_TOKEN env var)
+  changelogmanager github-release --repository "$GITHUB_REPOSITORY"
+""",
     )
     github_release_parser.add_argument(
         "-r",
@@ -323,6 +556,23 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     github_pr_parser = subparsers.add_parser(
         "github-pr",
         help="Opens or updates a GitHub pull request for a changelog branch",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # open a PR from a release branch to main
+  changelogmanager github-pr \\
+    --repository owner/repo \\
+    --head release/bump-123 \\
+    --base main \\
+    --title "chore: release 1.2.0"
+
+  # preview without calling GitHub
+  changelogmanager github-pr \\
+    --repository owner/repo \\
+    --head release/bump-123 \\
+    --base main \\
+    --dry-run
+""",
     )
     github_pr_parser.add_argument(
         "-r",
@@ -354,22 +604,57 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     backfill_parser = subparsers.add_parser(
         "backfill",
         help="Backfill missing changelog versions from existing release history",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # preview backfill from local git tags and commits (no network)
+  changelogmanager backfill --source local --dry-run
+
+  # backfill from local history
+  changelogmanager backfill --source local
+
+  # backfill from all sources including GitHub releases and merged PRs
+  changelogmanager backfill --source all --repository owner/repo
+
+  # backfill from PyPI release history
+  changelogmanager backfill --source pypi --package my-package-name
+
+  # limit to a version range
+  changelogmanager backfill --source local --since v1.0.0 --until v2.0.0
+
+  # also seed [Unreleased] from commits since the latest tag
+  changelogmanager backfill --source local --include-unreleased
+
+  # additively fill entries into existing versions (idempotent)
+  changelogmanager backfill --source local --strategy merge --no-missing-only
+""",
     )
     backfill_parser.add_argument(
         "--source",
-        choices=["tags", "github-releases", "github-prs", "pypi", "commits", "all"],
-        default="all",
-        help="Source or source set to import from",
+        choices=["tags", "commits", "local", "github-releases", "github-prs", "pypi", "all"],
+        default="local",
+        help=(
+            "Source or source set to import from. "
+            "local = tags + commits (no network). "
+            "all = local + github-releases + github-prs (requires --repository). "
+            "all without --repository falls back to local with a deprecation warning."
+        ),
     )
     backfill_parser.add_argument(
         "--repository",
         default=None,
-        help="GitHub repository in owner/repo format (reserved for future phases)",
+        help="GitHub repository in owner/repo format (e.g. owner/repo); required for github-releases and github-prs",
     )
     backfill_parser.add_argument(
         "--package",
         default=None,
-        help="PyPI package name (reserved for future phases)",
+        help="PyPI package name; required for --source pypi",
+    )
+    backfill_parser.add_argument(
+        "-t",
+        "--github-token",
+        default=None,
+        help="GitHub token (falls back to keyring then GITHUB_TOKEN env var)",
     )
     backfill_parser.add_argument(
         "--since",
@@ -432,6 +717,24 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     gitlab_release_parser = subparsers.add_parser(
         "gitlab-release",
         help="Creates or updates a GitLab release from the changelog",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # create or update a release for a project (prompts for token if not set)
+  changelogmanager gitlab-release --project group/project
+
+  # specify token explicitly
+  changelogmanager gitlab-release --project group/project --gitlab-token "$GITLAB_TOKEN"
+
+  # tag a specific commit
+  changelogmanager gitlab-release --project group/project --ref "$CI_COMMIT_SHA"
+
+  # self-hosted GitLab instance
+  changelogmanager gitlab-release --project group/project --gitlab-url https://gitlab.example.com
+
+  # preview without calling GitLab
+  changelogmanager gitlab-release --project group/project --dry-run
+""",
     )
     gitlab_release_parser.add_argument(
         "-p",
@@ -463,6 +766,27 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     from_commits_parser = subparsers.add_parser(
         "from-commits",
         help="Seed [Unreleased] from git commits (parses Conventional Commits)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # seed from commits since the last git tag (default)
+  changelogmanager from-commits
+
+  # seed from commits since a specific ref
+  changelogmanager from-commits --since v1.2.0
+
+  # walk the full git history instead of stopping at the last tag
+  changelogmanager from-commits --all-history
+
+  # skip commits that don't match the commit schema (no 'changed' fallback)
+  changelogmanager from-commits --strict
+
+  # route commits to each configured component by the files they touch
+  changelogmanager --config changelogmanager.toml from-commits --all
+
+  # preview without writing
+  changelogmanager from-commits --dry-run
+""",
     )
     from_commits_parser.add_argument(
         "--since",
@@ -501,7 +825,83 @@ def build_parser() -> (  # pylint: disable=too-many-locals,too-many-statements
     add_dry_run_argument(from_commits_parser)
     from_commits_parser.set_defaults(handler=commands.command_from_commits)
 
-    gui_parser = subparsers.add_parser("gui", help="Launch the Tkinter GUI")
+    credentials_parser = subparsers.add_parser(
+        "credentials",
+        help="Manage stored API tokens in the OS keyring",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # store a GitHub token securely (prompts without echoing)
+  changelogmanager credentials set github
+
+  # store a GitLab token
+  changelogmanager credentials set gitlab
+
+  # check which tokens are currently configured
+  changelogmanager credentials check
+
+  # remove a stored token
+  changelogmanager credentials clear github
+""",
+    )
+    credentials_subparsers = credentials_parser.add_subparsers(
+        dest="credentials_command", required=True
+    )
+
+    creds_set_parser = credentials_subparsers.add_parser(
+        "set",
+        help="Store a token in the OS keyring (prompts securely for the value)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  changelogmanager credentials set github
+  changelogmanager credentials set gitlab
+""",
+    )
+    creds_set_parser.add_argument(
+        "service",
+        choices=["github", "gitlab"],
+        help="Which token to store",
+    )
+    creds_set_parser.set_defaults(handler=commands.command_credentials)
+
+    creds_clear_parser = credentials_subparsers.add_parser(
+        "clear",
+        help="Remove a stored token from the OS keyring",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  changelogmanager credentials clear github
+  changelogmanager credentials clear gitlab
+""",
+    )
+    creds_clear_parser.add_argument(
+        "service",
+        choices=["github", "gitlab"],
+        help="Which token to remove",
+    )
+    creds_clear_parser.set_defaults(handler=commands.command_credentials)
+
+    creds_check_parser = credentials_subparsers.add_parser(
+        "check",
+        help="Print which tokens are currently configured in the OS keyring",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  changelogmanager credentials check
+""",
+    )
+    creds_check_parser.set_defaults(handler=commands.command_credentials)
+
+    gui_parser = subparsers.add_parser(
+        "gui",
+        help="Launch the Tkinter GUI",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  changelogmanager gui
+""",
+    )
     gui_parser.set_defaults(handler=commands.command_gui)
 
     return parser

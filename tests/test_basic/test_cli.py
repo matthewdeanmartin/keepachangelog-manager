@@ -22,6 +22,9 @@ class DummyChangelog:
     def get_file_path(self):
         return self.file_path
 
+    def has_unreleased_section(self):
+        return self.has_unreleased_value
+
     def has_unreleased(self):
         return self.has_unreleased_value
 

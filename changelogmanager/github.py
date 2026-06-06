@@ -22,6 +22,29 @@ RELEASES_CHUNK_SIZE = 100
 GITHUB_API_VERSION = "2026-03-10"
 logger = get_logger(__name__)
 
+_RATE_LIMIT_WARN_THRESHOLD = 10
+
+
+def _check_rate_limit(headers: Mapping[str, str], source: str) -> None:
+    """Warns when rate-limit headroom is low; raises when exhausted."""
+    remaining_raw = headers.get("X-RateLimit-Remaining") or headers.get("RateLimit-Remaining")
+    if remaining_raw is None:
+        return
+    try:
+        remaining = int(remaining_raw)
+    except ValueError:
+        return
+    if remaining == 0:
+        raise logging.Error(
+            message=(
+                f"{source} rate limit exhausted (0 requests remaining).\n"
+                "  Tip: pass --github-token or run `changelogmanager credentials set github`\n"
+                "  to get 5 000 requests/hour instead of 60."
+            )
+        )
+    if remaining < _RATE_LIMIT_WARN_THRESHOLD:
+        logger.warning("%s rate limit low: %d requests remaining", source, remaining)
+
 
 class HttpMethods(Enum):
     """Http Methods"""
@@ -113,6 +136,103 @@ class GitHub:
                   URL:    {url}
                   Method: {method.value}
                   Data:   {data}""")) from url_error
+
+    def _get_with_rate_check(self, api: str, data: Optional[Mapping[str, Any]] = None) -> Optional[Any]:
+        """GET request that checks rate-limit headers before returning parsed body."""
+        url = f"https://api.github.com/repos/{self.repository}/{api}"
+        if data:
+            separator = "&" if "?" in url else "?"
+            url = f"{url}{separator}{urlencode(data)}"
+        request = Request(method=HttpMethods.GET.value, url=url, headers=dict(self.headers))
+        try:
+            with urlopen(request) as resp:  # nosec
+                resp_headers: Mapping[str, str] = resp.headers  # type: ignore[assignment]
+                _check_rate_limit(resp_headers, "GitHub")
+                body = resp.read()
+            if not body:
+                return None
+            return orjson.loads(body)
+        except HTTPError as http_error:
+            response_body = http_error.read().decode(errors="replace").strip()
+            _check_rate_limit(dict(http_error.headers), "GitHub")  # type: ignore[arg-type]
+            raise logging.Error(
+                message=(
+                    f"GitHub API request failed: {url} HTTP {http_error.code} {http_error.reason}\n"
+                    f"  {response_body or '<empty>'}"
+                )
+            ) from http_error
+        except URLError as url_error:
+            raise logging.Error(message=f"GitHub API request failed: {url}") from url_error
+
+    def get_merged_prs(
+        self,
+        since_date: str | None = None,
+        until_date: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Returns merged PRs targeting the default branch, optionally filtered by merge date.
+
+        Fetches closed PRs sorted by ``updated`` descending and filters to only
+        those with a non-null ``merged_at``.  Date filtering is done client-side
+        because the GitHub API does not expose a ``merged_at`` filter parameter.
+        """
+        logger.info("Fetching merged PRs for backfill from %s", self.repository)
+        prs: list[dict[str, Any]] = []
+        page = 1
+        while True:
+            data = self._get_with_rate_check(
+                "pulls",
+                {
+                    "state": "closed",
+                    "sort": "updated",
+                    "direction": "desc",
+                    "per_page": RELEASES_CHUNK_SIZE,
+                    "page": page,
+                },
+            )
+            if not data:
+                break
+            for pr in data:
+                merged_at: str | None = pr.get("merged_at")
+                if not merged_at:
+                    continue
+                merge_date = merged_at[:10]
+                if since_date and merge_date < since_date:
+                    # PRs are sorted descending by updated_at, not merged_at, so
+                    # we can't stop early — a recently-updated old PR could appear
+                    # anywhere.  Keep scanning.
+                    continue
+                if until_date and merge_date > until_date:
+                    continue
+                prs.append(pr)
+            if len(data) < RELEASES_CHUNK_SIZE:
+                break
+            page += 1
+        logger.info("Fetched %d merged PRs from %s", len(prs), self.repository)
+        return prs
+
+    def get_releases_for_backfill(self) -> list[dict[str, Any]]:
+        """Returns all releases shaped as {version, body, date} for backfill."""
+        logger.info("Fetching releases for backfill from %s", self.repository)
+        releases: list[dict[str, Any]] = []
+        index = 1
+        while True:
+            data = self._get_with_rate_check(
+                "releases",
+                {"per_page": RELEASES_CHUNK_SIZE, "page": index},
+            )
+            if not data:
+                break
+            for rel in data:
+                tag_name: str = rel.get("tag_name", "")
+                body: str = rel.get("body", "") or ""
+                published: Optional[str] = rel.get("published_at")
+                date: Optional[str] = published[:10] if published else None
+                releases.append({"version": tag_name, "body": body, "date": date})
+            if len(data) < RELEASES_CHUNK_SIZE:
+                break
+            index += 1
+        logger.info("Fetched %d releases from %s", len(releases), self.repository)
+        return releases
 
     def get_releases(self) -> Sequence[dict[str, Any]]:
         """Retrieves available releases"""

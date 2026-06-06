@@ -318,6 +318,17 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
     bump_versions = bool(getattr(args, "bump_versions", False))
     pyproject_only = bool(getattr(args, "pyproject_only", False))
 
+    if changelog.has_unreleased_section() and not changelog.has_unreleased():
+        emit(
+            ctx,
+            text=(
+                f"Skipping release: [Unreleased] section is empty in {changelog.get_file_path()}"
+            ),
+            json_key="skipped",
+            json_value="no_unreleased_entries",
+        )
+        return
+
     if args.dry_run:
         result = services.release_changelog(
             changelog,
@@ -457,6 +468,14 @@ def command_remove(args: argparse.Namespace, ctx: CliContext) -> None:
 
     logger.info("Running remove command for %s", ctx.changelog.get_file_path())
     changelog = ctx.changelog
+    if getattr(args, "count", False):
+        entries = changelog.list_unreleased()
+        count = len(entries)
+        if not ctx.quiet:
+            print(count)
+        ctx.json_payload["count"] = count
+        return
+
     if args.list:
         entries = changelog.list_unreleased()
         if not entries:
@@ -850,16 +869,26 @@ def from_commits_all(
 
 def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
     """Backfills missing changelog versions from existing release history."""
+    from changelogmanager.credentials import get_token  # noqa: PLC0415
 
     logger.info(
         "Running backfill command for %s from source %s",
         ctx.changelog.get_file_path(),
         args.source,
     )
+    repository: str | None = getattr(args, "repository", None)
+    package: str | None = getattr(args, "package", None)
     services.validate_backfill_options(
         source=args.source,
         strategy=args.strategy,
         missing_only=args.missing_only,
+        repository=repository,
+        package=package,
+    )
+    token = get_token(
+        service_key="github_token",
+        cli_value=getattr(args, "github_token", None),
+        env_var="GITHUB_TOKEN",
     )
 
     if args.include_unreleased:
@@ -876,6 +905,9 @@ def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
         commit_schema=getattr(args, "commit_schema", "auto"),
         strategy=args.strategy,
         max_commits=getattr(args, "max_commits", None),
+        repository=repository,
+        token=token,
+        package=package,
     )
     ctx.json_payload.update(plan.to_json())
 
@@ -1021,6 +1053,67 @@ def run_validate_all(
 
     ctx.json_payload["components"] = summaries
     return 1 if failures else 0
+
+
+# ----------------------------------------------------------------------
+# credentials
+# ----------------------------------------------------------------------
+
+_SERVICE_KEY_MAP = {"github": "github_token", "gitlab": "gitlab_token"}
+_SERVICE_LABEL_MAP = {"github": "GitHub", "gitlab": "GitLab"}
+
+
+def command_credentials(args: argparse.Namespace, ctx: CliContext) -> None:
+    """Manages API tokens stored in the OS keyring."""
+    from changelogmanager.credentials import check_token, clear_token, set_token  # noqa: PLC0415
+
+    sub = args.credentials_command
+
+    if sub == "check":
+        lines = []
+        for svc_arg, svc_key in _SERVICE_KEY_MAP.items():
+            label = _SERVICE_LABEL_MAP[svc_arg]
+            present = check_token(svc_key)
+            status = "configured" if present else "not set"
+            lines.append({"service": svc_arg, "status": status})
+            emit(ctx, text=f"{label} token: {status}")
+        ctx.json_payload["tokens"] = lines
+        return
+
+    service_arg: str = args.service
+    service_key = _SERVICE_KEY_MAP[service_arg]
+    label = _SERVICE_LABEL_MAP[service_arg]
+
+    if sub == "set":
+        import getpass  # noqa: PLC0415
+
+        token = getpass.getpass(prompt=f"{label} token: ")
+        if not token.strip():
+            raise logging.Error(message="Token must not be empty")
+        set_token(service_key, token.strip())
+        emit(
+            ctx,
+            text=f"{label} token stored in OS keyring",
+            json_key="stored",
+            json_value=service_arg,
+        )
+
+    elif sub == "clear":
+        removed = clear_token(service_key)
+        if removed:
+            emit(
+                ctx,
+                text=f"{label} token removed from OS keyring",
+                json_key="cleared",
+                json_value=service_arg,
+            )
+        else:
+            emit(
+                ctx,
+                text=f"{label} token was not set",
+                json_key="cleared",
+                json_value=None,
+            )
 
 
 # ----------------------------------------------------------------------

@@ -82,6 +82,10 @@ class Changelog:
         """Returns the configured versioning scheme for this changelog."""
         return self.versioning_scheme
 
+    def has_unreleased_section(self) -> bool:
+        """Returns True when an [Unreleased] heading is present, even if empty."""
+        return UNRELEASED_ENTRY in self.changelog
+
     def has_unreleased(self) -> bool:
         """Returns True when an [Unreleased] section with entries is present.
 

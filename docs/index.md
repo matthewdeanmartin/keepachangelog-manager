@@ -45,5 +45,6 @@ On top of what the `keepachangelog` library provides, this tool gives you:
 - [Quick start](quickstart.md) — up and running in two minutes
 - [Installation](installation.md) — all installation methods
 - [Key Workflows](workflows.md) — day-to-day usage patterns
+- [Scripting and CI integration](scripting.md) — exit codes, `--json`, `jq` patterns, and full `release.yml` examples
 - [CLI reference](cli.md) — every command and option
 - [Desktop GUI](gui.md) — running the optional Tkinter front-end

@@ -45,6 +45,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "defaults": {},
         "github": {},
         "gitlab": {},
+        "pypi": {},
     }
 }
 
@@ -68,7 +69,7 @@ VERSIONING_SCHEMES: dict[str, dict[str, str]] = {
 
 # Top-level TOML tables that make up the unwrapped on-disk schema. These are the
 # keys lifted into the internal "project" namespace on load.
-UNWRAPPED_TABLES = ("versioning", "validation", "defaults", "github", "gitlab")
+UNWRAPPED_TABLES = ("versioning", "validation", "defaults", "github", "gitlab", "pypi")
 
 logger = get_logger(__name__)
 
@@ -302,6 +303,12 @@ def get_gitlab_options(config: Optional[str]) -> dict[str, Any]:
     return get_project_table(config, "gitlab")
 
 
+def get_pypi_options(config: Optional[str]) -> dict[str, Any]:
+    """Returns the [pypi] table (package defaults for PyPI backfill)."""
+
+    return get_project_table(config, "pypi")
+
+
 def get_project_table(config: Optional[str], table: str) -> dict[str, Any]:
     configuration = get_effective_configuration(config)
     value = configuration.get("project", {}).get(table, {}) or {}
@@ -478,6 +485,7 @@ def serialize_config_toml(config: Mapping[str, Any], *, prefix: str) -> str:
         ("defaults", "defaults"),
         ("github", "github"),
         ("gitlab", "gitlab"),
+        ("pypi", "pypi"),
     ):
         values = project.get(key, {}) or {}
         if not isinstance(values, Mapping) or not values:

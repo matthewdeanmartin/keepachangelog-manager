@@ -738,10 +738,347 @@ def apply_backfill_plan(changelog: Changelog, plan: BackfillPlan) -> None:
     changelog.set_data(dict(updated))
 
 
+GITHUB_LABEL_TO_KAC: dict[str, str] = {
+    "bug": "fixed",
+    "fix": "fixed",
+    "enhancement": "added",
+    "feature": "added",
+    "breaking change": "changed",
+    "deprecation": "deprecated",
+    "security": "security",
+    "removed": "removed",
+}
+
+
+def _assign_version_by_date(
+    merged_date: str,
+    tag_timeline: list[tuple[str, str]],
+) -> str | None:
+    """Returns the version whose tag date is the earliest on or after merged_date.
+
+    ``tag_timeline`` is a list of ``(date, version)`` pairs sorted ascending by
+    date.  Returns ``None`` when no tag follows the merged date (the PR belongs
+    to ``[Unreleased]``).
+    """
+    for tag_date, version in tag_timeline:
+        if tag_date >= merged_date:
+            return version
+    return None
+
+
+def discover_github_prs(
+    repository: str,
+    token: Optional[str],
+    *,
+    since: str | None = None,
+    until: str | None = None,
+    versioning_scheme: str = "semver",
+) -> tuple[list[BackfillRelease], list[str]]:
+    """Fetches merged GitHub PRs and groups them into versions by date window.
+
+    PRs are assigned to the earliest release tag whose date falls on or after the
+    PR's merge date.  PRs merged after all known tags are assigned to a special
+    ``__unreleased__`` bucket and silently dropped (the caller decides what to
+    do with unreleased entries).  Non-semver tags are included in the timeline
+    but skipped from the returned releases list (recorded in ``skipped``).
+    """
+    from changelogmanager.github import GitHub  # noqa: PLC0415
+
+    client = GitHub(repository=repository, token=token or "")
+    raw_prs = client.get_merged_prs(since_date=since, until_date=until)
+
+    # Build a sorted tag timeline from local git tags.  Fall back to an empty
+    # timeline when there are no tags (calendar-month grouping is used instead).
+    local_tags = discover_tags()
+    tag_timeline: list[tuple[str, str]] = []
+    for gt in sorted(local_tags, key=lambda t: t.date or ""):
+        if not gt.date:
+            continue
+        try:
+            parse_version(gt.version, versioning_scheme)
+        except ValueError:
+            continue
+        tag_timeline.append((gt.date, gt.version))
+
+    use_calendar_months = not tag_timeline
+    if use_calendar_months:
+        logger.warning(
+            "No local git tags found; grouping GitHub PRs into calendar-month "
+            "synthetic versions (YYYY-MM). Switch to --source github-releases or "
+            "add git tags to get proper version grouping."
+        )
+
+    # Group PRs by assigned version.
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for pr in raw_prs:
+        merged_at: str = (pr.get("merged_at") or "")[:10]
+        if not merged_at:
+            continue
+        if use_calendar_months:
+            version = merged_at[:7]  # YYYY-MM
+        else:
+            version = _assign_version_by_date(merged_at, tag_timeline)
+            if version is None:
+                continue  # belongs to [Unreleased] — skip
+        buckets.setdefault(version, []).append(pr)
+
+    skipped: list[str] = []
+    releases: list[BackfillRelease] = []
+    for version, prs in buckets.items():
+        if not use_calendar_months:
+            try:
+                parse_version(version, versioning_scheme)
+            except ValueError:
+                skipped.append(version)
+                continue
+
+        entries: list[BackfillEntry] = []
+        seen: set[tuple[str, str]] = set()
+        for pr in prs:
+            title: str = (pr.get("title") or "").strip()
+            if not title:
+                continue
+            labels: list[str] = [
+                (lbl.get("name") or "").lower()
+                for lbl in (pr.get("labels") or [])
+                if isinstance(lbl, dict)
+            ]
+            change_type = "changed"
+            for label in labels:
+                if label in GITHUB_LABEL_TO_KAC:
+                    change_type = GITHUB_LABEL_TO_KAC[label]
+                    break
+            key = (change_type, title.lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            pr_url: str | None = pr.get("html_url")
+            entries.append(
+                BackfillEntry(
+                    change_type=change_type,
+                    text=title,
+                    source="github-prs",
+                    url=pr_url,
+                    confidence="medium",
+                )
+            )
+
+        if not entries:
+            continue
+
+        # Use the latest merge date in the bucket as the release date.
+        dates = [
+            (pr.get("merged_at") or "")[:10]
+            for pr in prs
+            if (pr.get("merged_at") or "")[:10]
+        ]
+        release_date: str | None = max(dates) if dates else None
+
+        releases.append(
+            BackfillRelease(
+                version=version,
+                date=release_date,
+                tag=None,
+                title=None,
+                body=None,
+                entries=entries,
+                sources=[
+                    BackfillSource(
+                        name="github-prs",
+                        identifier=version,
+                        url=f"https://github.com/{repository}/pulls?q=is%3Apr+is%3Amerged",
+                    )
+                ],
+            )
+        )
+
+    releases.sort(
+        key=lambda r: r.version,
+        reverse=True,
+    )
+    logger.info(
+        "Discovered %d PR-based release group(s) for backfill; skipped %d",
+        len(releases),
+        len(skipped),
+    )
+    return releases, skipped
+
+
+def discover_github_releases(
+    repository: str,
+    token: Optional[str],
+    *,
+    since: str | None = None,
+    until: str | None = None,
+    versioning_scheme: str = "semver",
+) -> tuple[list[BackfillRelease], list[str]]:
+    """Fetches GitHub Releases and returns normalized BackfillRelease list plus skipped tags."""
+    from changelogmanager.github import GitHub  # noqa: PLC0415
+
+    client = GitHub(repository=repository, token=token or "")
+    raw = client.get_releases_for_backfill()
+
+    releases: list[BackfillRelease] = []
+    skipped: list[str] = []
+    for item in raw:
+        tag_name: str = item.get("version", "")
+        version = normalize_tag_version(tag_name)
+        try:
+            parse_version(version, versioning_scheme)
+        except ValueError:
+            logger.warning("Skipping GitHub release not %s compatible: %s", versioning_scheme, tag_name)
+            skipped.append(tag_name)
+            continue
+
+        if since and version < since:
+            continue
+        if until and version > until:
+            continue
+
+        body: str = item.get("body", "") or ""
+        date: Optional[str] = item.get("date")
+        url = f"https://github.com/{repository}/releases/tag/{tag_name}"
+        entries: list[BackfillEntry] = []
+        if body.strip():
+            entries.append(
+                BackfillEntry(
+                    change_type="changed",
+                    text=body.strip(),
+                    source="github-releases",
+                    url=url,
+                    confidence="medium",
+                )
+            )
+        else:
+            entries.append(
+                BackfillEntry(
+                    change_type="changed",
+                    text=f"Release notes unavailable; backfilled from GitHub release `{tag_name}`.",
+                    source="github-releases",
+                    url=url,
+                    confidence="low",
+                )
+            )
+        releases.append(
+            BackfillRelease(
+                version=version,
+                date=date,
+                tag=tag_name,
+                title=None,
+                body=body,
+                entries=entries,
+                sources=[BackfillSource(name="github-releases", identifier=tag_name, url=url)],
+            )
+        )
+
+    releases.sort(
+        key=lambda r: parse_version(r.version, versioning_scheme),
+        reverse=True,
+    )
+    logger.info(
+        "Discovered %d GitHub release(s) for backfill; skipped %d",
+        len(releases),
+        len(skipped),
+    )
+    return releases, skipped
+
+
+def discover_pypi_releases(
+    package: str,
+    *,
+    since: str | None = None,
+    until: str | None = None,
+    versioning_scheme: str = "semver",
+) -> tuple[list[BackfillRelease], list[str]]:
+    """Fetches PyPI release history and returns normalized BackfillRelease list plus skipped."""
+    from changelogmanager.pypi import get_pypi_releases  # noqa: PLC0415
+
+    raw = get_pypi_releases(package)
+    releases: list[BackfillRelease] = []
+    skipped: list[str] = []
+    for item in raw:
+        version: str = item["version"]
+        try:
+            parse_version(version, versioning_scheme)
+        except ValueError:
+            logger.warning("Skipping PyPI release not %s compatible: %s", versioning_scheme, version)
+            skipped.append(version)
+            continue
+
+        if since and version < since:
+            continue
+        if until and version > until:
+            continue
+
+        date: Optional[str] = item.get("date")
+        url = f"https://pypi.org/project/{package}/{version}/"
+        releases.append(
+            BackfillRelease(
+                version=version,
+                date=date,
+                tag=None,
+                title=None,
+                body=None,
+                entries=[
+                    BackfillEntry(
+                        change_type="changed",
+                        text=f"Released on PyPI.",
+                        source="pypi",
+                        url=url,
+                        confidence="low",
+                    )
+                ],
+                sources=[BackfillSource(name="pypi", identifier=version, url=url)],
+            )
+        )
+
+    releases.sort(
+        key=lambda r: parse_version(r.version, versioning_scheme),
+        reverse=True,
+    )
+    logger.info(
+        "Discovered %d PyPI release(s) for backfill; skipped %d",
+        len(releases),
+        len(skipped),
+    )
+    return releases, skipped
+
+
+def _merge_releases(*release_lists: list[BackfillRelease]) -> list[BackfillRelease]:
+    """Merges multiple release lists, deduplicating by (version, section, text)."""
+    by_version: dict[str, BackfillRelease] = {}
+    for releases in release_lists:
+        for release in releases:
+            if release.version not in by_version:
+                by_version[release.version] = release
+                continue
+            existing = by_version[release.version]
+            seen: set[tuple[str, str]] = {
+                (e.change_type, e.text.strip().lower()) for e in existing.entries
+            }
+            new_entries = [
+                e for e in release.entries
+                if (e.change_type, e.text.strip().lower()) not in seen
+            ]
+            merged_sources = existing.sources + [
+                s for s in release.sources if s not in existing.sources
+            ]
+            by_version[release.version] = BackfillRelease(
+                version=existing.version,
+                date=existing.date or release.date,
+                tag=existing.tag or release.tag,
+                title=existing.title or release.title,
+                body=existing.body or release.body,
+                entries=existing.entries + new_entries,
+                sources=merged_sources,
+            )
+    return list(by_version.values())
+
+
 def plan_backfill(
     changelog: Changelog,
     *,
-    source: str = "all",
+    source: str = "local",
     since: str | None = None,
     until: str | None = None,
     missing_only: bool = True,
@@ -749,8 +1086,11 @@ def plan_backfill(
     commit_schema: str = "auto",
     strategy: str = "conservative",
     max_commits: int = MAX_COMMITS_DEFAULT,
+    repository: str | None = None,
+    token: str | None = None,
+    package: str | None = None,
 ) -> BackfillPlan:
-    """Builds a conservative backfill plan from the selected local source set.
+    """Builds a backfill plan from the selected source set.
 
     Under ``strategy == "merge"`` together with ``missing_only=False`` versions
     already present in the changelog are not skipped; instead they are kept in the
@@ -768,7 +1108,7 @@ def plan_backfill(
             versioning_scheme=versioning_scheme,
         )
         sources = ["tags"]
-    elif source in {"commits", "all"}:
+    elif source == "commits":
         releases, skipped_tags = discover_commit_releases(
             since=since,
             until=until,
@@ -776,11 +1116,75 @@ def plan_backfill(
             commit_schema=commit_schema,
             max_commits=max_commits,
         )
-        sources = ["commits"] if source == "commits" else ["tags", "commits"]
+        sources = ["commits"]
+    elif source in {"local", "all"}:
+        releases, skipped_tags = discover_commit_releases(
+            since=since,
+            until=until,
+            versioning_scheme=versioning_scheme,
+            commit_schema=commit_schema,
+            max_commits=max_commits,
+        )
+        sources = ["tags", "commits"]
+        if source == "all" and repository:
+            gh_releases, gh_skipped = discover_github_releases(
+                repository,
+                token,
+                since=since,
+                until=until,
+                versioning_scheme=versioning_scheme,
+            )
+            gh_prs, pr_skipped = discover_github_prs(
+                repository,
+                token,
+                since=since,
+                until=until,
+                versioning_scheme=versioning_scheme,
+            )
+            releases = _merge_releases(releases, gh_releases, gh_prs)
+            skipped_tags = skipped_tags + gh_skipped + pr_skipped
+            sources = ["tags", "commits", "github-releases", "github-prs"]
+        elif source == "all" and not repository:
+            logger.warning(
+                "backfill --source all without --repository falls back to local sources only; "
+                "switch to --source local to suppress this warning"
+            )
+    elif source == "github-releases":
+        if not repository:
+            raise logging.Error(message="--repository owner/repo is required for --source github-releases")
+        releases, skipped_tags = discover_github_releases(
+            repository,
+            token,
+            since=since,
+            until=until,
+            versioning_scheme=versioning_scheme,
+        )
+        sources = ["github-releases"]
+    elif source == "pypi":
+        if not package:
+            raise logging.Error(message="--package name is required for --source pypi")
+        releases, skipped_tags = discover_pypi_releases(
+            package,
+            since=since,
+            until=until,
+            versioning_scheme=versioning_scheme,
+        )
+        sources = ["pypi"]
+    elif source == "github-prs":
+        if not repository:
+            raise logging.Error(message="--repository owner/repo is required for --source github-prs")
+        releases, skipped_tags = discover_github_prs(
+            repository,
+            token,
+            since=since,
+            until=until,
+            versioning_scheme=versioning_scheme,
+        )
+        sources = ["github-prs"]
     else:
         raise logging.Error(
             message=(
-                f"Backfill source '{source}' is not implemented yet; local sources are tags, commits, and all"
+                f"Backfill source '{source}' is not implemented yet"
             ),
         )
 

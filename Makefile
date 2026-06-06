@@ -3,7 +3,7 @@ PACKAGE = changelogmanager
 BUILD_DIR = build
 PYLINT_TEMPLATE = {path}:{line}: [{msg_id}({symbol}),{obj}] {msg}
 
-.PHONY: help sync clean format format-check test flake8 pylint mypy bandit lint quality check build validate ruff docs-sync gha-validate gha-pin gha-upgrade prerelease prerelease-check version-check dev-status
+.PHONY: help sync clean format format-check test flake8 pylint mypy bandit lint quality check build validate ruff docs-sync gha-validate gha-pin gha-upgrade prerelease prerelease-check version-check dev-status snapshot-update snapshot-check
 
 help:
 	@echo Available targets:
@@ -26,6 +26,8 @@ help:
 	@echo   gha-validate  Validate GitHub Actions workflow safety checks
 	@echo   gha-pin       Pin GitHub Actions to current SHAs
 	@echo   gha-upgrade   Pin and validate GitHub Actions workflows
+	@echo   snapshot-update  Regenerate committed snapshot files after intentional output changes
+	@echo   snapshot-check   Verify snapshot tests pass without regenerating (used in prerelease)
 	@echo   clean         Remove local build artifacts
 
 sync:
@@ -43,7 +45,7 @@ format-check:
 
 test:
 	$(UV) run python -c "from pathlib import Path; Path('$(BUILD_DIR)').mkdir(exist_ok=True)"
-	$(UV) run pytest -n 4 --cov=$(PACKAGE) --cov-report=html --cov-report=xml --junitxml=$(BUILD_DIR)/junit-test.xml -vv
+	$(UV) run pytest -n 4 --ignore=tests/test_snapshots --cov=$(PACKAGE) --cov-report=html --cov-report=xml --junitxml=$(BUILD_DIR)/junit-test.xml -vv
 	$(UV) run python -c "from pathlib import Path; Path('coverage.xml').replace('$(BUILD_DIR)/junit-coverage.xml')"
 
 flake8:
@@ -98,6 +100,12 @@ raise SystemExit(subprocess.run(['uv', 'tool', 'run', '--from', 'gha-update', 'g
 gha-upgrade: gha-pin gha-validate
 	@echo GitHub Actions upgrade complete
 
+snapshot-update:
+	$(UV) run pytest tests/test_snapshots/ --snapshot-update -v
+
+snapshot-check:
+	$(UV) run pytest tests/test_snapshots/ -v
+
 # ── Dogfooding targets (independent, not wired into check) ───────────────────
 
 version-check:
@@ -107,7 +115,7 @@ dev-status:
 	@$(UV) tool run --from troml troml-dev-status validate .
 
 .PHONY: prerelease
-prerelease: quality version-check build
+prerelease: quality version-check snapshot-check build
 	@echo "Pre-release checks passed."
 
 .PHONY: prerelease-check

@@ -204,9 +204,12 @@ A leading `v` on `--override-version` is stripped automatically.
 Non-interactive runs without `--yes` are refused. Use `release --dry-run` to preview, then `release --yes` in CI or
 scripts.
 
+Exits with code 0 and a skip notice if `[Unreleased]` exists but has no entries — useful in
+CI so a "nothing to release" run does not fail the job.
+
 Fails with exit code 1 if:
 
-- There is no `[Unreleased]` section
+- There is no `[Unreleased]` section at all
 - The provided version is not compliant with the configured versioning scheme
 - The version already exists in the changelog
 - The version would be older than the current latest release
@@ -264,9 +267,10 @@ changelogmanager remove [OPTIONS]
 | `-t, --change-type [added\|changed\|deprecated\|removed\|fixed\|security]` | Category containing the entry to remove |
 | `-i, --index INTEGER` | 0-based index within that category |
 | `--list` | List all `[Unreleased]` entries with indices instead of removing |
+| `--count` | Print the total number of `[Unreleased]` entries as a plain integer |
 | `--dry-run` | Preview without writing |
 
-Use `--list` first to discover the `change-type` and `index` pair you want.
+Use `--list` first to discover the `change-type` and `index` pair you want. Use `--count` in scripts when you only need to know whether entries exist — it prints a bare integer to stdout and sets `{"count": N}` in `--json` output.
 
 ______________________________________________________________________
 
@@ -344,10 +348,11 @@ changelogmanager backfill [OPTIONS]
 ```
 
 | Option | Default | Description |
-|-------------------------|-----------------|------------------------------------------------------------|
-| `--source` | `all` | Source set to import from |
-| `--repository TEXT` | | Reserved for future GitHub backfill phases |
-| `--package TEXT` | | Reserved for future PyPI backfill phases |
+|-------------------------|----------------|--------------------------------------------------------------|
+| `--source` | `local` | Source set to import from (see table below) |
+| `--repository TEXT` | | GitHub repository in `owner/repo` format |
+| `--package TEXT` | | PyPI package name |
+| `-t, --github-token TEXT` | _(keyring / env)_ | GitHub token; falls back to OS keyring then `GITHUB_TOKEN` |
 | `--since TEXT` | | Earliest version/tag/ref to consider |
 | `--until TEXT` | | Latest version/tag/ref to consider |
 | `--missing-only` | `true` | Only add versions missing from the changelog |
@@ -358,25 +363,73 @@ changelogmanager backfill [OPTIONS]
 | `--max-commits N` | `5000` | Refuse when the walked range exceeds N commits; pass `0` to disable the guard |
 | `--dry-run` | | Preview without writing |
 
-Current behavior:
+### `--source` choices
 
-- `--source tags` is implemented
-- `--source commits` fills tag intervals from local commit subjects, gathered in a single `git log` pass (cost is independent of the number of tags)
-- `--max-commits` guards against monster histories: a range larger than the limit is refused with guidance to narrow `--since`/`--until`; within budget, any single release section is still capped to keep the changelog readable
-- `--source all` uses local commits when they produce entries and falls back to tag placeholders
-- `--commit-schema auto` tries Conventional Commits, gitmoji, and Keep a Changelog flavored subjects such as `Fixed: repair parser`
-- remote sources (`github-releases`, `github-prs`, `pypi`) are parsed but fail fast because they are not implemented yet
-- `--strategy conservative` (default) only adds versions missing from the changelog and never touches existing sections
-- `--strategy merge --no-missing-only` additively fills entries into versions already present, preserving existing text and metadata; matching is on change type plus normalized message, so re-running is idempotent. (With the default `--missing-only`, merge still only adds absent versions.)
-- `--strategy replace` is intentionally unsupported: changelog entries have no stable identity, so replacing them is unsafe. Use `merge` to fill gaps instead.
+| Value | What it uses | Network | Requires |
+|-----------------|----------------------------------------------|---------|-----------------|
+| `tags` | Local git tags only | no | — |
+| `commits` | Local git commits grouped by tag interval | no | — |
+| `local` | `tags` + `commits` (default) | no | — |
+| `github-releases` | GitHub Releases API | yes | `--repository` |
+| `github-prs` | GitHub merged PRs, grouped by tag date | yes | `--repository` |
+| `pypi` | PyPI JSON API | yes | `--package` |
+| `all` | `local` + `github-releases` + `github-prs` | yes | `--repository` |
 
-For tag-only imports, or commit intervals with no richer local messages, the tool adds a conservative placeholder entry under `Changed`, for example:
+`all` without `--repository` falls back to `local` with a warning. Users who want the old no-network behaviour should use `--source local`.
+
+### Strategy
+
+- `--strategy conservative` (default) only adds versions absent from the changelog; existing sections are never touched.
+- `--strategy merge --no-missing-only` additively fills entries into versions already present, preserving existing text. Matching is on change type plus normalised message, so re-running is idempotent.
+- `--strategy replace` is intentionally unsupported.
+
+### Online sources
+
+**`github-releases`** fetches GitHub Releases. The release body is imported as a `changed` entry; an empty body gets a placeholder. Requires `--repository owner/repo`. A GitHub token is strongly recommended to avoid the 60 req/hr unauthenticated rate limit — pass `--github-token`, store one with `changelogmanager credentials set github`, or set `GITHUB_TOKEN`.
+
+**`github-prs`** fetches merged pull requests and groups them into versions using the local git tag timeline: each PR is assigned to the earliest tag whose date falls on or after the PR's merge date. PRs merged after all known tags are silently dropped (they belong to `[Unreleased]`). When no local tags exist, PRs are grouped into calendar-month synthetic versions (`YYYY-MM`). PR labels map to KAC categories:
+
+| Label | Category |
+|-----------------|------------|
+| `bug`, `fix` | `fixed` |
+| `enhancement`, `feature` | `added` |
+| `security` | `security` |
+| `removed` | `removed` |
+| `deprecation` | `deprecated` |
+| `breaking change` | `changed` |
+| _(anything else)_ | `changed` |
+
+**`pypi`** fetches release history from the PyPI JSON API (no auth needed) and creates stub entries (`Released on PyPI.`) for each published version. Useful for bootstrapping a changelog from a long PyPI history.
+
+### Commit schema
+
+`--commit-schema auto` tries Conventional Commits, gitmoji, and Keep a Changelog flavored subjects (`Fixed: repair parser`) in sequence. Use `conventional`, `gitmoji`, or `keepachangelog` to restrict to one schema.
+
+For tag-only imports or commit intervals with no parseable messages, the tool inserts a placeholder:
 
 ```markdown
 ### Changed
 
 - Release notes unavailable; backfilled from tag `v1.2.3`.
 ```
+
+______________________________________________________________________
+
+## credentials
+
+Manage API tokens stored in the OS keyring (Windows Credential Manager, macOS Keychain, or libsecret on Linux).
+
+```
+changelogmanager credentials set github    # prompts securely, stores in keyring
+changelogmanager credentials set gitlab
+changelogmanager credentials clear github
+changelogmanager credentials clear gitlab
+changelogmanager credentials check         # prints which tokens are configured
+```
+
+`set` prompts for the token value without echoing it to the terminal. The stored token is picked up automatically by `backfill --source github-releases/github-prs`, `github-release`, `github-pr`, and `gitlab-release` without needing an environment variable or `--github-token` flag.
+
+Token resolution order for GitHub commands: `--github-token` flag → OS keyring → `GITHUB_TOKEN` environment variable.
 
 ______________________________________________________________________
 
