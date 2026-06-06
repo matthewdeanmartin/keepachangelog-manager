@@ -42,9 +42,9 @@ PR, builds artifacts, and publishes to PyPI. See [GitHub automation](github.md).
 ## Before submitting changes
 
 1. Sync your environment with `make sync`.
-2. Update `CHANGELOG.md` with `keepachangelog-manager` when the change is user-facing.
-3. Run `make quality` before opening a PR.
-4. Run `make prerelease` before cutting or validating a release.
+1. Update `CHANGELOG.md` with `keepachangelog-manager` when the change is user-facing.
+1. Run `make quality` before opening a PR.
+1. Run `make prerelease` before cutting or validating a release.
 
 ## Project structure
 

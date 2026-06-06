@@ -768,7 +768,7 @@ def _assign_version_by_date(
 
 def discover_github_prs(
     repository: str,
-    token: Optional[str],
+    token: str | None,
     *,
     since: str | None = None,
     until: str | None = None,
@@ -814,12 +814,14 @@ def discover_github_prs(
         merged_at: str = (pr.get("merged_at") or "")[:10]
         if not merged_at:
             continue
-        if use_calendar_months:
-            version = merged_at[:7]  # YYYY-MM
-        else:
-            version = _assign_version_by_date(merged_at, tag_timeline)
-            if version is None:
-                continue  # belongs to [Unreleased] — skip
+        version: str | None = (
+            merged_at[:7]  # YYYY-MM
+            if use_calendar_months
+            else _assign_version_by_date(merged_at, tag_timeline)
+        )
+
+        if version is None:
+            continue  # belongs to [Unreleased] — skip
         buckets.setdefault(version, []).append(pr)
 
     skipped: list[str] = []
@@ -906,7 +908,7 @@ def discover_github_prs(
 
 def discover_github_releases(
     repository: str,
-    token: Optional[str],
+    token: str | None,
     *,
     since: str | None = None,
     until: str | None = None,
@@ -926,7 +928,11 @@ def discover_github_releases(
         try:
             parse_version(version, versioning_scheme)
         except ValueError:
-            logger.warning("Skipping GitHub release not %s compatible: %s", versioning_scheme, tag_name)
+            logger.warning(
+                "Skipping GitHub release not %s compatible: %s",
+                versioning_scheme,
+                tag_name,
+            )
             skipped.append(tag_name)
             continue
 
@@ -936,7 +942,7 @@ def discover_github_releases(
             continue
 
         body: str = item.get("body", "") or ""
-        date: Optional[str] = item.get("date")
+        date: str | None = item.get("date")
         url = f"https://github.com/{repository}/releases/tag/{tag_name}"
         entries: list[BackfillEntry] = []
         if body.strip():
@@ -967,7 +973,9 @@ def discover_github_releases(
                 title=None,
                 body=body,
                 entries=entries,
-                sources=[BackfillSource(name="github-releases", identifier=tag_name, url=url)],
+                sources=[
+                    BackfillSource(name="github-releases", identifier=tag_name, url=url)
+                ],
             )
         )
 
@@ -1001,7 +1009,11 @@ def discover_pypi_releases(
         try:
             parse_version(version, versioning_scheme)
         except ValueError:
-            logger.warning("Skipping PyPI release not %s compatible: %s", versioning_scheme, version)
+            logger.warning(
+                "Skipping PyPI release not %s compatible: %s",
+                versioning_scheme,
+                version,
+            )
             skipped.append(version)
             continue
 
@@ -1010,7 +1022,7 @@ def discover_pypi_releases(
         if until and version > until:
             continue
 
-        date: Optional[str] = item.get("date")
+        date: str | None = item.get("date")
         url = f"https://pypi.org/project/{package}/{version}/"
         releases.append(
             BackfillRelease(
@@ -1022,7 +1034,7 @@ def discover_pypi_releases(
                 entries=[
                     BackfillEntry(
                         change_type="changed",
-                        text=f"Released on PyPI.",
+                        text="Released on PyPI.",
                         source="pypi",
                         url=url,
                         confidence="low",
@@ -1057,7 +1069,8 @@ def _merge_releases(*release_lists: list[BackfillRelease]) -> list[BackfillRelea
                 (e.change_type, e.text.strip().lower()) for e in existing.entries
             }
             new_entries = [
-                e for e in release.entries
+                e
+                for e in release.entries
                 if (e.change_type, e.text.strip().lower()) not in seen
             ]
             merged_sources = existing.sources + [
@@ -1151,7 +1164,9 @@ def plan_backfill(
             )
     elif source == "github-releases":
         if not repository:
-            raise logging.Error(message="--repository owner/repo is required for --source github-releases")
+            raise logging.Error(
+                message="--repository owner/repo is required for --source github-releases"
+            )
         releases, skipped_tags = discover_github_releases(
             repository,
             token,
@@ -1172,7 +1187,9 @@ def plan_backfill(
         sources = ["pypi"]
     elif source == "github-prs":
         if not repository:
-            raise logging.Error(message="--repository owner/repo is required for --source github-prs")
+            raise logging.Error(
+                message="--repository owner/repo is required for --source github-prs"
+            )
         releases, skipped_tags = discover_github_prs(
             repository,
             token,
@@ -1183,9 +1200,7 @@ def plan_backfill(
         sources = ["github-prs"]
     else:
         raise logging.Error(
-            message=(
-                f"Backfill source '{source}' is not implemented yet"
-            ),
+            message=(f"Backfill source '{source}' is not implemented yet"),
         )
 
     merging = strategy == "merge" and not missing_only

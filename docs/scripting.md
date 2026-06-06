@@ -7,7 +7,7 @@ CLI non-interactively.
 For day-to-day interactive use, see [Key workflows](workflows.md).
 For the full option reference, see [CLI reference](cli.md).
 
----
+______________________________________________________________________
 
 ## Exit codes
 
@@ -24,7 +24,7 @@ exit `1` only on hard failures (missing `[Unreleased]`, bad version, API error, 
 There is no exit code `2` for "usage error" — a bad flag causes argparse to print help and exit `2`
 via the standard library, not via the CLI dispatch.
 
----
+______________________________________________________________________
 
 ## Machine-readable flags
 
@@ -42,7 +42,7 @@ changelogmanager --quiet validate
 
 Runtime logs (`--info`, `--verbose`) always go to stderr and never pollute stdout.
 
----
+______________________________________________________________________
 
 ## JSON output shapes
 
@@ -171,7 +171,7 @@ changelogmanager --json backfill --source tags --dry-run
 }
 ```
 
----
+______________________________________________________________________
 
 ## Extracting values with `jq`
 
@@ -218,7 +218,7 @@ BUMPED=$(changelogmanager --json release --bump-versions --yes \
 git add CHANGELOG.md $BUMPED
 ```
 
----
+______________________________________________________________________
 
 ## Typical release.yml patterns
 
@@ -351,7 +351,7 @@ If you want CI to commit autofixes automatically:
     fi
 ```
 
----
+______________________________________________________________________
 
 ## Scripting guard patterns
 
@@ -412,7 +412,7 @@ changelogmanager add \
   --quiet
 ```
 
----
+______________________________________________________________________
 
 ## Scripting behaviors to be aware of
 

@@ -8,17 +8,17 @@ ______________________________________________________________________
 
 These options apply to every command and must appear before the command name.
 
-| Option | Default | Description |
-|-------------------------------------|-----------------------------|-------------------------------------------------------------|
-| `--config TEXT` | _(auto-detect if possible)_ | Path to `changelogmanager.toml`, `.changelogmanager.toml`, or `pyproject.toml` |
-| `--component TEXT` | `default` | Component name to use from the config file |
-| `-f, --error-format [llvm\|github]` | `llvm` | Format for diagnostic messages |
-| `--input-file TEXT` | `CHANGELOG.md` | Path to the changelog file |
-| `--info` | `false` | Enable runtime info/warning/error logging on stderr |
-| `--verbose` | `false` | Enable verbose runtime logging on stderr (implies `--info`) |
-| `--quiet` | `false` | Suppress non-error human-readable output |
-| `--json` | `false` | Emit one machine-readable JSON object on stdout |
-| `--help` | | Show help and exit |
+| Option                              | Default                     | Description                                                                    |
+|-------------------------------------|-----------------------------|--------------------------------------------------------------------------------|
+| `--config TEXT`                     | _(auto-detect if possible)_ | Path to `changelogmanager.toml`, `.changelogmanager.toml`, or `pyproject.toml` |
+| `--component TEXT`                  | `default`                   | Component name to use from the config file                                     |
+| `-f, --error-format [llvm\|github]` | `llvm`                      | Format for diagnostic messages                                                 |
+| `--input-file TEXT`                 | `CHANGELOG.md`              | Path to the changelog file                                                     |
+| `--info`                            | `false`                     | Enable runtime info/warning/error logging on stderr                            |
+| `--verbose`                         | `false`                     | Enable verbose runtime logging on stderr (implies `--info`)                    |
+| `--quiet`                           | `false`                     | Suppress non-error human-readable output                                       |
+| `--json`                            | `false`                     | Emit one machine-readable JSON object on stdout                                |
+| `--help`                            |                             | Show help and exit                                                             |
 
 If `--config` is omitted, the CLI looks for `changelogmanager.toml`, `.changelogmanager.toml`, or
 `[tool.changelogmanager]` in `pyproject.toml` in the current directory.
@@ -106,11 +106,11 @@ Add a new entry to the `[Unreleased]` section.
 changelogmanager add [OPTIONS]
 ```
 
-| Option | Description |
+| Option                                                                     | Description              |
 |----------------------------------------------------------------------------|--------------------------|
-| `-t, --change-type [added\|changed\|deprecated\|removed\|fixed\|security]` | Category of the change |
-| `-m, --message TEXT` | The changelog entry text |
-| `--dry-run` | Preview without writing |
+| `-t, --change-type [added\|changed\|deprecated\|removed\|fixed\|security]` | Category of the change   |
+| `-m, --message TEXT`                                                       | The changelog entry text |
+| `--dry-run`                                                                | Preview without writing  |
 
 Omitting `--change-type` or `--message` triggers an interactive prompt.
 
@@ -124,14 +124,14 @@ Validate the changelog and exit. Writes nothing unless `--fix` is also passed.
 changelogmanager validate [--fix] [--all] [--changed-only] [--format|--no-format] [--dry-run]
 ```
 
-| Option | Description |
+| Option           | Description                                                                                              |
 |------------------|----------------------------------------------------------------------------------------------------------|
-| `--fix` | Apply autofixes: reorder versions, lowercase change types, drop empty sections, dedupe identical entries |
-| `--all` | Validate every component declared in the config file |
-| `--changed-only` | With `--all`, skip configured components whose changelog file is unchanged in git |
-| `--format` | After `--fix`, require and run `mdformat` |
-| `--no-format` | After `--fix`, skip the optional `mdformat` pass even when available |
-| `--dry-run` | Preview `--fix` output without writing |
+| `--fix`          | Apply autofixes: reorder versions, lowercase change types, drop empty sections, dedupe identical entries |
+| `--all`          | Validate every component declared in the config file                                                     |
+| `--changed-only` | With `--all`, skip configured components whose changelog file is unchanged in git                        |
+| `--format`       | After `--fix`, require and run `mdformat`                                                                |
+| `--no-format`    | After `--fix`, skip the optional `mdformat` pass even when available                                     |
+| `--dry-run`      | Preview `--fix` output without writing                                                                   |
 
 Exit code is `0` if the changelog is valid (or has only warnings), `1` if there are errors.
 
@@ -164,15 +164,15 @@ Print a version number derived from the changelog.
 changelogmanager version [OPTIONS]
 ```
 
-| Option | Default | Description |
+| Option                                        | Default   | Description             |
 |-----------------------------------------------|-----------|-------------------------|
 | `-r, --reference [previous\|current\|future]` | `current` | Which version to report |
 
-| Reference | What it returns |
+| Reference  | What it returns                                                    |
 |------------|--------------------------------------------------------------------|
-| `current` | The most recently released version |
-| `previous` | The version before the current one |
-| `future` | The next version, auto-calculated from `[Unreleased]` change types |
+| `current`  | The most recently released version                                 |
+| `previous` | The version before the current one                                 |
+| `future`   | The next version, auto-calculated from `[Unreleased]` change types |
 
 The `future` version is calculated using the configured versioning scheme
 (`semver`, `pep440`, or `calver`) and these change-type bump rules:
@@ -191,13 +191,13 @@ Promote `[Unreleased]` to a versioned, dated release.
 changelogmanager release [OPTIONS]
 ```
 
-| Option | Default | Description |
-|---------------------------|----------|----------------------------------------------------|
-| `--override-version TEXT` | _(auto)_ | Explicit version to use instead of auto-calculated |
-| `-y, --yes` | `false` | Skip the interactive confirmation prompt |
-| `--bump-versions` | `false` | Also update `pyproject.toml` and Python `__version__` strings |
-| `--pyproject-only` | `false` | With `--bump-versions`, skip Python source files |
-| `--dry-run` | | Preview without writing |
+| Option                    | Default  | Description                                                   |
+|---------------------------|----------|---------------------------------------------------------------|
+| `--override-version TEXT` | _(auto)_ | Explicit version to use instead of auto-calculated            |
+| `-y, --yes`               | `false`  | Skip the interactive confirmation prompt                      |
+| `--bump-versions`         | `false`  | Also update `pyproject.toml` and Python `__version__` strings |
+| `--pyproject-only`        | `false`  | With `--bump-versions`, skip Python source files              |
+| `--dry-run`               |          | Preview without writing                                       |
 
 A leading `v` on `--override-version` is stripped automatically.
 
@@ -226,11 +226,11 @@ Export the changelog to JSON.
 changelogmanager to-json [OPTIONS]
 ```
 
-| Option | Default | Description |
-|------------------------|------------------|-------------------------------------------------|
-| `--file-name TEXT` | `CHANGELOG.json` | Output file path |
-| `--schema-version` | _(current)_ | KAG-Manager JSON schema version to validate against |
-| `--dry-run` | | Validate and print path without writing |
+| Option             | Default          | Description                                         |
+|--------------------|------------------|-----------------------------------------------------|
+| `--file-name TEXT` | `CHANGELOG.json` | Output file path                                    |
+| `--schema-version` | _(current)_      | KAG-Manager JSON schema version to validate against |
+| `--dry-run`        |                  | Validate and print path without writing             |
 
 The output is a JSON array. Each element corresponds to one release (including `unreleased` if present) and contains a
 `metadata` object plus arrays for each change type.
@@ -245,10 +245,10 @@ Export the changelog to HTML.
 changelogmanager to-html [OPTIONS]
 ```
 
-| Option | Default | Description |
+| Option             | Default          | Description                             |
 |--------------------|------------------|-----------------------------------------|
-| `--file-name TEXT` | `CHANGELOG.html` | Output file path |
-| `--dry-run` | | Validate and print path without writing |
+| `--file-name TEXT` | `CHANGELOG.html` | Output file path                        |
+| `--dry-run`        |                  | Validate and print path without writing |
 
 The generated HTML is a simple standalone document that escapes changelog content before rendering it.
 
@@ -262,15 +262,16 @@ List or remove entries from `[Unreleased]`.
 changelogmanager remove [OPTIONS]
 ```
 
-| Option | Description |
-|----------------------------------------------------------------------------|------------------------------------------------------------------|
-| `-t, --change-type [added\|changed\|deprecated\|removed\|fixed\|security]` | Category containing the entry to remove |
-| `-i, --index INTEGER` | 0-based index within that category |
-| `--list` | List all `[Unreleased]` entries with indices instead of removing |
-| `--count` | Print the total number of `[Unreleased]` entries as a plain integer |
-| `--dry-run` | Preview without writing |
+| Option                                                                     | Description                                                         |
+|----------------------------------------------------------------------------|---------------------------------------------------------------------|
+| `-t, --change-type [added\|changed\|deprecated\|removed\|fixed\|security]` | Category containing the entry to remove                             |
+| `-i, --index INTEGER`                                                      | 0-based index within that category                                  |
+| `--list`                                                                   | List all `[Unreleased]` entries with indices instead of removing    |
+| `--count`                                                                  | Print the total number of `[Unreleased]` entries as a plain integer |
+| `--dry-run`                                                                | Preview without writing                                             |
 
-Use `--list` first to discover the `change-type` and `index` pair you want. Use `--count` in scripts when you only need to know whether entries exist — it prints a bare integer to stdout and sets `{"count": N}` in `--json` output.
+Use `--list` first to discover the `change-type` and `index` pair you want. Use `--count` in scripts when you only need
+to know whether entries exist — it prints a bare integer to stdout and sets `{"count": N}` in `--json` output.
 
 ______________________________________________________________________
 
@@ -282,13 +283,13 @@ Edit an existing `[Unreleased]` entry.
 changelogmanager edit [OPTIONS]
 ```
 
-| Option | Description |
+| Option                                                                     | Description                           |
 |----------------------------------------------------------------------------|---------------------------------------|
 | `-t, --change-type [added\|changed\|deprecated\|removed\|fixed\|security]` | Category containing the entry to edit |
-| `-i, --index INTEGER` | 0-based index within that category |
-| `-m, --message TEXT` | Replacement message |
-| `--new-change-type [added\|changed\|deprecated\|removed\|fixed\|security]` | Move the entry into another category |
-| `--dry-run` | Preview without writing |
+| `-i, --index INTEGER`                                                      | 0-based index within that category    |
+| `-m, --message TEXT`                                                       | Replacement message                   |
+| `--new-change-type [added\|changed\|deprecated\|removed\|fixed\|security]` | Move the entry into another category  |
+| `--dry-run`                                                                | Preview without writing               |
 
 Provide `--message` and/or `--new-change-type`, or run interactively and enter a replacement message when prompted.
 
@@ -302,13 +303,13 @@ Create or update a GitHub release from `[Unreleased]`.
 changelogmanager github-release [OPTIONS]
 ```
 
-| Option | Default | Description |
+| Option                    | Default               | Description                       |
 |---------------------------|-----------------------|-----------------------------------|
-| `-r, --repository TEXT` | _(required)_ | Repository in `owner/repo` format |
-| `-t, --github-token TEXT` | `GITHUB_TOKEN` if set | GitHub personal access token |
-| `--draft` | _(default)_ | Create/update as a Draft release |
-| `--release` | | Publish the release immediately |
-| `--dry-run` | | Preview without calling GitHub |
+| `-r, --repository TEXT`   | _(required)_          | Repository in `owner/repo` format |
+| `-t, --github-token TEXT` | `GITHUB_TOKEN` if set | GitHub personal access token      |
+| `--draft`                 | _(default)_           | Create/update as a Draft release  |
+| `--release`               |                       | Publish the release immediately   |
+| `--dry-run`               |                       | Preview without calling GitHub    |
 
 The command first deletes all existing draft releases for the repository, then creates a new one tagged with the
 auto-calculated future version. The release body is generated from the `[Unreleased]` entries, grouped by change type
@@ -324,15 +325,15 @@ Open or update a GitHub pull request for a changelog branch.
 changelogmanager github-pr [OPTIONS]
 ```
 
-| Option | Default | Description |
-|---------------------------|-----------------------|----------------------------------------------|
-| `-r, --repository TEXT` | _(required)_ | Repository in `owner/repo` format |
-| `--head TEXT` | _(required)_ | Source branch for the pull request |
-| `--base TEXT` | _(required)_ | Target branch for the pull request |
-| `--title TEXT` | _(auto)_ | Pull request title |
-| `--body TEXT` | _(auto)_ | Pull request body |
-| `-t, --github-token TEXT` | `GITHUB_TOKEN` if set | GitHub token |
-| `--dry-run` | | Preview without calling GitHub |
+| Option                    | Default               | Description                        |
+|---------------------------|-----------------------|------------------------------------|
+| `-r, --repository TEXT`   | _(required)_          | Repository in `owner/repo` format  |
+| `--head TEXT`             | _(required)_          | Source branch for the pull request |
+| `--base TEXT`             | _(required)_          | Target branch for the pull request |
+| `--title TEXT`            | _(auto)_              | Pull request title                 |
+| `--body TEXT`             | _(auto)_              | Pull request body                  |
+| `-t, --github-token TEXT` | `GITHUB_TOKEN` if set | GitHub token                       |
+| `--dry-run`               |                       | Preview without calling GitHub     |
 
 If an open pull request already exists for the same `head` and `base`, the command updates its title/body instead of
 opening a duplicate.
@@ -347,63 +348,73 @@ Backfill missing released versions from existing history.
 changelogmanager backfill [OPTIONS]
 ```
 
-| Option | Default | Description |
-|-------------------------|----------------|--------------------------------------------------------------|
-| `--source` | `local` | Source set to import from (see table below) |
-| `--repository TEXT` | | GitHub repository in `owner/repo` format |
-| `--package TEXT` | | PyPI package name |
-| `-t, --github-token TEXT` | _(keyring / env)_ | GitHub token; falls back to OS keyring then `GITHUB_TOKEN` |
-| `--since TEXT` | | Earliest version/tag/ref to consider |
-| `--until TEXT` | | Latest version/tag/ref to consider |
-| `--missing-only` | `true` | Only add versions missing from the changelog |
-| `--no-missing-only` | | With `--strategy merge`, also backfill entries into existing versions |
-| `--include-unreleased` | `false` | Seed `[Unreleased]` from commits since the latest release tag |
-| `--strategy` | `conservative` | How to handle versions already present |
-| `--commit-schema` | `auto` | Commit schema for commit-derived entries |
-| `--max-commits N` | `5000` | Refuse when the walked range exceeds N commits; pass `0` to disable the guard |
-| `--dry-run` | | Preview without writing |
+| Option                    | Default           | Description                                                                   |
+|---------------------------|-------------------|-------------------------------------------------------------------------------|
+| `--source`                | `local`           | Source set to import from (see table below)                                   |
+| `--repository TEXT`       |                   | GitHub repository in `owner/repo` format                                      |
+| `--package TEXT`          |                   | PyPI package name                                                             |
+| `-t, --github-token TEXT` | _(keyring / env)_ | GitHub token; falls back to OS keyring then `GITHUB_TOKEN`                    |
+| `--since TEXT`            |                   | Earliest version/tag/ref to consider                                          |
+| `--until TEXT`            |                   | Latest version/tag/ref to consider                                            |
+| `--missing-only`          | `true`            | Only add versions missing from the changelog                                  |
+| `--no-missing-only`       |                   | With `--strategy merge`, also backfill entries into existing versions         |
+| `--include-unreleased`    | `false`           | Seed `[Unreleased]` from commits since the latest release tag                 |
+| `--strategy`              | `conservative`    | How to handle versions already present                                        |
+| `--commit-schema`         | `auto`            | Commit schema for commit-derived entries                                      |
+| `--max-commits N`         | `5000`            | Refuse when the walked range exceeds N commits; pass `0` to disable the guard |
+| `--dry-run`               |                   | Preview without writing                                                       |
 
 ### `--source` choices
 
-| Value | What it uses | Network | Requires |
-|-----------------|----------------------------------------------|---------|-----------------|
-| `tags` | Local git tags only | no | — |
-| `commits` | Local git commits grouped by tag interval | no | — |
-| `local` | `tags` + `commits` (default) | no | — |
-| `github-releases` | GitHub Releases API | yes | `--repository` |
-| `github-prs` | GitHub merged PRs, grouped by tag date | yes | `--repository` |
-| `pypi` | PyPI JSON API | yes | `--package` |
-| `all` | `local` + `github-releases` + `github-prs` | yes | `--repository` |
+| Value             | What it uses                               | Network | Requires       |
+|-------------------|--------------------------------------------|---------|----------------|
+| `tags`            | Local git tags only                        | no      | —              |
+| `commits`         | Local git commits grouped by tag interval  | no      | —              |
+| `local`           | `tags` + `commits` (default)               | no      | —              |
+| `github-releases` | GitHub Releases API                        | yes     | `--repository` |
+| `github-prs`      | GitHub merged PRs, grouped by tag date     | yes     | `--repository` |
+| `pypi`            | PyPI JSON API                              | yes     | `--package`    |
+| `all`             | `local` + `github-releases` + `github-prs` | yes     | `--repository` |
 
-`all` without `--repository` falls back to `local` with a warning. Users who want the old no-network behaviour should use `--source local`.
+`all` without `--repository` falls back to `local` with a warning. Users who want the old no-network behaviour should
+use `--source local`.
 
 ### Strategy
 
 - `--strategy conservative` (default) only adds versions absent from the changelog; existing sections are never touched.
-- `--strategy merge --no-missing-only` additively fills entries into versions already present, preserving existing text. Matching is on change type plus normalised message, so re-running is idempotent.
+- `--strategy merge --no-missing-only` additively fills entries into versions already present, preserving existing text.
+  Matching is on change type plus normalised message, so re-running is idempotent.
 - `--strategy replace` is intentionally unsupported.
 
 ### Online sources
 
-**`github-releases`** fetches GitHub Releases. The release body is imported as a `changed` entry; an empty body gets a placeholder. Requires `--repository owner/repo`. A GitHub token is strongly recommended to avoid the 60 req/hr unauthenticated rate limit — pass `--github-token`, store one with `changelogmanager credentials set github`, or set `GITHUB_TOKEN`.
+**`github-releases`** fetches GitHub Releases. The release body is imported as a `changed` entry; an empty body gets a
+placeholder. Requires `--repository owner/repo`. A GitHub token is strongly recommended to avoid the 60 req/hr
+unauthenticated rate limit — pass `--github-token`, store one with `changelogmanager credentials set github`, or set
+`GITHUB_TOKEN`.
 
-**`github-prs`** fetches merged pull requests and groups them into versions using the local git tag timeline: each PR is assigned to the earliest tag whose date falls on or after the PR's merge date. PRs merged after all known tags are silently dropped (they belong to `[Unreleased]`). When no local tags exist, PRs are grouped into calendar-month synthetic versions (`YYYY-MM`). PR labels map to KAC categories:
+**`github-prs`** fetches merged pull requests and groups them into versions using the local git tag timeline: each PR is
+assigned to the earliest tag whose date falls on or after the PR's merge date. PRs merged after all known tags are
+silently dropped (they belong to `[Unreleased]`). When no local tags exist, PRs are grouped into calendar-month
+synthetic versions (`YYYY-MM`). PR labels map to KAC categories:
 
-| Label | Category |
-|-----------------|------------|
-| `bug`, `fix` | `fixed` |
-| `enhancement`, `feature` | `added` |
-| `security` | `security` |
-| `removed` | `removed` |
-| `deprecation` | `deprecated` |
-| `breaking change` | `changed` |
-| _(anything else)_ | `changed` |
+| Label                    | Category     |
+|--------------------------|--------------|
+| `bug`, `fix`             | `fixed`      |
+| `enhancement`, `feature` | `added`      |
+| `security`               | `security`   |
+| `removed`                | `removed`    |
+| `deprecation`            | `deprecated` |
+| `breaking change`        | `changed`    |
+| _(anything else)_        | `changed`    |
 
-**`pypi`** fetches release history from the PyPI JSON API (no auth needed) and creates stub entries (`Released on PyPI.`) for each published version. Useful for bootstrapping a changelog from a long PyPI history.
+**`pypi`** fetches release history from the PyPI JSON API (no auth needed) and creates stub entries (
+`Released on PyPI.`) for each published version. Useful for bootstrapping a changelog from a long PyPI history.
 
 ### Commit schema
 
-`--commit-schema auto` tries Conventional Commits, gitmoji, and Keep a Changelog flavored subjects (`Fixed: repair parser`) in sequence. Use `conventional`, `gitmoji`, or `keepachangelog` to restrict to one schema.
+`--commit-schema auto` tries Conventional Commits, gitmoji, and Keep a Changelog flavored subjects (
+`Fixed: repair parser`) in sequence. Use `conventional`, `gitmoji`, or `keepachangelog` to restrict to one schema.
 
 For tag-only imports or commit intervals with no parseable messages, the tool inserts a placeholder:
 
@@ -427,7 +438,9 @@ changelogmanager credentials clear gitlab
 changelogmanager credentials check         # prints which tokens are configured
 ```
 
-`set` prompts for the token value without echoing it to the terminal. The stored token is picked up automatically by `backfill --source github-releases/github-prs`, `github-release`, `github-pr`, and `gitlab-release` without needing an environment variable or `--github-token` flag.
+`set` prompts for the token value without echoing it to the terminal. The stored token is picked up automatically by
+`backfill --source github-releases/github-prs`, `github-release`, `github-pr`, and `gitlab-release` without needing an
+environment variable or `--github-token` flag.
 
 Token resolution order for GitHub commands: `--github-token` flag → OS keyring → `GITHUB_TOKEN` environment variable.
 
@@ -441,13 +454,13 @@ Create or update a GitLab release from `[Unreleased]`.
 changelogmanager gitlab-release [OPTIONS]
 ```
 
-| Option | Default | Description |
-|--------------------------|-------------------------|------------------------------------------------------------|
-| `-p, --project TEXT` | _(required)_ | GitLab project ID or path such as `group/project` |
-| `-t, --gitlab-token TEXT` | `GITLAB_TOKEN` / `CI_JOB_TOKEN` | GitLab token |
-| `--gitlab-url TEXT` | `https://gitlab.com` | Base URL of the GitLab instance |
-| `--ref TEXT` | `HEAD` | Commit or branch the created tag should point at |
-| `--dry-run` | | Preview without calling GitLab |
+| Option                    | Default                         | Description                                       |
+|---------------------------|---------------------------------|---------------------------------------------------|
+| `-p, --project TEXT`      | _(required)_                    | GitLab project ID or path such as `group/project` |
+| `-t, --gitlab-token TEXT` | `GITLAB_TOKEN` / `CI_JOB_TOKEN` | GitLab token                                      |
+| `--gitlab-url TEXT`       | `https://gitlab.com`            | Base URL of the GitLab instance                   |
+| `--ref TEXT`              | `HEAD`                          | Commit or branch the created tag should point at  |
+| `--dry-run`               |                                 | Preview without calling GitLab                    |
 
 GitLab has no draft-release state, so this command is an upsert: it updates the release if the computed tag already
 exists and creates it otherwise.
@@ -464,25 +477,25 @@ Seed `[Unreleased]` from git commit subjects.
 changelogmanager from-commits [OPTIONS]
 ```
 
-| Option | Default | Description |
-|-----------------|---------------------|-------------------------------------------------------------------|
-| `--since TEXT` | _(last tag if any)_ | Git ref to start from |
-| `--all-history` | `false` | Walk full history instead of starting at the last tag |
-| `--all` | `false` | Route commits to every configured component by `match` globs |
-| `--strict` | `false` | Skip commit subjects that do not match the selected schema |
-| `--commit-schema` | `auto` | Commit schema: `auto`, `conventional`, `gitmoji`, or `keepachangelog` |
-| `--dry-run` | | Preview without writing |
+| Option            | Default             | Description                                                           |
+|-------------------|---------------------|-----------------------------------------------------------------------|
+| `--since TEXT`    | _(last tag if any)_ | Git ref to start from                                                 |
+| `--all-history`   | `false`             | Walk full history instead of starting at the last tag                 |
+| `--all`           | `false`             | Route commits to every configured component by `match` globs          |
+| `--strict`        | `false`             | Skip commit subjects that do not match the selected schema            |
+| `--commit-schema` | `auto`              | Commit schema: `auto`, `conventional`, `gitmoji`, or `keepachangelog` |
+| `--dry-run`       |                     | Preview without writing                                               |
 
 Commit type mapping:
 
-| Conventional Commit type | Changelog type |
+| Conventional Commit type                                                    | Changelog type |
 |-----------------------------------------------------------------------------|----------------|
-| `feat`, `feature` | `added` |
-| `fix`, `bug` | `fixed` |
-| `deprecate` | `deprecated` |
-| `remove` | `removed` |
-| `security`, `sec` | `security` |
-| `docs`, `style`, `test`, `build`, `ci`, `chore`, `refactor`, `revert`, etc. | `changed` |
+| `feat`, `feature`                                                           | `added`        |
+| `fix`, `bug`                                                                | `fixed`        |
+| `deprecate`                                                                 | `deprecated`   |
+| `remove`                                                                    | `removed`      |
+| `security`, `sec`                                                           | `security`     |
+| `docs`, `style`, `test`, `build`, `ci`, `chore`, `refactor`, `revert`, etc. | `changed`      |
 
 Breaking-change subjects like `feat!:` are treated as `removed`.
 

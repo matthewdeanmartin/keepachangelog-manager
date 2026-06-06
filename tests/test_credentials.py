@@ -13,9 +13,10 @@ def test_get_token_prefers_cli_value(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result == "cli-token"
 
 
-def test_get_token_falls_back_to_keyring(monkeypatch: pytest.MonkeyPatch, mocker: pytest.MonkeyPatch) -> None:
+def test_get_token_falls_back_to_keyring(
+    monkeypatch: pytest.MonkeyPatch, mocker: pytest.MonkeyPatch
+) -> None:
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
-    mock_keyring = mocker.patch("changelogmanager.credentials.keyring" if False else "keyring.get_password")
     # patch keyring inside the module
     mocker.patch("builtins.__import__", wraps=__import__)
     keyring_mod = mocker.MagicMock()
@@ -24,10 +25,14 @@ def test_get_token_falls_back_to_keyring(monkeypatch: pytest.MonkeyPatch, mocker
 
     result = get_token("github_token", cli_value=None, env_var="GITHUB_TOKEN")
     assert result == "keyring-token"
-    keyring_mod.get_password.assert_called_once_with("keepachangelog-manager", "github_token")
+    keyring_mod.get_password.assert_called_once_with(
+        "keepachangelog-manager", "github_token"
+    )
 
 
-def test_get_token_falls_back_to_env_when_keyring_empty(monkeypatch: pytest.MonkeyPatch, mocker: pytest.MonkeyPatch) -> None:
+def test_get_token_falls_back_to_env_when_keyring_empty(
+    monkeypatch: pytest.MonkeyPatch, mocker: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("GITHUB_TOKEN", "env-token")
     keyring_mod = mocker.MagicMock()
     keyring_mod.get_password.return_value = None
@@ -37,7 +42,9 @@ def test_get_token_falls_back_to_env_when_keyring_empty(monkeypatch: pytest.Monk
     assert result == "env-token"
 
 
-def test_get_token_returns_none_when_nothing_configured(monkeypatch: pytest.MonkeyPatch, mocker: pytest.MonkeyPatch) -> None:
+def test_get_token_returns_none_when_nothing_configured(
+    monkeypatch: pytest.MonkeyPatch, mocker: pytest.MonkeyPatch
+) -> None:
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     keyring_mod = mocker.MagicMock()
     keyring_mod.get_password.return_value = None
@@ -47,7 +54,9 @@ def test_get_token_returns_none_when_nothing_configured(monkeypatch: pytest.Monk
     assert result is None
 
 
-def test_get_token_strips_whitespace_from_env(monkeypatch: pytest.MonkeyPatch, mocker: pytest.MonkeyPatch) -> None:
+def test_get_token_strips_whitespace_from_env(
+    monkeypatch: pytest.MonkeyPatch, mocker: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("GITHUB_TOKEN", "  ")
     keyring_mod = mocker.MagicMock()
     keyring_mod.get_password.return_value = None
@@ -62,7 +71,9 @@ def test_set_token(mocker: pytest.MonkeyPatch) -> None:
     mocker.patch.dict("sys.modules", {"keyring": keyring_mod})
 
     set_token("github_token", "my-secret")
-    keyring_mod.set_password.assert_called_once_with("keepachangelog-manager", "github_token", "my-secret")
+    keyring_mod.set_password.assert_called_once_with(
+        "keepachangelog-manager", "github_token", "my-secret"
+    )
 
 
 def test_clear_token_returns_true_when_existed(mocker: pytest.MonkeyPatch) -> None:
@@ -70,10 +81,14 @@ def test_clear_token_returns_true_when_existed(mocker: pytest.MonkeyPatch) -> No
     keyring_mod.get_password.return_value = "old-token"
     keyring_mod.errors = mocker.MagicMock()
     keyring_mod.errors.PasswordDeleteError = Exception
-    mocker.patch.dict("sys.modules", {"keyring": keyring_mod, "keyring.errors": keyring_mod.errors})
+    mocker.patch.dict(
+        "sys.modules", {"keyring": keyring_mod, "keyring.errors": keyring_mod.errors}
+    )
 
     assert clear_token("github_token") is True
-    keyring_mod.delete_password.assert_called_once_with("keepachangelog-manager", "github_token")
+    keyring_mod.delete_password.assert_called_once_with(
+        "keepachangelog-manager", "github_token"
+    )
 
 
 def test_clear_token_returns_false_when_not_present(mocker: pytest.MonkeyPatch) -> None:
@@ -81,7 +96,9 @@ def test_clear_token_returns_false_when_not_present(mocker: pytest.MonkeyPatch) 
     keyring_mod.get_password.return_value = None
     keyring_mod.errors = mocker.MagicMock()
     keyring_mod.errors.PasswordDeleteError = Exception
-    mocker.patch.dict("sys.modules", {"keyring": keyring_mod, "keyring.errors": keyring_mod.errors})
+    mocker.patch.dict(
+        "sys.modules", {"keyring": keyring_mod, "keyring.errors": keyring_mod.errors}
+    )
 
     assert clear_token("github_token") is False
     keyring_mod.delete_password.assert_not_called()

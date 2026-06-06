@@ -631,7 +631,15 @@ examples:
     )
     backfill_parser.add_argument(
         "--source",
-        choices=["tags", "commits", "local", "github-releases", "github-prs", "pypi", "all"],
+        choices=[
+            "tags",
+            "commits",
+            "local",
+            "github-releases",
+            "github-prs",
+            "pypi",
+            "all",
+        ],
         default="local",
         help=(
             "Source or source set to import from. "

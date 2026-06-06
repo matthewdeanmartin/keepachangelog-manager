@@ -13,7 +13,8 @@ dependencies = [
     "urllib3>=2.6.3,<3",
     "inquirer>=3.4.0,<4",
     "tomli>=2.4.1; python_version < '3.11'",
-    "google-re2>=1.1.20251105",
+    "google-re2>=1.1.20251105; python_version >= '3.10'",
+    "google-re2==1.1.20250805; python_version < '3.10'",
     "orjson>=3.11.5",
     "keyring>=25.0,<27",
 ]
@@ -69,6 +70,7 @@ dev = [
     { include-group = "lint" },
     { include-group = "security" },
     "dead>=2.1.0",
+    "dont-be-lazy>=0.1.0; python_version >= '3.10'",
     "vulture>=2.16",
 ]
 

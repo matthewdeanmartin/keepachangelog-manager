@@ -51,4 +51,3 @@ Before creating a Pull Request, please ensure:
 Before cutting or preparing a release, run:
 
 - `make prerelease`
-

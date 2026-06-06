@@ -34,9 +34,9 @@ from changelogmanager.config import (
     serialize_config_toml,
     write_configuration,
 )
-from changelogmanager.github import (
-    GitHub as GitHub,
-)  # noqa: PLC0414 (re-exported; patched in tests)
+from changelogmanager.github import GitHub as GitHub  # noqa: F401, PLC0414 # pylint: disable=unused-import # fmt: skip
+
+# (re-exported; patched in tests)
 from changelogmanager.runtime_logging import VERBOSE, get_logger
 from changelogmanager.schema_validation import DEFAULT_SCHEMA_VERSION
 from changelogmanager.services import build_updated_config  # re-exported for the GUI
@@ -359,7 +359,9 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
         # Compute predicted version without mutating the changelog object.
         override = args.override_version
         predicted_version = (
-            override.lstrip("v") if override else str(changelog.suggest_future_version())
+            override.lstrip("v")
+            if override
+            else str(changelog.suggest_future_version())
         )
         answer = (
             input(f"Release {predicted_version} to {changelog.get_file_path()}? [y/N] ")
@@ -1055,7 +1057,11 @@ _SERVICE_LABEL_MAP = {"github": "GitHub", "gitlab": "GitLab"}
 
 def command_credentials(args: argparse.Namespace, ctx: CliContext) -> None:
     """Manages API tokens stored in the OS keyring."""
-    from changelogmanager.credentials import check_token, clear_token, set_token  # noqa: PLC0415
+    from changelogmanager.credentials import (
+        check_token,  # noqa: PLC0415
+        clear_token,
+        set_token,
+    )
 
     sub = args.credentials_command
 

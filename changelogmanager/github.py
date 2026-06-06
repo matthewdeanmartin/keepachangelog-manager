@@ -2,11 +2,13 @@
 
 """GitHub"""
 
+from __future__ import annotations
+
 import os
 from collections.abc import Mapping, Sequence
 from enum import Enum
 from textwrap import dedent
-from typing import Any, Optional
+from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -27,7 +29,9 @@ _RATE_LIMIT_WARN_THRESHOLD = 10
 
 def _check_rate_limit(headers: Mapping[str, str], source: str) -> None:
     """Warns when rate-limit headroom is low; raises when exhausted."""
-    remaining_raw = headers.get("X-RateLimit-Remaining") or headers.get("RateLimit-Remaining")
+    remaining_raw = headers.get("X-RateLimit-Remaining") or headers.get(
+        "RateLimit-Remaining"
+    )
     if remaining_raw is None:
         return
     try:
@@ -70,10 +74,10 @@ class GitHub:
         logger.info("Initialized GitHub client for repository %s", repository)
 
     def github_request(
-        self, api: str, method: HttpMethods, data: Optional[Mapping[str, Any]] = None
-    ) -> Optional[Any]:
+        self, api: str, method: HttpMethods, data: Mapping[str, Any] | None = None
+    ) -> Any | None:
         url = f"https://api.github.com/repos/{self.repository}/{api}"
-        request_data: Optional[bytes] = None
+        request_data: bytes | None = None
         headers = dict(self.headers)
         if method is HttpMethods.GET and data:
             separator = "&" if "?" in url else "?"
@@ -137,16 +141,20 @@ class GitHub:
                   Method: {method.value}
                   Data:   {data}""")) from url_error
 
-    def _get_with_rate_check(self, api: str, data: Optional[Mapping[str, Any]] = None) -> Optional[Any]:
+    def _get_with_rate_check(
+        self, api: str, data: Mapping[str, Any] | None = None
+    ) -> Any | None:
         """GET request that checks rate-limit headers before returning parsed body."""
         url = f"https://api.github.com/repos/{self.repository}/{api}"
         if data:
             separator = "&" if "?" in url else "?"
             url = f"{url}{separator}{urlencode(data)}"
-        request = Request(method=HttpMethods.GET.value, url=url, headers=dict(self.headers))
+        request = Request(
+            method=HttpMethods.GET.value, url=url, headers=dict(self.headers)
+        )
         try:
             with urlopen(request) as resp:  # nosec
-                resp_headers: Mapping[str, str] = resp.headers  # type: ignore[assignment]
+                resp_headers: Mapping[str, str] = resp.headers
                 _check_rate_limit(resp_headers, "GitHub")
                 body = resp.read()
             if not body:
@@ -154,7 +162,7 @@ class GitHub:
             return orjson.loads(body)
         except HTTPError as http_error:
             response_body = http_error.read().decode(errors="replace").strip()
-            _check_rate_limit(dict(http_error.headers), "GitHub")  # type: ignore[arg-type]
+            _check_rate_limit(dict(http_error.headers), "GitHub")
             raise logging.Error(
                 message=(
                     f"GitHub API request failed: {url} HTTP {http_error.code} {http_error.reason}\n"
@@ -162,7 +170,9 @@ class GitHub:
                 )
             ) from http_error
         except URLError as url_error:
-            raise logging.Error(message=f"GitHub API request failed: {url}") from url_error
+            raise logging.Error(
+                message=f"GitHub API request failed: {url}"
+            ) from url_error
 
     def get_merged_prs(
         self,
@@ -225,8 +235,8 @@ class GitHub:
             for rel in data:
                 tag_name: str = rel.get("tag_name", "")
                 body: str = rel.get("body", "") or ""
-                published: Optional[str] = rel.get("published_at")
-                date: Optional[str] = published[:10] if published else None
+                published: str | None = rel.get("published_at")
+                date: str | None = published[:10] if published else None
                 releases.append({"version": tag_name, "body": body, "date": date})
             if len(data) < RELEASES_CHUNK_SIZE:
                 break

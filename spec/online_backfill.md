@@ -4,35 +4,35 @@ Fills the gap between the CLI flags that already exist (`--source github-release
 `github-prs`, `pypi`) and the fast-fail that currently fires for anything not in
 `{tags, commits, all}`.
 
----
+______________________________________________________________________
 
 ## Background / Current State
 
-| File                                     | What it does today                                                                                                                                                                                                                  |
+| File | What it does today |
 |------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `changelogmanager/cli/parser.py:354–429` | Declares `--source` choices including `github-releases`, `github-prs`, `pypi`; `--repository`; `--package`. Marks them "reserved for future phases". `all` currently means local sources only. No `local` source choice exists yet. |
-| `changelogmanager/services.py:390–414`   | `validate_backfill_options` rejects any source outside `{tags, commits, all}` with a hard error.                                                                                                                                    |
-| `changelogmanager/backfill.py:741–785`   | `plan_backfill` dispatches only `tags`, `commits`, `all`; the `else` branch raises.                                                                                                                                                 |
-| `changelogmanager/github.py`             | Has `GitHub` client with `get_releases()` (paginated), `get_pull_requests()`. Uses `urllib` + `orjson`. Token taken as constructor arg.                                                                                             |
-| `changelogmanager/gitlab.py`             | Has `GitLab` client with `get_release()`. Same transport.                                                                                                                                                                           |
-| `changelogmanager/cli/commands.py:851`   | `command_backfill` calls `services.plan_changelog_backfill` — no online path yet.                                                                                                                                                   |
+| `changelogmanager/services.py:390–414` | `validate_backfill_options` rejects any source outside `{tags, commits, all}` with a hard error. |
+| `changelogmanager/backfill.py:741–785` | `plan_backfill` dispatches only `tags`, `commits`, `all`; the `else` branch raises. |
+| `changelogmanager/github.py` | Has `GitHub` client with `get_releases()` (paginated), `get_pull_requests()`. Uses `urllib` + `orjson`. Token taken as constructor arg. |
+| `changelogmanager/gitlab.py` | Has `GitLab` client with `get_release()`. Same transport. |
+| `changelogmanager/cli/commands.py:851` | `command_backfill` calls `services.plan_changelog_backfill` — no online path yet. |
 
 The existing `GitHub` and `GitLab` clients are sync `urllib` wrappers. They already
 handle pagination for releases. There is **no PyPI client** yet.
 
----
+______________________________________________________________________
 
 ## `--source` choices — revised set
 
-| Value             | Sources used                                  | Network? | Requires       |
+| Value | Sources used | Network? | Requires |
 |-------------------|-----------------------------------------------|----------|----------------|
-| `tags`            | local git tags                                | no       | —              |
-| `commits`         | local git commits                             | no       | —              |
-| `local`           | tags + commits (old `all` behaviour)          | no       | —              |
-| `github-releases` | GitHub Releases API                           | yes      | `--repository` |
-| `github-prs`      | GitHub PRs API                                | yes      | `--repository` |
-| `pypi`            | PyPI JSON API                                 | yes      | `--package`    |
-| `all`             | tags + commits + github-releases + github-prs | yes      | `--repository` |
+| `tags` | local git tags | no | — |
+| `commits` | local git commits | no | — |
+| `local` | tags + commits (old `all` behaviour) | no | — |
+| `github-releases` | GitHub Releases API | yes | `--repository` |
+| `github-prs` | GitHub PRs API | yes | `--repository` |
+| `pypi` | PyPI JSON API | yes | `--package` |
+| `all` | tags + commits + github-releases + github-prs | yes | `--repository` |
 
 **Migration note:** `all` now implies network access when `--repository` is configured.
 Users who want the old no-network `all` should switch to `--source local`. The parser
@@ -67,7 +67,7 @@ sources = ["tags", "commits", "github-releases", "github-prs"]
 `_merge_releases` deduplicates entries: same version + same section + same text →
 keep one. Add this helper in `changelogmanager/backfill.py`.
 
----
+______________________________________________________________________
 
 ## Credential Strategy
 
@@ -119,7 +119,7 @@ Defined in `changelogmanager/cli/parser.py` (new `credentials` subparser) and
 PyPI's JSON API (`https://pypi.org/pypi/{package}/json`) is fully public — no token
 needed. The PyPI simple API (`https://pypi.org/simple/{package}/`) is also public.
 
----
+______________________________________________________________________
 
 ## Concurrency / Performance Model
 
@@ -136,18 +136,18 @@ The sources need **I/O concurrency** (network), not CPU parallelism.
 
 Rate-limit handling per source:
 
-| Source                        | Rate limit               | Mitigation                                                                |
+| Source | Rate limit | Mitigation |
 |-------------------------------|--------------------------|---------------------------------------------------------------------------|
-| GitHub REST (authenticated)   | 5 000 req/hr             | Check `X-RateLimit-Remaining` header; back off / warn when < 10 remaining |
-| GitHub REST (unauthenticated) | 60 req/hr                | Warn loudly; recommend token                                              |
-| GitLab                        | 2 000 req/min (per-user) | Same header pattern (`RateLimit-Remaining`)                               |
-| PyPI JSON                     | None documented          | Single request per package; no guard needed                               |
+| GitHub REST (authenticated) | 5 000 req/hr | Check `X-RateLimit-Remaining` header; back off / warn when < 10 remaining |
+| GitHub REST (unauthenticated) | 60 req/hr | Warn loudly; recommend token |
+| GitLab | 2 000 req/min (per-user) | Same header pattern (`RateLimit-Remaining`) |
+| PyPI JSON | None documented | Single request per package; no guard needed |
 
 Add a `_check_rate_limit(headers: Mapping[str, str], source: str)` helper in
 `changelogmanager/github.py` (and equivalent in `gitlab.py`) that logs a
 `WARNING` when remaining < 10 and raises `logging.Error` when remaining == 0.
 
----
+______________________________________________________________________
 
 ## Phase 1 — `github-releases` source
 
@@ -160,15 +160,15 @@ hand-edit rather than a structurally empty entry.
 
 ### New / changed files
 
-| File                                   | Change                                                                                                                                                                                                            |
+| File | Change |
 |----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `changelogmanager/credentials.py`      | **New.** `get_token()` helper (see above).                                                                                                                                                                        |
-| `changelogmanager/github.py`           | Add `get_releases_for_backfill()` that returns a list of `dict` already shaped like `{"version": str, "body": str, "date": str \| None}`. Re-use existing `get_releases()` pagination. Add `_check_rate_limit()`. |
-| `changelogmanager/backfill.py`         | Add `discover_github_releases(repository, token, since, until, versioning_scheme)` → `tuple[list[Release], list[str]]` matching the signature of `discover_tag_releases`.                                         |
-| `changelogmanager/services.py:390`     | Remove `github-releases` from the rejection set in `validate_backfill_options`. Add validation that `--repository` is provided (non-None, `owner/repo` format) when `source == "github-releases"`.                |
-| `changelogmanager/backfill.py:764`     | Add `elif source == "github-releases":` branch in `plan_backfill`.                                                                                                                                                |
-| `changelogmanager/cli/commands.py:851` | Pass `repository=args.repository` and token (resolved via `get_token`) down to `services.plan_changelog_backfill`.                                                                                                |
-| `changelogmanager/cli/parser.py:368`   | Remove "reserved for future phases" note from `--repository` help text; update help string to say it is required for `github-releases`.                                                                           |
+| `changelogmanager/credentials.py` | **New.** `get_token()` helper (see above). |
+| `changelogmanager/github.py` | Add `get_releases_for_backfill()` that returns a list of `dict` already shaped like `{"version": str, "body": str, "date": str \| None}`. Re-use existing `get_releases()` pagination. Add `_check_rate_limit()`. |
+| `changelogmanager/backfill.py` | Add `discover_github_releases(repository, token, since, until, versioning_scheme)` → `tuple[list[Release], list[str]]` matching the signature of `discover_tag_releases`. |
+| `changelogmanager/services.py:390` | Remove `github-releases` from the rejection set in `validate_backfill_options`. Add validation that `--repository` is provided (non-None, `owner/repo` format) when `source == "github-releases"`. |
+| `changelogmanager/backfill.py:764` | Add `elif source == "github-releases":` branch in `plan_backfill`. |
+| `changelogmanager/cli/commands.py:851` | Pass `repository=args.repository` and token (resolved via `get_token`) down to `services.plan_changelog_backfill`. |
+| `changelogmanager/cli/parser.py:368` | Remove "reserved for future phases" note from `--repository` help text; update help string to say it is required for `github-releases`. |
 
 ### Token resolution in `command_backfill`
 
@@ -205,7 +205,7 @@ command_backfill
 confirm the exact type in `backfill.py` and match the shape in the new function.
 (Around `backfill.py:600–650` is where `Release` and the tag discovery helpers live.)
 
----
+______________________________________________________________________
 
 ## Phase 2 — `github-prs` source
 
@@ -221,11 +221,11 @@ sparse or missing — exactly the scenario backfill is meant to fix.
 Date-window algorithm:
 
 1. Fetch all tags with their dates (via local git or the GitHub tags API).
-2. Build a timeline: `[(tag_date, version), ...]` sorted ascending.
-3. For each PR, assign it to the version whose tag date is the earliest date on or
+1. Build a timeline: `[(tag_date, version), ...]` sorted ascending.
+1. For each PR, assign it to the version whose tag date is the earliest date on or
    after the PR's `merged_at`. If no tag follows the PR (it merged after the last
    release), assign to `[Unreleased]`.
-4. When no tags exist at all, fall back to calendar-month windows
+1. When no tags exist at all, fall back to calendar-month windows
    (`YYYY-MM` as a synthetic version string with a warning).
 
 This is the same date-window logic whether or not a tag exists; the tag just anchors
@@ -239,13 +239,13 @@ GitHub PRs and both sources produce the same description.
 
 ### New / changed files
 
-| File                                         | Change                                                                                                                                                                                                                                                                  |
+| File | Change |
 |----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `changelogmanager/github.py`                 | Add `get_merged_prs(since_date, until_date)` — paginated, uses `GET /repos/{owner}/{repo}/pulls?state=closed&sort=updated&direction=desc`. Filter `merged_at` client-side. Add label-to-KAC-category mapping (same approach as `CONVENTIONAL_TO_KAC` in `backfill.py`). |
-| `changelogmanager/backfill.py`               | Add `discover_github_prs(repository, token, since, until, versioning_scheme)`. Calls `get_merged_prs`, groups by date-window using `_assign_version_by_date`.                                                                                                           |
-| `changelogmanager/backfill.py`               | Add `_assign_version_by_date(merged_at, tag_timeline)` helper.                                                                                                                                                                                                          |
-| `changelogmanager/services.py`               | Allow `github-prs`; require `--repository`.                                                                                                                                                                                                                             |
-| `changelogmanager/backfill.py:plan_backfill` | Add `elif source == "github-prs":` branch.                                                                                                                                                                                                                              |
+| `changelogmanager/github.py` | Add `get_merged_prs(since_date, until_date)` — paginated, uses `GET /repos/{owner}/{repo}/pulls?state=closed&sort=updated&direction=desc`. Filter `merged_at` client-side. Add label-to-KAC-category mapping (same approach as `CONVENTIONAL_TO_KAC` in `backfill.py`). |
+| `changelogmanager/backfill.py` | Add `discover_github_prs(repository, token, since, until, versioning_scheme)`. Calls `get_merged_prs`, groups by date-window using `_assign_version_by_date`. |
+| `changelogmanager/backfill.py` | Add `_assign_version_by_date(merged_at, tag_timeline)` helper. |
+| `changelogmanager/services.py` | Allow `github-prs`; require `--repository`. |
+| `changelogmanager/backfill.py:plan_backfill` | Add `elif source == "github-prs":` branch. |
 
 ### PR label → KAC category mapping
 
@@ -264,7 +264,7 @@ GITHUB_LABEL_TO_KAC = {
 
 Unmapped labels → `"changed"` (fallback). PR title is used as the entry text.
 
----
+______________________________________________________________________
 
 ## Phase 3 — `pypi` source
 
@@ -298,15 +298,15 @@ def get_pypi_releases(package: str) -> list[dict]:
 
 ### New / changed files
 
-| File                                         | Change                                                                                                                                                                                                                                       |
+| File | Change |
 |----------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `changelogmanager/pypi.py`                   | **New.** `get_pypi_releases(package)`.                                                                                                                                                                                                       |
-| `changelogmanager/backfill.py`               | Add `discover_pypi_releases(package, since, until, versioning_scheme)`. Calls `get_pypi_releases`, filters, returns `list[Release]`. Entries will be empty (no text) — just the version + date stub so the version appears in the changelog. |
-| `changelogmanager/services.py`               | Allow `pypi`; require `--package`.                                                                                                                                                                                                           |
-| `changelogmanager/backfill.py:plan_backfill` | Add `elif source == "pypi":` branch.                                                                                                                                                                                                         |
-| `changelogmanager/cli/parser.py:372`         | Remove "reserved" note from `--package`.                                                                                                                                                                                                     |
+| `changelogmanager/pypi.py` | **New.** `get_pypi_releases(package)`. |
+| `changelogmanager/backfill.py` | Add `discover_pypi_releases(package, since, until, versioning_scheme)`. Calls `get_pypi_releases`, filters, returns `list[Release]`. Entries will be empty (no text) — just the version + date stub so the version appears in the changelog. |
+| `changelogmanager/services.py` | Allow `pypi`; require `--package`. |
+| `changelogmanager/backfill.py:plan_backfill` | Add `elif source == "pypi":` branch. |
+| `changelogmanager/cli/parser.py:372` | Remove "reserved" note from `--package`. |
 
----
+______________________________________________________________________
 
 ## Phase 4 — `credentials` subcommand
 
@@ -321,13 +321,13 @@ changelogmanager credentials check         # prints which tokens are configured
 
 ### New / changed files
 
-| File                               | Change                                                                                                                                                                        |
+| File | Change |
 |------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `changelogmanager/cli/parser.py`   | Add `credentials` subparser with `{set, clear, check}` sub-subparsers and `{github, gitlab}` positional.                                                                      |
+| `changelogmanager/cli/parser.py` | Add `credentials` subparser with `{set, clear, check}` sub-subparsers and `{github, gitlab}` positional. |
 | `changelogmanager/cli/commands.py` | Add `command_credentials(args, ctx)`. Uses `getpass.getpass` for secret input, calls `keyring.set_password / delete_password / get_password`. Prints a human-readable status. |
-| `changelogmanager/credentials.py`  | Add `set_token`, `clear_token`, `check_token` wrappers.                                                                                                                       |
+| `changelogmanager/credentials.py` | Add `set_token`, `clear_token`, `check_token` wrappers. |
 
----
+______________________________________________________________________
 
 ## Error handling contract
 
@@ -343,7 +343,7 @@ Error: GitHub rate limit exhausted (0 requests remaining).
   5 000 requests/hour instead of 60.
 ```
 
----
+______________________________________________________________________
 
 ## Config file integration
 
@@ -369,7 +369,7 @@ package = "my-package"        # used as default for --package
 These become fallback values in `command_backfill` so the user does not have to pass
 `--repository` on every run if it is already in config.
 
----
+______________________________________________________________________
 
 ## Testing requirements
 
@@ -384,7 +384,7 @@ These become fallback values in `command_backfill` so the user does not have to 
   `pypi` and still rejects unknown strings.
 - Test the `get_token` resolution order in `credentials.py`.
 
----
+______________________________________________________________________
 
 ## Dependency additions
 
@@ -397,13 +397,12 @@ Add to `[project.dependencies]` in `pyproject.toml`:
 `orjson` and `urllib` (stdlib) already present — no extra deps needed for PyPI or
 GitHub fetching beyond `keyring`.
 
----
+______________________________________________________________________
 
 ## Implementation order
 
 1. `changelogmanager/credentials.py` — token resolution helper (no deps, easy to test)
-2. Phase 1 (`github-releases`) — highest value, uses existing `GitHub` client
-3. Phase 3 (`pypi`) — simplest network call, no auth
-4. Phase 4 (`credentials` subcommand) — developer UX polish
-5. Phase 2 (`github-prs`) — most complex grouping logic, build on phase 1
-
+1. Phase 1 (`github-releases`) — highest value, uses existing `GitHub` client
+1. Phase 3 (`pypi`) — simplest network call, no auth
+1. Phase 4 (`credentials` subcommand) — developer UX polish
+1. Phase 2 (`github-prs`) — most complex grouping logic, build on phase 1

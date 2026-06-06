@@ -323,8 +323,8 @@ def seed_components_from_commits(
             ),
         )
     from changelogmanager.backfill import classify_commit_subject  # noqa: PLC0415
-    from changelogmanager.commit_routing import (  # noqa: PLC0415
-        route_commit,
+    from changelogmanager.commit_routing import (
+        route_commit,  # noqa: PLC0415
         validate_routing_components,
     )
 
@@ -385,11 +385,24 @@ def seed_components_from_commits(
 # ----------------------------------------------------------------------
 
 
-_VALID_SOURCES = {"tags", "commits", "local", "all", "github-releases", "github-prs", "pypi"}
+_VALID_SOURCES = {
+    "tags",
+    "commits",
+    "local",
+    "all",
+    "github-releases",
+    "github-prs",
+    "pypi",
+}
 
 
 def validate_backfill_options(
-    *, source: str, strategy: str, missing_only: bool, repository: str | None = None, package: str | None = None
+    *,
+    source: str,
+    strategy: str,
+    missing_only: bool,
+    repository: str | None = None,
+    package: str | None = None,
 ) -> None:
     """Raises if the requested backfill option combination is unsupported."""
 
@@ -491,12 +504,8 @@ def plan_unreleased_backfill(
 ) -> list[Any]:
     """Module-level wrapper so tests can patch services.plan_unreleased_backfill."""
 
-    from changelogmanager.backfill import (  # noqa: PLC0415
-        MAX_COMMITS_DEFAULT,
-    )
-    from changelogmanager.backfill import (
-        plan_unreleased_backfill as _impl,
-    )
+    from changelogmanager.backfill import MAX_COMMITS_DEFAULT  # noqa: PLC0415
+    from changelogmanager.backfill import plan_unreleased_backfill as _impl
 
     return _impl(
         changelog,

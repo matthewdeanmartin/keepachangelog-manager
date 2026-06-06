@@ -123,8 +123,8 @@ prerelease-check: prerelease
 
 .PHONY: dont-be-lazy
 dont-be-lazy:
-	@$(UV) dont_be_lazy --root . --no-color summary
-	@$(UV) dont_be_lazy --root . --no-color scan keepachangelog --no-config-suppressions || true
+	@$(UV) run dont_be_lazy --root . --no-color summary
+	@$(UV) run dont_be_lazy --root . --no-color scan changelogmanager --no-config-suppressions || true
 
 .PHONY: pydoc-docs
 pydoc-docs:

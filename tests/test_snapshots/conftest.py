@@ -140,6 +140,7 @@ def no_unreleased_changelog(tmp_path: Path) -> Path:
 def run_cli():
     """Call ``changelogmanager.cli.main`` and return (exit_code, stdout)."""
     import sys
+
     from changelogmanager.cli import main
 
     def _run(*argv: str) -> tuple[int, str]:
@@ -168,6 +169,7 @@ def normalise_md(text: str) -> str:
 def normalise_json(text: str) -> str:
     """Stable JSON: parse then re-serialise with sorted keys."""
     import json
+
     return json.dumps(json.loads(text), sort_keys=True, indent=2)
 
 
@@ -183,5 +185,4 @@ def normalise_paths(text: str, root: Path) -> str:
     # cross-platform if someone regenerates on a different OS.
     normalized = normalized.replace("\\", "/")
     # Normalise the placeholder itself just in case.
-    normalized = normalized.replace(str(root).replace("\\", "/"), placeholder)
-    return normalized
+    return normalized.replace(str(root).replace("\\", "/"), placeholder)

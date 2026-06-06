@@ -12,7 +12,7 @@ uv run dead
 Both tools are in the `dev` dependency group in `pyproject.toml`.
 A `[tool.vulture]` config section has been added to `pyproject.toml` (see below).
 
----
+______________________________________________________________________
 
 ## Summary
 
@@ -34,7 +34,7 @@ A `[tool.vulture]` config section has been added to `pyproject.toml` (see below)
 | `__getattr__` on `cli/__init__.py` | `cli/__init__.py` | 84 | vulture | low | False positive — module-level `__getattr__` is a Python protocol, not called directly |
 | `COAUTHOR_RE` | `scripts/rewrite_history.py` | 41 | dead | — | Script-local; not part of the package |
 
----
+______________________________________________________________________
 
 ## High-confidence dead code (worth removing)
 
@@ -43,6 +43,7 @@ A `[tool.vulture]` config section has been added to `pyproject.toml` (see below)
 `github_release()`, `github_pull_request()`, and `gitlab_release()` are fully implemented service-layer functions that return typed dataclass results (`GitHubReleaseResult`, `GitHubPRResult`, `GitLabReleaseResult`). However, `cli/commands.py:554` (`command_github_release`) and `cli/commands.py:704` (`command_gitlab_release`) duplicate all of the same GitHub/GitLab API calls inline rather than delegating to these functions. As a result the three service functions — and their return-type dataclasses — are unreachable from any production call site.
 
 **Options:**
+
 - Delete the three functions and dataclasses from `services.py` (the CLI already has the logic).
 - Or refactor the CLI commands to call the service functions (cleaner architecture, easier to test).
 
@@ -54,7 +55,7 @@ No import, no call anywhere in the codebase. Safe to delete.
 
 The `TextFormat` enum has five members; only `RED`, `BOLD`, `LIGHT_GREEN`, and `CYAN` appear in formatting calls. `BLUE` was likely added for future use. Because this file is vendored from `llvm_diagnostics 3.0.1`, consider leaving it or tracking the upstream.
 
----
+______________________________________________________________________
 
 ## Medium-confidence (inspect before removing)
 
@@ -68,7 +69,7 @@ These fields were added as part of the version-bump feature but the CLI layer ne
 
 The vendored `semantic_version()` helper parses a version string and returns a dict with `{"major": …, "minor": …, "patch": …}`. Tests reference the dict key `"semantic_version"` in changelog output, but that key is produced by `Changelog.get()`, not by calling this function directly. The function is not imported or called anywhere outside the vendor module itself.
 
----
+______________________________________________________________________
 
 ## False positives (leave alone)
 
@@ -82,7 +83,7 @@ The vendored `semantic_version()` helper parses a version string and returns a d
 | `cli/__init__.py:__getattr__` | Module-level `__getattr__` is a Python protocol |
 | `COAUTHOR_RE` (scripts/) | Outside the package; tooling-only script |
 
----
+______________________________________________________________________
 
 ## Test-only dead code (minor)
 
@@ -97,7 +98,7 @@ Vulture also found several issues inside the test suite itself. These are not pa
 | `tests/tests_bug_search_suite/test_cli_integration.py:33` | `EMPTY_UNRELEASED` unused |
 | `tests/tests_bug_search_suite/test_formatting.py:115` | `import importlib` unused (90% confidence) |
 
----
+______________________________________________________________________
 
 ## Tool configuration added
 

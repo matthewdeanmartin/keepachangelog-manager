@@ -2,6 +2,8 @@
 
 """Tests for the ``credentials`` CLI subcommand."""
 
+from __future__ import annotations
+
 import argparse
 import types
 
@@ -10,7 +12,6 @@ import pytest
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.cli.commands import command_credentials
 from changelogmanager.cli.context import CliContext
-
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -61,7 +62,9 @@ def _make_keyring_mod(mocker: pytest.MonkeyPatch) -> types.ModuleType:
 # ---------------------------------------------------------------------------
 
 
-def test_credentials_check_no_tokens(mocker: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:
+def test_credentials_check_no_tokens(
+    mocker: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
     _make_keyring_mod(mocker)
     args = argparse.Namespace(credentials_command="check")
     ctx = _make_ctx()
@@ -99,7 +102,9 @@ def test_credentials_set_github_stores_token(
     args = argparse.Namespace(credentials_command="set", service="github")
     ctx = _make_ctx()
     command_credentials(args, ctx)
-    assert kr.get_password("keepachangelog-manager", "github_token") == "my-secret-token"
+    assert (
+        kr.get_password("keepachangelog-manager", "github_token") == "my-secret-token"
+    )
     out = capsys.readouterr().out
     assert "stored" in out.lower()
 
@@ -123,7 +128,9 @@ def test_credentials_set_strips_whitespace(
     args = argparse.Namespace(credentials_command="set", service="github")
     ctx = _make_ctx()
     command_credentials(args, ctx)
-    assert kr.get_password("keepachangelog-manager", "github_token") == "token-with-spaces"
+    assert (
+        kr.get_password("keepachangelog-manager", "github_token") == "token-with-spaces"
+    )
 
 
 def test_credentials_set_rejects_empty_token(mocker: pytest.MonkeyPatch) -> None:

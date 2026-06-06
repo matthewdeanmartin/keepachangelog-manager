@@ -44,8 +44,8 @@ Conventional Commit bridge (`changelogmanager\backfill.py:39-63,221-233`). So if
 **Recommendation:** add an explicit policy for "no changelog needed" work. The lowest-friction version is:
 
 1. restore commit/PR linting in CI,
-2. define a skip convention such as `no-changelog`, and
-3. teach `from-commits` / `backfill` to ignore clearly non-user-facing commit types by default.
+1. define a skip convention such as `no-changelog`, and
+1. teach `from-commits` / `backfill` to ignore clearly non-user-facing commit types by default.
 
 ## 3. Validation and corruption invariants
 
@@ -96,8 +96,8 @@ a lightweight backup file in development mode.
 `ChangelogReader.read()` currently:
 
 1. validates layout by opening the file and scanning lines,
-2. reads the file again for preamble validation, and
-3. calls `keepachangelog.to_dict(...)`, which reads it again (`changelogmanager\changelog_reader.py:109-143,390-461`).
+1. reads the file again for preamble validation, and
+1. calls `keepachangelog.to_dict(...)`, which reads it again (`changelogmanager\changelog_reader.py:109-143,390-461`).
 
 `validate_one_component(..., fix=True)` can then add another read/write/read/write cycle on top (
 `changelogmanager\services.py:646-705`).
@@ -120,7 +120,7 @@ history label wall with a `Treeview` or another virtualized view.
 ## 5. Recommended order
 
 1. Make `validate --fix` transactional and atomic.
-2. Add a post-write round-trip invariant for every persisted mutation, at least in dev/strict mode.
-3. Hide or implement unsupported backfill sources so the GUI and CLI stop advertising dead ends.
-4. Reinstate commit/PR linting and define a first-class "no changelog needed" policy.
-5. Optimize repeated file reads; do GUI scaling work only if large changelogs are a real target use case.
+1. Add a post-write round-trip invariant for every persisted mutation, at least in dev/strict mode.
+1. Hide or implement unsupported backfill sources so the GUI and CLI stop advertising dead ends.
+1. Reinstate commit/PR linting and define a first-class "no changelog needed" policy.
+1. Optimize repeated file reads; do GUI scaling work only if large changelogs are a real target use case.

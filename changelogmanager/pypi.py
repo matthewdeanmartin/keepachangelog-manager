@@ -27,12 +27,10 @@ def get_pypi_releases(package: str) -> list[dict[str, Any]]:
         with urlopen(url) as resp:  # nosec
             data: dict[str, Any] = orjson.loads(resp.read())
     except HTTPError as exc:
-        raise logging.Error(
-            message=dedent(f"""
+        raise logging.Error(message=dedent(f"""
                 PyPI request failed for package '{package}':
                   URL:    {url}
-                  Status: {exc.code} {exc.reason}""")
-        ) from exc
+                  Status: {exc.code} {exc.reason}""")) from exc
     except URLError as exc:
         raise logging.Error(
             message=f"PyPI request failed for package '{package}': {url}"

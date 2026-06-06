@@ -343,11 +343,8 @@ class TestIdempotency:
         assert after_first == after_second
 
     def test_format_twice_is_noop(self, tmp_path):
-        """The format pass itself is idempotent when using the real mdformat (if available)."""
+        """The format pass itself is idempotent when using the real mdformat."""
         p = write_changelog(tmp_path, UNORDERED_CHANGELOG)
-        f = discover_formatter()
-        if f is None:
-            pytest.skip("mdformat not installed")
 
         # Apply once
         main(["--input-file", p, "validate", "--fix"])
