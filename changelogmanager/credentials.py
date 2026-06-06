@@ -15,8 +15,12 @@ def get_token(
     if cli_value:
         return cli_value
     import keyring
+    import keyring.errors
 
-    val = keyring.get_password(KEYRING_SERVICE, service_key)
+    try:
+        val = keyring.get_password(KEYRING_SERVICE, service_key)
+    except keyring.errors.NoKeyringError:
+        val = None
     if val:
         return val
     return os.environ.get(env_var, "").strip() or None
@@ -34,7 +38,10 @@ def clear_token(service_key: str) -> bool:
     import keyring
     import keyring.errors
 
-    existing = keyring.get_password(KEYRING_SERVICE, service_key)
+    try:
+        existing = keyring.get_password(KEYRING_SERVICE, service_key)
+    except keyring.errors.NoKeyringError:
+        return False
     if existing is None:
         return False
     try:
@@ -47,5 +54,9 @@ def clear_token(service_key: str) -> bool:
 def check_token(service_key: str) -> bool:
     """Returns True if a token is stored in the OS keyring for service_key."""
     import keyring
+    import keyring.errors
 
-    return keyring.get_password(KEYRING_SERVICE, service_key) is not None
+    try:
+        return keyring.get_password(KEYRING_SERVICE, service_key) is not None
+    except keyring.errors.NoKeyringError:
+        return False
