@@ -68,6 +68,8 @@ dev = [
     { include-group = "test" },
     { include-group = "lint" },
     { include-group = "security" },
+    "dead>=2.1.0",
+    "vulture>=2.16",
 ]
 
 [build-system]
@@ -171,3 +173,8 @@ ignore = [
     "W505",
 ]
 max-line-length = 160
+
+[tool.vulture]
+min_confidence = 60
+paths = ["changelogmanager"]
+ignore_names = ["__getattr__"]

@@ -83,7 +83,6 @@ class ReleaseResult:
 
     version: str
     dry_run: bool
-    bumped_versions: bool = False
     pyproject_only: bool = False
     bumped_files: list[str] = field(default_factory=list)
 
@@ -118,7 +117,6 @@ def release_changelog(
     result = ReleaseResult(
         version=new_version,
         dry_run=dry_run,
-        bumped_versions=bump_versions,
         pyproject_only=pyproject_only,
     )
     if dry_run or not write:

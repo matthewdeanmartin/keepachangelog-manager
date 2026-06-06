@@ -336,7 +336,7 @@ def test_github_release_dry_run_skips_github_calls(tmp_path, monkeypatch, mocker
 
     monkeypatch.chdir(tmp_path)
     mocker.patch(
-        "changelogmanager.cli.commands.GitHub",
+        "changelogmanager.github.GitHub",
         side_effect=AssertionError("GitHub client should not be created in dry-run"),
     )
     changelog_path = Path("CHANGELOG.md")

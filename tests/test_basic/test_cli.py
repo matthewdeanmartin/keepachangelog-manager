@@ -289,7 +289,9 @@ def test_command_github_release_supports_dry_run_and_real_execution(
     assert ("suggest_future_version",) in changelog.calls
     assert "published GitHub release v1.2.3 in owner/repo" in dry_run_output
 
-    monkeypatch.setattr(cli.commands, "GitHub", FakeGitHub)
+    import changelogmanager.github as _gh_mod
+
+    monkeypatch.setattr(_gh_mod, "GitHub", FakeGitHub)
     cli.command_github_release(
         make_args(
             dry_run=False,

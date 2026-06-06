@@ -348,20 +348,6 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
             ctx.json_payload["bumped_version"] = result.version
         return
 
-    # Stage the release (no write yet) so we can compute the version for the
-    # confirmation prompt, but defer the validity check for --bump-versions to
-    # the service so behaviour matches the dry-run path.
-    if bump_versions:
-        from changelogmanager.version_bumper import jiggle_available  # noqa: PLC0415
-
-        if not jiggle_available():
-            raise logging.Error(
-                message="--bump-versions requires jiggle-version. Install it with: pip install 'keepachangelog-manager-fork[jiggle]'"
-            )
-
-    changelog.release(args.override_version)
-    new_version = str(next(iter(changelog.get())))
-
     if not args.yes:
         if ctx.json_output or ctx.quiet or not prompts.interactive_enabled():
             raise logging.Error(
@@ -370,8 +356,13 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
                     "Refusing to release without --yes (non-interactive). Pass --yes to confirm or --dry-run to preview."
                 ),
             )
+        # Compute predicted version without mutating the changelog object.
+        override = args.override_version
+        predicted_version = (
+            override.lstrip("v") if override else str(changelog.suggest_future_version())
+        )
         answer = (
-            input(f"Release {new_version} to {changelog.get_file_path()}? [y/N] ")
+            input(f"Release {predicted_version} to {changelog.get_file_path()}? [y/N] ")
             .strip()
             .lower()
         )
@@ -381,23 +372,23 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
                 message="Release cancelled by user",
             )
 
-    changelog.write_to_file()
+    result = services.release_changelog(
+        changelog,
+        args.override_version,
+        bump_versions=bump_versions,
+        pyproject_only=pyproject_only,
+    )
     emit(
         ctx,
-        text=f"Released {new_version}",
+        text=f"Released {result.version}",
         json_key="released",
-        json_value=new_version,
+        json_value=result.version,
     )
-
-    if bump_versions:
-        from changelogmanager.version_bumper import bump_version_files  # noqa: PLC0415
-
-        bumped = bump_version_files(new_version, pyproject_only=pyproject_only)
-        bumped_strs = [str(p) for p in bumped]
-        for path in bumped_strs:
-            emit(ctx, text=f"Bumped version in {path}")
-        ctx.json_payload["bumped_files"] = bumped_strs
-        ctx.json_payload["bumped_version"] = new_version
+    for path in result.bumped_files:
+        emit(ctx, text=f"Bumped version in {path}")
+    if result.bumped_files:
+        ctx.json_payload["bumped_files"] = result.bumped_files
+        ctx.json_payload["bumped_version"] = result.version
 
 
 def export_target(args: argparse.Namespace, default_name: str) -> str:
@@ -590,35 +581,34 @@ def command_github_release(args: argparse.Namespace, ctx: CliContext) -> None:
             message=("GitHub token required: pass --github-token or set GITHUB_TOKEN"),
         )
 
-    if args.dry_run:
-        future_version = changelog.suggest_future_version()
-        release_state = "draft" if args.draft else "published"
+    result = services.github_release(
+        changelog,
+        repository=args.repository,
+        token=token,
+        draft=args.draft,
+        dry_run=args.dry_run,
+    )
+
+    if result.dry_run:
         print_dry_run(
             ctx,
-            f"would create or update {release_state} GitHub release v{future_version} in {args.repository}",
+            f"would create or update {result.release_state} GitHub release v{result.version} in {args.repository}",
         )
-        ctx.json_payload["release_state"] = release_state
-        ctx.json_payload["version"] = str(future_version)
+        ctx.json_payload["release_state"] = result.release_state
+        ctx.json_payload["version"] = result.version
         return
 
-    github = GitHub(repository=args.repository, token=token)
-    github.delete_draft_releases()
-    release = github.create_release(changelog=changelog, draft=args.draft)
-    release_state = "draft" if bool(release.get("draft", args.draft)) else "published"
-    tag_name = str(release.get("tag_name", ""))
-    html_url = str(release.get("html_url", "")).strip()
-    release_id = release.get("id")
-    message = f"Created {release_state} GitHub release {tag_name} in {args.repository}"
-    if html_url:
-        message += f": {html_url}"
+    message = f"Created {result.release_state} GitHub release {result.tag_name} in {args.repository}"
+    if result.html_url:
+        message += f": {result.html_url}"
     emit(ctx, text=message)
     ctx.json_payload.update(
         {
-            "release_state": release_state,
-            "tag_name": tag_name,
+            "release_state": result.release_state,
+            "tag_name": result.tag_name,
             "repository": args.repository,
-            "html_url": html_url or None,
-            "release_id": release_id,
+            "html_url": result.html_url,
+            "release_id": result.release_id,
         }
     )
 
@@ -677,26 +667,25 @@ def command_github_pr(args: argparse.Namespace, ctx: CliContext) -> None:
         )
         return
 
-    github = GitHub(repository=args.repository, token=token)
-    pr = github.create_pull_request(
+    result = services.github_pull_request(
+        repository=args.repository,
+        token=token,
         head=args.head,
         base=args.base,
         title=title,
         body=body,
     )
-    pr_number = pr.get("number")
-    html_url = str(pr.get("html_url", "")).strip()
-    message = f"Pull request #{pr_number} in {args.repository}"
-    if html_url:
-        message += f": {html_url}"
+    message = f"Pull request #{result.pr_number} in {args.repository}"
+    if result.html_url:
+        message += f": {result.html_url}"
     emit(ctx, text=message)
     ctx.json_payload.update(
         {
-            "pr_number": pr_number,
+            "pr_number": result.pr_number,
             "repository": args.repository,
             "head": args.head,
             "base": args.base,
-            "html_url": html_url or None,
+            "html_url": result.html_url,
         }
     )
 
@@ -744,32 +733,33 @@ def command_gitlab_release(args: argparse.Namespace, ctx: CliContext) -> None:
             ),
         )
 
-    if args.dry_run:
-        future_version = changelog.suggest_future_version()
+    result = services.gitlab_release(
+        changelog,
+        project=args.project,
+        token=token,
+        gitlab_url=args.gitlab_url,
+        ref=args.ref,
+        dry_run=args.dry_run,
+    )
+
+    if result.dry_run:
         print_dry_run(
             ctx,
-            f"would create or update GitLab release v{future_version} in {args.project}",
+            f"would create or update GitLab release v{result.version} in {args.project}",
         )
-        ctx.json_payload["version"] = str(future_version)
+        ctx.json_payload["version"] = result.version
         ctx.json_payload["project"] = args.project
         return
 
-    from changelogmanager.gitlab import GitLab  # noqa: PLC0415
-
-    gitlab = GitLab(project=args.project, token=token, gitlab_url=args.gitlab_url)
-    release = gitlab.create_release(changelog=changelog, ref=args.ref)
-    tag_name = str(release.get("tag_name", ""))
-    links = release.get("_links")
-    web_url = str(links.get("self", "") if isinstance(links, dict) else "").strip()
-    message = f"Created GitLab release {tag_name} in {args.project}"
-    if web_url:
-        message += f": {web_url}"
+    message = f"Created GitLab release {result.tag_name} in {args.project}"
+    if result.web_url:
+        message += f": {result.web_url}"
     emit(ctx, text=message)
     ctx.json_payload.update(
         {
-            "tag_name": tag_name,
+            "tag_name": result.tag_name,
             "project": args.project,
-            "web_url": web_url or None,
+            "web_url": result.web_url,
         }
     )
 
