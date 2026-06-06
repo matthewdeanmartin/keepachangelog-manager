@@ -100,6 +100,22 @@ def main(  # pylint: disable=too-many-return-statements
             logger.info("Finished CLI command %s successfully", args.command)
             return 0
 
+        # lint-commits is a read-only git audit; it does not load or touch the
+        # changelog, so it gets a placeholder context and never reads from disk.
+        if args.command == "lint-commits":
+            ctx = CliContext(
+                changelog=Changelog(file_path="<commits>"),
+                quiet=args.quiet,
+                json_output=args.json,
+            )
+            args.handler(args, ctx)
+            if args.json:
+                print(
+                    orjson.dumps(ctx.json_payload, option=orjson.OPT_INDENT_2).decode()
+                )
+            logger.info("Finished CLI command %s successfully", args.command)
+            return 0
+
         if args.command in {"config", "skill"}:
             # `config` / `config init` may legitimately point --config at a path
             # that does not exist yet (the init handler creates it). Only resolve

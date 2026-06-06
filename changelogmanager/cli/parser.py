@@ -833,6 +833,78 @@ examples:
     add_dry_run_argument(from_commits_parser)
     from_commits_parser.set_defaults(handler=commands.command_from_commits)
 
+    lint_commits_parser = subparsers.add_parser(
+        "lint-commits",
+        help="Audit past commit subjects against the Keep a Changelog commit schema",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # audit commits since the last tag, listing only the unclassifiable ones
+  changelogmanager lint-commits
+
+  # audit the whole history
+  changelogmanager lint-commits --all-history
+
+  # show every commit with its classification
+  changelogmanager lint-commits --show all
+
+  # fail (exit 1) when any commit is unclassifiable (CI gate)
+  changelogmanager lint-commits --strict
+
+  # machine-readable report for a CI job
+  changelogmanager --json lint-commits --all-history
+""",
+    )
+    lint_commits_parser.add_argument(
+        "--since",
+        default=None,
+        help="Git ref to start from; defaults to the last tag if any",
+    )
+    lint_commits_parser.add_argument(
+        "--until",
+        default=None,
+        help="Git ref to stop at (default: HEAD)",
+    )
+    lint_commits_parser.add_argument(
+        "--all-history",
+        action="store_true",
+        default=False,
+        help="Audit full history rather than starting at the last tag",
+    )
+    lint_commits_parser.add_argument(
+        "--commit-schema",
+        choices=["auto", "conventional", "gitmoji", "keepachangelog"],
+        default=None,
+        help=(
+            "Commit message schema to lint against; overrides the configured "
+            "message_lint.schema (default: config or auto)"
+        ),
+    )
+    lint_commits_parser.add_argument(
+        "--show",
+        choices=["fail", "skip", "pass", "all"],
+        default="fail",
+        help="Which commits to list: fail (default), skip, pass, or all",
+    )
+    lint_commits_parser.add_argument(
+        "--strict",
+        action="store_true",
+        default=False,
+        help="Exit 1 when any commit subject is unclassifiable",
+    )
+    lint_commits_parser.add_argument(
+        "--max-commits",
+        dest="max_commits",
+        type=int,
+        default=None,
+        help=(
+            "Refuse to audit when the walked range exceeds this many commits "
+            "(default 5000); pass 0 to disable the guard"
+        ),
+    )
+    add_dry_run_argument(lint_commits_parser)
+    lint_commits_parser.set_defaults(handler=commands.command_lint_commits)
+
     credentials_parser = subparsers.add_parser(
         "credentials",
         help="Manage stored API tokens in the OS keyring",

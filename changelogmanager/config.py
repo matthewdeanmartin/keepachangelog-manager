@@ -6,10 +6,13 @@ import re
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.runtime_logging import VERBOSE, get_logger
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from changelogmanager.message_lint import LintOptions
 
 try:
     import tomllib  # type: ignore[import-not-found]
@@ -261,6 +264,77 @@ def get_format_options(config: Optional[str]) -> dict[str, Any]:
         "formatter": validation.get("formatter", "mdformat"),
         "mdformat_options": validation.get("mdformat_options") or {},
     }
+
+
+MESSAGE_LINT_SCHEMAS = ("auto", "conventional", "gitmoji", "keepachangelog")
+
+
+def get_message_lint_options(config: Optional[str]) -> "LintOptions":
+    """Returns commit-message lint settings as a resolved ``LintOptions``.
+
+    Reads ``project.validation.message_lint``; recognised keys:
+      enabled: bool                         (default False)
+      schema: auto|conventional|gitmoji|keepachangelog (default "auto")
+      allow_unknown_conventional_types: bool (default False)
+      allow_skip_types: bool                (default True)
+      exempt_patterns: list[str]            (regexes; default merge/revert/...)
+
+    A bad ``schema`` value or an exempt pattern that does not compile is a
+    configuration error surfaced as :class:`logging.Error` rather than a crash
+    mid-hook.
+    """
+
+    # Imported here to avoid a config -> message_lint -> backfill import cycle at
+    # module load; the lint core imports nothing from config.
+    from changelogmanager.message_lint import (  # noqa: PLC0415
+        DEFAULT_EXEMPT_PATTERNS,
+        LintOptions,
+    )
+
+    validation = get_validation_options(config)
+    raw = validation.get("message_lint")
+    if not isinstance(raw, Mapping):
+        return LintOptions()
+
+    schema = raw.get("schema", "auto")
+    if not isinstance(schema, str) or schema not in MESSAGE_LINT_SCHEMAS:
+        raise logging.Error(
+            file_path=config,
+            message=(
+                f"Invalid message_lint.schema {schema!r}; "
+                f"choose one of {', '.join(MESSAGE_LINT_SCHEMAS)}"
+            ),
+        )
+
+    patterns_raw = raw.get("exempt_patterns")
+    if patterns_raw is None:
+        exempt_patterns = DEFAULT_EXEMPT_PATTERNS
+    elif isinstance(patterns_raw, Sequence) and not isinstance(patterns_raw, str):
+        exempt_patterns = tuple(str(item) for item in patterns_raw)
+    else:
+        raise logging.Error(
+            file_path=config,
+            message="message_lint.exempt_patterns must be a list of regex strings",
+        )
+
+    for pattern in exempt_patterns:
+        try:
+            re.compile(pattern)
+        except re.error as exc:
+            raise logging.Error(
+                file_path=config,
+                message=f"Invalid message_lint.exempt_patterns regex {pattern!r}: {exc}",
+            ) from exc
+
+    return LintOptions(
+        enabled=bool(raw.get("enabled", False)),
+        schema=schema,
+        allow_unknown_conventional_types=bool(
+            raw.get("allow_unknown_conventional_types", False)
+        ),
+        allow_skip_types=bool(raw.get("allow_skip_types", True)),
+        exempt_patterns=exempt_patterns,
+    )
 
 
 def get_validation_options(config: Optional[str]) -> dict[str, Any]:

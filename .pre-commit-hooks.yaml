@@ -1,0 +1,23 @@
+# Pre-commit hook definitions exported by keepachangelog-manager.
+#
+# Downstream projects consume this by adding this repo to their
+# .pre-commit-config.yaml and installing the commit-msg stage:
+#
+#   repos:
+#     - repo: https://github.com/<owner>/keepachangelog-manager
+#       rev: <tag>
+#       hooks:
+#         - id: changelog-message-lint
+#
+#   # the commit-msg stage is the only stage that receives the message file:
+#   #   pre-commit install --hook-type commit-msg
+#
+- id: changelog-message-lint
+  name: Keep a Changelog commit message lint
+  description: >-
+    Reject commit subjects that are not classifiable by the configured
+    Keep a Changelog commit schema (so backfill never produces junk entries).
+  entry: changelogmanager-lint-message
+  language: python
+  stages: [commit-msg]
+  always_run: true

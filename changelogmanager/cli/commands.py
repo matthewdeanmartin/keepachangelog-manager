@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import changelogmanager.cli.prompts as prompts
 import changelogmanager.llvm_diagnostics as logging
@@ -42,6 +43,9 @@ from changelogmanager.schema_validation import DEFAULT_SCHEMA_VERSION
 from changelogmanager.services import build_updated_config  # re-exported for the GUI
 from changelogmanager.skill_bundle import SKILL_NAME, export_skill
 from changelogmanager.versioning import version_scheme_label
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from changelogmanager.message_lint import AuditReport, CommitLint
 
 logger = get_logger(__name__)
 
@@ -857,6 +861,105 @@ def from_commits_all(
         print_dry_run(
             ctx, f"would add {total} entries across {len(summaries)} components"
         )
+
+
+def command_lint_commits(args: argparse.Namespace, ctx: CliContext) -> None:
+    """Audits past commit subjects against the Keep a Changelog commit schema.
+
+    Read-only: walks the selected commit range, classifies each subject, and
+    reports how many would become changelog entries, be skipped, or land as junk
+    ``changed`` entries on backfill. With ``--strict`` (or in CI gating mode) a
+    non-empty unclassified set exits 1.
+    """
+
+    from dataclasses import replace  # noqa: PLC0415
+
+    from changelogmanager import backfill, message_lint  # noqa: PLC0415
+    from changelogmanager.config import get_message_lint_options  # noqa: PLC0415
+
+    since = args.since
+    if since is None and not args.all_history:
+        since = services.last_release_tag()
+
+    config = resolved_config_path(args)
+    options = get_message_lint_options(config)
+    schema = getattr(args, "commit_schema", None)
+    if schema is not None:
+        options = replace(options, schema=schema)
+
+    max_commits = getattr(args, "max_commits", None)
+    report = message_lint.audit_commits(
+        since=since,
+        until=args.until,
+        options=options,
+        max_commits=(
+            max_commits if max_commits is not None else backfill.MAX_COMMITS_DEFAULT
+        ),
+    )
+
+    ctx.json_payload.update(report.to_json())
+
+    counts = report.counts
+    emit(
+        ctx,
+        text=(
+            f"Scanned {len(report.commits)} commit(s) in {report.revision}\n"
+            f"  changelog : {counts['changelog']}   "
+            f"skip : {counts['skip']}   "
+            f"unclassified : {counts['unclassified']}"
+        ),
+    )
+
+    show = getattr(args, "show", "fail")
+    shown = _commits_to_show(report, show)
+    if shown:
+        emit(ctx, text="")
+        for commit in shown:
+            label = commit.result.outcome.value
+            emit(ctx, text=f"  {commit.sha[:8]}  [{label}] {commit.subject}")
+
+    if report.unclassified and not args.json:
+        emit(
+            ctx,
+            text=(
+                "\nFix unclassified commits with `changelogmanager rewrite-messages` "
+                "or amend them; they would become low-confidence 'changed' entries."
+            ),
+        )
+
+    if getattr(args, "strict", False) and report.unclassified:
+        if args.json:
+            # The error path skips the entry-point JSON print, so emit here.
+            import orjson  # noqa: PLC0415
+
+            print(
+                orjson.dumps(ctx.json_payload, option=orjson.OPT_INDENT_2).decode()
+            )
+        raise logging.Error(
+            message=(
+                f"{len(report.unclassified)} commit(s) are not classifiable by the "
+                f"'{options.schema}' schema"
+            )
+        )
+
+
+def _commits_to_show(
+    report: AuditReport, show: str
+) -> list[CommitLint]:
+    """Selects which audited commits to print based on the --show filter."""
+
+    from changelogmanager.message_lint import LintOutcome  # noqa: PLC0415
+
+    if show == "all":
+        return list(report.commits)
+    wanted = {
+        "fail": LintOutcome.UNCLASSIFIED,
+        "skip": LintOutcome.SKIP,
+        "pass": LintOutcome.CHANGELOG,
+    }.get(show)
+    if wanted is None:
+        return report.unclassified
+    return [commit for commit in report.commits if commit.result.outcome is wanted]
 
 
 def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
