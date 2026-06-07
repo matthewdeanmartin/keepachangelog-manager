@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Readme improvements
 
+### Added
+
+- Support TASKS.md files for lightweight changelog tasks and promotion into [Unreleased]
+- Support changelog fragments with collection and opt-in add --fragment writing
+
 ## [6.1.0] - 2026-06-05
 
 ### Changed

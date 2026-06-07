@@ -96,6 +96,6 @@ def test_configure_runtime_logging_sets_expected_handler_and_levels():
 
     runtime_logging.configure_runtime_logging(info=False, verbose=True)
 
-    assert logger.level == runtime_logging.VERBOSE
+    assert logger.level == pylogging.DEBUG
     assert len(logger.handlers) == 1
     assert isinstance(logger.handlers[0], pylogging.StreamHandler)

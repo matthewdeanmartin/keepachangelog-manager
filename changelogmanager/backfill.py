@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 import subprocess  # nosec
+import unicodedata
 from collections import OrderedDict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -274,7 +275,13 @@ def parse_gitmoji_commit(subject: str) -> tuple[str, str] | None:
 def clean_commit_message(message: str) -> str:
     """Normalizes commit-derived changelog text without rewriting user intent."""
 
-    return message.strip().strip("-:").strip()
+    cleaned = message.strip().strip("-:").strip()
+    if any(
+        not char.isspace() and not unicodedata.category(char).startswith("M")
+        for char in cleaned
+    ):
+        return cleaned
+    return ""
 
 
 def discover_tags(

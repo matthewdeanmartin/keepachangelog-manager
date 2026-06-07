@@ -80,6 +80,13 @@ class TestClassifySubject:
         result = classify_subject("chore: reformat", options=opts)
         assert result.outcome is LintOutcome.UNCLASSIFIED
 
+    @pytest.mark.parametrize("subject", ["♻️ ", "⚠️ ", "🗑️ "])
+    def test_bare_gitmoji_with_only_variation_selector_is_unclassified(self, subject):
+        opts = LintOptions(allow_unknown_conventional_types=True)
+        result = classify_subject(subject, options=opts)
+        assert result.outcome is LintOutcome.UNCLASSIFIED
+        assert result.change_type is None
+
     def test_custom_exempt_pattern(self):
         opts = LintOptions(exempt_patterns=("^WIP",))
         assert classify_subject("WIP messing about", options=opts).outcome is (

@@ -102,6 +102,15 @@ def release_changelog(
     invoking this (the confirmation is a UI concern). When ``write`` is False or
     ``dry_run`` is True, no files are modified.
     """
+    logger.info(
+        "Releasing changelog %s (override=%s, bump_versions=%s, pyproject_only=%s, dry_run=%s, write=%s)",
+        changelog.get_file_path(),
+        override_version or "<auto>",
+        bump_versions,
+        pyproject_only,
+        dry_run,
+        write,
+    )
 
     if bump_versions:
         from changelogmanager.version_bumper import jiggle_available  # noqa: PLC0415
@@ -113,6 +122,11 @@ def release_changelog(
 
     changelog.release(override_version)
     new_version = str(next(iter(changelog.get())))
+    logger.info(
+        "Prepared release %s for %s",
+        new_version,
+        changelog.get_file_path(),
+    )
 
     result = ReleaseResult(
         version=new_version,
@@ -120,15 +134,32 @@ def release_changelog(
         pyproject_only=pyproject_only,
     )
     if dry_run or not write:
+        logger.info(
+            "Skipping file writes for release %s (dry_run=%s, write=%s)",
+            new_version,
+            dry_run,
+            write,
+        )
         return result
 
+    logger.info("Writing released changelog to %s", changelog.get_file_path())
     changelog.write_to_file()
 
     if bump_versions:
         from changelogmanager.version_bumper import bump_version_files  # noqa: PLC0415
 
+        logger.info(
+            "Bumping companion version files to %s (pyproject_only=%s)",
+            new_version,
+            pyproject_only,
+        )
         bumped = bump_version_files(new_version, pyproject_only=pyproject_only)
         result.bumped_files = [str(p) for p in bumped]
+        logger.debug(
+            "Bumped files for release %s: %s",
+            new_version,
+            ", ".join(result.bumped_files) or "<none>",
+        )
 
     return result
 

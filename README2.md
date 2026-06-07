@@ -1,21 +1,16 @@
 # (Keep a) Changelog Manager
 
-Python tool to
+`keepachangelog-manager` is for teams that want one changelog workflow from day 0 through release day:
 
-- initialize a CHANGELOG.md
-- backfill it with commits, PRs, etc
-- CLI and GUI to edit and update entries
-- Validate
-- Create a Github or Gitlab release page with CHANGLOG.md as note.
+- start a `CHANGELOG.md`
+- pull history into it
+- keep `[Unreleased]` tidy
+- validate commit subjects and changelog structure
+- cut a release and, if needed, bump version strings too
 
-It supports these standards
+The examples below assume **Keep a Changelog** plus **Semantic Versioning**. If you want the full option matrix, multi-component repos, CI wiring, GitHub/GitLab release automation, JSON output, or the other schemas, send that curiosity to [`./docs/`](docs/).
 
-- [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
-- Semantic Version, PEP 440, Calver
-- Conventional Commits, Gitmoji (for backfill from commit messages)
-
-This is a fork of `keepachangelog-manager`, originally mostly written by KevinDeJong at TomTom International, but now
-archived.
+This is a fork of `keepachangelog-manager`, originally mostly written by KevinDeJong at TomTom International, but now archived.
 
 ## Install
 
@@ -23,10 +18,7 @@ archived.
 uv tool install keepachangelog-manager-fork
 ```
 
-The package name on PyPI is `keepachangelog-manager-fork`. The installed command is `changelogmanager` with legacy
-alias of `keepachangelog-manager`.
-
-Supports pre-commit, CLI, and GitHub Actions workflows.
+The package name on PyPI is `keepachangelog-manager-fork`. The installed command is `changelogmanager`, with legacy alias `keepachangelog-manager`.
 
 ## GUI
 
@@ -34,8 +26,7 @@ Supports pre-commit, CLI, and GitHub Actions workflows.
 changelogmanager gui
 ```
 
-The GUI now includes four screens: a live `[Unreleased]` editor, an initialize/backfill screen, a release publishing
-screen for GitHub/GitLab, and a components screen for batch validation and `from-commits --all`.
+The GUI has screens for live `[Unreleased]` editing, initialize/backfill, release publishing, and batch component operations.
 
 ![gui](https://raw.githubusercontent.com/matthewdeanmartin/keepachangelog-manager/main/resources/gui_edit_page.png)
 
@@ -43,28 +34,11 @@ screen for GitHub/GitLab, and a components screen for batch validation and `from
 
 `keepachangelog-manager` helps you:
 
-Edit entries
-
-- create and validate changelogs
+- create, validate, and release `CHANGELOG.md`
 - add, edit, list, and remove `[Unreleased]` entries
-- work with multi-component repositories (multiple changelog) via TOML config files
-
-Flip Unreleased Changelog to a Released Changelog
-
-- infer the next release from change types for SemVer, PEP 440, or CalVer projects
-- release `[Unreleased]` with an optional confirmation guard
-
-Initialize or bulk update Changelog
-
-- seed `[Unreleased]` from git history using Conventional Commit subjects
-- backfill missing released versions from local git tags
-
-Many features for bash scripting ergonomics.
-
-Online integration with Git Forge Release pages
-
-- create or update GitHub and GitLab releases
-- open or update a GitHub pull request for release automation
+- backfill missing history from tags, commits, releases, or package metadata
+- lint commit subjects so backfill does not turn vague messages into junk changelog lines
+- publish GitHub and GitLab releases from changelog content
 
 ## Examples
 
@@ -169,7 +143,6 @@ uv tool install "keepachangelog-manager-fork[jiggle]"
 changelogmanager release --bump-versions --yes
 ```
 
-
 ## CLI Visuals
 
 ![gif](https://raw.githubusercontent.com/matthewdeanmartin/keepachangelog-manager/main/resources/usage.gif)
@@ -183,12 +156,12 @@ changelogmanager release --bump-versions --yes
 
 ## Documentation
 
-- [Generic CI](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/CI.md)
-- [GitHub automation](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/github.md)
-- [GitLab automation](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/gitlab.md)
-- [Quick start](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/quickstart.md)
-- [Installation](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/installation.md)
-- [Key workflows](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/workflows.md)
-- [Scripting and CI integration](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/scripting.md)
-- [CLI reference](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/cli.md)
-- [Desktop GUI](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/gui.md)
+- [Generic CI](docs/CI.md)
+- [GitHub automation](docs/github.md)
+- [GitLab automation](docs/gitlab.md)
+- [Quick start](docs/quickstart.md)
+- [Installation](docs/installation.md)
+- [Key workflows](docs/workflows.md)
+- [Scripting and CI integration](docs/scripting.md)
+- [CLI reference](docs/cli.md)
+- [Desktop GUI](docs/gui.md)

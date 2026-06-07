@@ -399,6 +399,9 @@ examples:
   changelogmanager add --change-type fixed --message "Prevent crash on empty input"
   changelogmanager add --change-type security --message "Upgrade dependency with CVE"
 
+  # write the entry to changelog.d instead of [Unreleased]
+  changelogmanager add --change-type added --message "Support dark mode" --fragment
+
   # preview without writing
   changelogmanager add --change-type added --message "New feature" --dry-run
 """,
@@ -410,8 +413,136 @@ examples:
         help="Type of the change",
     )
     add_parser.add_argument("-m", "--message", help="Changelog entry")
+    add_parser.add_argument(
+        "--fragment",
+        nargs="?",
+        const=True,
+        default=None,
+        metavar="SLUG",
+        help=(
+            "Write or update a changelog fragment instead of [Unreleased]. "
+            "Pass an optional slug to choose the fragment filename."
+        ),
+    )
+    add_parser.add_argument(
+        "--fragment-dir",
+        default=None,
+        help="Directory for --fragment output (default: changelog.d)",
+    )
     add_dry_run_argument(add_parser)
     add_parser.set_defaults(handler=commands.command_add)
+
+    tasks_parser = subparsers.add_parser(
+        "tasks",
+        help="Manage a lightweight TASKS.md file",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  changelogmanager tasks list
+  changelogmanager tasks add fixed "Preserve links during promotion"
+  changelogmanager tasks check 12
+  changelogmanager tasks promote
+""",
+    )
+    tasks_subparsers = tasks_parser.add_subparsers(dest="tasks_command", required=True)
+
+    tasks_list_parser = tasks_subparsers.add_parser("list", help="List parsed tasks")
+    tasks_list_parser.add_argument("--tasks-file", default=None, help="Task file path")
+    tasks_list_parser.set_defaults(handler=commands.command_tasks)
+
+    tasks_add_parser = tasks_subparsers.add_parser("add", help="Add a task")
+    tasks_add_parser.add_argument("change_type", choices=TYPES_OF_CHANGE)
+    tasks_add_parser.add_argument("message")
+    tasks_add_parser.add_argument("--tasks-file", default=None, help="Task file path")
+    tasks_add_parser.set_defaults(handler=commands.command_tasks)
+
+    tasks_check_parser = tasks_subparsers.add_parser("check", help="Mark a task done")
+    tasks_check_parser.add_argument("selector", help="Task line number or exact text")
+    tasks_check_parser.add_argument("--tasks-file", default=None, help="Task file path")
+    tasks_check_parser.set_defaults(handler=commands.command_tasks)
+
+    tasks_uncheck_parser = tasks_subparsers.add_parser(
+        "uncheck", help="Mark a task not done"
+    )
+    tasks_uncheck_parser.add_argument("selector", help="Task line number or exact text")
+    tasks_uncheck_parser.add_argument("--tasks-file", default=None, help="Task file path")
+    tasks_uncheck_parser.set_defaults(handler=commands.command_tasks)
+
+    tasks_validate_parser = tasks_subparsers.add_parser(
+        "validate", help="Validate a task file"
+    )
+    tasks_validate_parser.add_argument("--tasks-file", default=None, help="Task file path")
+    tasks_validate_parser.set_defaults(handler=commands.command_tasks)
+
+    tasks_promote_parser = tasks_subparsers.add_parser(
+        "promote", help="Move checked tasks into [Unreleased]"
+    )
+    tasks_promote_parser.add_argument("--tasks-file", default=None, help="Task file path")
+    tasks_promote_parser.add_argument(
+        "--keep",
+        action="store_true",
+        default=False,
+        help="Leave promoted tasks in TASKS.md",
+    )
+    add_dry_run_argument(tasks_promote_parser)
+    tasks_promote_parser.set_defaults(handler=commands.command_tasks)
+
+    fragments_parser = subparsers.add_parser(
+        "fragments",
+        help="Manage changelog fragment files",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  changelogmanager fragments list
+  changelogmanager fragments add added "Support TASKS.md"
+  changelogmanager fragments collect
+""",
+    )
+    fragments_subparsers = fragments_parser.add_subparsers(
+        dest="fragments_command", required=True
+    )
+
+    fragments_list_parser = fragments_subparsers.add_parser(
+        "list", help="List pending fragments"
+    )
+    fragments_list_parser.add_argument(
+        "--fragment-dir", default=None, help="Fragment directory"
+    )
+    fragments_list_parser.set_defaults(handler=commands.command_fragments)
+
+    fragments_add_parser = fragments_subparsers.add_parser(
+        "add", help="Create or update a fragment"
+    )
+    fragments_add_parser.add_argument("change_type", choices=TYPES_OF_CHANGE)
+    fragments_add_parser.add_argument("message")
+    fragments_add_parser.add_argument("--slug", default=None, help="Fragment slug")
+    fragments_add_parser.add_argument(
+        "--fragment-dir", default=None, help="Fragment directory"
+    )
+    fragments_add_parser.set_defaults(handler=commands.command_fragments)
+
+    fragments_validate_parser = fragments_subparsers.add_parser(
+        "validate", help="Validate fragment files"
+    )
+    fragments_validate_parser.add_argument(
+        "--fragment-dir", default=None, help="Fragment directory"
+    )
+    fragments_validate_parser.set_defaults(handler=commands.command_fragments)
+
+    fragments_collect_parser = fragments_subparsers.add_parser(
+        "collect", help="Move pending fragments into the changelog"
+    )
+    fragments_collect_parser.add_argument(
+        "--fragment-dir", default=None, help="Fragment directory"
+    )
+    fragments_collect_parser.add_argument(
+        "--consume",
+        choices=["archive", "delete", "keep"],
+        default=None,
+        help="What to do with collected fragments",
+    )
+    add_dry_run_argument(fragments_collect_parser)
+    fragments_collect_parser.set_defaults(handler=commands.command_fragments)
 
     remove_parser = subparsers.add_parser(
         "remove",

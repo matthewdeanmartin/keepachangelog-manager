@@ -117,9 +117,40 @@ def test_release_rejects_duplicate_and_older_versions():
     )
     with pytest.raises(
         logging.Error,
-        match="Unable to release a version older than the last release '2.0.0'",
+        match=(
+            "Unable to release a version older than the last release "
+            "'2.0.0' \\(requested '1.5.0'\\)"
+        ),
     ):
         older.release("1.5.0")
+
+
+def test_release_duplicate_error_includes_existing_section_context():
+    changelog = Changelog(
+        changelog=OrderedDict(
+            [
+                (
+                    UNRELEASED_ENTRY,
+                    {
+                        "metadata": {"version": UNRELEASED_ENTRY, "release_date": None},
+                        "fixed": ["Current unreleased fix"],
+                    },
+                ),
+                ("1.0.0", released_entry("1.0.0", fixed=["Most recent release"])),
+                ("0.7.0", released_entry("0.7.0")),
+                ("0.6.0", released_entry("0.6.0", added=["Older release"])),
+            ]
+        )
+    )
+
+    with pytest.raises(logging.Error) as exc_info:
+        changelog.release("0.7.0")
+
+    message = str(exc_info.value.message)
+    assert "already released version '0.7.0'" in message
+    assert "latest release: 1.0.0" in message
+    assert "existing section summary: no change sections" in message
+    assert "file order: above it: 1.0.0, below it: 0.6.0" in message
 
 
 def test_version_and_previous_version_cover_edge_cases():

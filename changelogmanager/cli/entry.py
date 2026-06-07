@@ -100,11 +100,28 @@ def main(  # pylint: disable=too-many-return-statements
             logger.info("Finished CLI command %s successfully", args.command)
             return 0
 
-        # lint-commits and rewrite-messages operate on git history, not the
+        fragment_only_add = (
+            args.command == "add" and getattr(args, "fragment", None) is not None
+        )
+        task_without_changelog = (
+            args.command == "tasks"
+            and getattr(args, "tasks_command", None) != "promote"
+        )
+        fragment_without_changelog = (
+            args.command == "fragments"
+            and getattr(args, "fragments_command", None) != "collect"
+        )
+
+        # These commands operate on git history or sidecar files, not the
         # changelog: placeholder context, never reads the changelog from disk.
-        if args.command in {"lint-commits", "rewrite-messages"}:
+        if (
+            args.command in {"lint-commits", "rewrite-messages"}
+            or fragment_only_add
+            or task_without_changelog
+            or fragment_without_changelog
+        ):
             ctx = CliContext(
-                changelog=Changelog(file_path="<commits>"),
+                changelog=Changelog(file_path=f"<{args.command}>"),
                 quiet=args.quiet,
                 json_output=args.json,
             )

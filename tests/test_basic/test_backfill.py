@@ -118,6 +118,12 @@ def test_commit_schema_registry_classifies_common_styles(subject, expected):
     assert backfill.classify_commit_subject(subject) == expected
 
 
+@pytest.mark.parametrize("subject", ["♻️", "♻️ ", "⚠️", "⚠️ ", "🗑️", "🗑️ "])
+def test_gitmoji_parser_rejects_emoji_without_visible_body(subject):
+    assert backfill.parse_gitmoji_commit(subject) is None
+    assert backfill.classify_commit_subject(subject) is None
+
+
 def test_discover_commit_releases_uses_commits_before_tag_placeholders(monkeypatch):
     monkeypatch.setattr(
         backfill.subprocess,

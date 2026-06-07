@@ -167,6 +167,73 @@ class Changelog:
                 result.append((change_type, index, message))
         return result
 
+    def released_versions(self) -> list[str]:
+        """Returns released versions in file order, excluding [Unreleased]."""
+
+        return [str(version) for version in self.changelog if version != UNRELEASED_ENTRY]
+
+    def summarize_release(self, version: str) -> str:
+        """Summarizes a release section for diagnostics and runtime logging."""
+
+        release = self.changelog.get(version)
+        if not isinstance(release, Mapping):
+            return "invalid release payload"
+
+        change_sections = [
+            (change_type, entries)
+            for change_type, entries in release.items()
+            if change_type != "metadata"
+        ]
+        if not change_sections:
+            return "no change sections"
+
+        populated_sections = 0
+        total_entries = 0
+        empty_sections: list[str] = []
+        invalid_sections: list[str] = []
+        for change_type, entries in change_sections:
+            if not isinstance(entries, list):
+                invalid_sections.append(change_type)
+                continue
+            if not entries:
+                empty_sections.append(change_type)
+                continue
+            populated_sections += 1
+            total_entries += len(entries)
+
+        parts = [
+            f"{populated_sections} populated change section(s)",
+            f"{total_entries} {'entry' if total_entries == 1 else 'entries'}",
+        ]
+        if empty_sections:
+            parts.append(f"empty sections: {', '.join(empty_sections)}")
+        if invalid_sections:
+            parts.append(f"invalid sections: {', '.join(invalid_sections)}")
+        return "; ".join(parts)
+
+    def summarize_release_position(self, version: str) -> str:
+        """Describes a release's neighbors in file order."""
+
+        released_versions = self.released_versions()
+        if version not in released_versions:
+            return "section not present in release order"
+
+        index = released_versions.index(version)
+        neighbors: list[str] = []
+        if index > 0:
+            neighbors.append(f"above it: {released_versions[index - 1]}")
+        if index + 1 < len(released_versions):
+            neighbors.append(f"below it: {released_versions[index + 1]}")
+        return ", ".join(neighbors) if neighbors else "only released version in file"
+
+    def current_release_text(self) -> str:
+        """Returns the latest released version, or a human-readable placeholder."""
+
+        try:
+            return str(self.version())
+        except logging.Warning as exc_info:
+            return exc_info.message
+
     def remove(self, change_type: str, index: int) -> str:
         """Removes the entry at ``index`` for ``change_type`` from [Unreleased]."""
         logger.info(
@@ -299,6 +366,17 @@ class Changelog:
             self.changelog_file_path,
             override_version or "<auto>",
         )
+        logger.debug(
+            "Release order for %s: %s",
+            self.changelog_file_path,
+            ", ".join(self.released_versions()) or "<none>",
+        )
+        if self.has_unreleased_section():
+            logger.info(
+                "Unreleased summary for %s: %s",
+                self.changelog_file_path,
+                self.summarize_release(UNRELEASED_ENTRY),
+            )
 
         if UNRELEASED_ENTRY not in self.changelog:
             raise logging.Error(
@@ -325,18 +403,45 @@ class Changelog:
             )
             raise logging.Error(message=msg) from exc_info
 
+        logger.info(
+            "Resolved release target %s for %s (latest release: %s)",
+            target_version,
+            self.changelog_file_path,
+            self.current_release_text(),
+        )
+
         if str(target_version) in self.get():
+            existing_summary = self.summarize_release(str(target_version))
+            existing_position = self.summarize_release_position(str(target_version))
+            logger.warning(
+                "Refusing release %s for %s because that version already exists (%s; %s)",
+                target_version,
+                self.changelog_file_path,
+                existing_summary,
+                existing_position,
+            )
             raise logging.Error(
                 file_path=self.get_file_path(),
-                message=f"Unable to release an already released version '{target_version}'",
+                message=(
+                    f"Unable to release an already released version '{target_version}' "
+                    f"(latest release: {self.current_release_text()}; "
+                    f"existing section summary: {existing_summary}; "
+                    f"file order: {existing_position})"
+                ),
             )
 
         if not self.has_only_unreleased_version() and target_version < self.version():
+            logger.warning(
+                "Refusing release %s for %s because it is older than current release %s",
+                target_version,
+                self.changelog_file_path,
+                self.version(),
+            )
             raise logging.Error(
                 file_path=self.get_file_path(),
                 message=(
                     "Unable to release a version older than the last release "
-                    f"'{self.version()}'"
+                    f"'{self.version()}' (requested '{target_version}')"
                 ),
             )
 

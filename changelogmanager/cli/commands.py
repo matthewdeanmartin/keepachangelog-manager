@@ -32,6 +32,8 @@ from changelogmanager.config import (
     config_format_from_path,
     default_config_path_for_format,
     get_effective_configuration,
+    get_fragments_options,
+    get_tasks_options,
     serialize_config_toml,
     write_configuration,
 )
@@ -317,12 +319,24 @@ def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
     """Release changes added to [Unreleased] block."""
 
-    logger.info("Running release command for %s", ctx.changelog.get_file_path())
+    logger.info(
+        "Running release command for %s (override=%s, bump_versions=%s, pyproject_only=%s, dry_run=%s, yes=%s)",
+        ctx.changelog.get_file_path(),
+        args.override_version or "<auto>",
+        bool(getattr(args, "bump_versions", False)),
+        bool(getattr(args, "pyproject_only", False)),
+        bool(getattr(args, "dry_run", False)),
+        bool(getattr(args, "yes", False)),
+    )
     changelog = ctx.changelog
     bump_versions = bool(getattr(args, "bump_versions", False))
     pyproject_only = bool(getattr(args, "pyproject_only", False))
 
     if changelog.has_unreleased_section() and not changelog.has_unreleased():
+        logger.warning(
+            "Skipping release for %s because the [Unreleased] section has no change entries",
+            changelog.get_file_path(),
+        )
         emit(
             ctx,
             text=(
@@ -366,6 +380,11 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
             override.lstrip("v")
             if override
             else str(changelog.suggest_future_version())
+        )
+        logger.info(
+            "Prompting for release confirmation of %s for %s",
+            predicted_version,
+            changelog.get_file_path(),
         )
         answer = (
             input(f"Release {predicted_version} to {changelog.get_file_path()}? [y/N] ")
@@ -447,6 +466,35 @@ def command_add(args: argparse.Namespace, ctx: CliContext) -> None:
         change_type=args.change_type, message=args.message
     )
 
+    if getattr(args, "fragment", None) is not None:
+        from changelogmanager.fragments import (  # noqa: PLC0415
+            discover_fragment_dir,
+            write_fragment,
+        )
+
+        fragment_value = getattr(args, "fragment", None)
+        slug = None if fragment_value is True else str(fragment_value)
+        fragment_dir = discover_fragment_dir(getattr(args, "fragment_dir", None))
+        if changelog_entry["confirm"] == "Yes":
+            if args.dry_run:
+                path = write_fragment_preview(
+                    fragment_dir,
+                    changelog_entry["change_type"],
+                    changelog_entry["message"],
+                    slug,
+                )
+                print_dry_run(ctx, f"would write fragment {path}")
+                ctx.json_payload["fragment"] = str(path)
+                return
+            path = write_fragment(
+                fragment_dir,
+                changelog_entry["change_type"],
+                changelog_entry["message"],
+                slug,
+            )
+            emit(ctx, text=f"Wrote fragment: {path}", json_key="fragment", json_value=str(path))
+        return
+
     changelog = ctx.changelog
     changelog.add(
         change_type=changelog_entry["change_type"], message=changelog_entry["message"]
@@ -458,6 +506,177 @@ def command_add(args: argparse.Namespace, ctx: CliContext) -> None:
             return
 
         changelog.write_to_file()
+
+
+def write_fragment_preview(
+    fragment_dir: Path, change_type: str, message: str, slug: str | None
+) -> Path:
+    from changelogmanager.fragments import fragment_path  # noqa: PLC0415
+
+    return fragment_path(fragment_dir, change_type, message, slug)
+
+
+def command_tasks(args: argparse.Namespace, ctx: CliContext) -> None:
+    """Manages TASKS.md files."""
+
+    from changelogmanager import tasks as task_files  # noqa: PLC0415
+
+    config = getattr(args, "resolved_config_path", None)
+    options = get_tasks_options(config)
+    task_file_arg = getattr(args, "tasks_file", None) or options.get("file")
+    task_path = task_files.discover_task_file(task_file_arg)
+    subcommand = args.tasks_command
+
+    if subcommand == "list":
+        parsed = task_files.parse_task_file(task_path)
+        if not parsed:
+            emit(ctx, text=f"No tasks found in {task_path}", json_key="tasks", json_value=[])
+            return
+        payload = []
+        for task in parsed:
+            status = "x" if task.checked else " "
+            change_type = task.change_type or "unknown"
+            emit(ctx, text=f"{task.line}: [{status}] {change_type}: {task.text}")
+            payload.append(
+                {
+                    "line": task.line,
+                    "checked": task.checked,
+                    "change_type": task.change_type,
+                    "text": task.text,
+                    "done_date": task.done_date,
+                }
+            )
+        ctx.json_payload["tasks"] = payload
+        return
+
+    if subcommand == "add":
+        task_files.add_task(task_path, args.change_type, args.message)
+        emit(ctx, text=f"Added task to {task_path}", json_key="tasks_file", json_value=str(task_path))
+        return
+
+    if subcommand in {"check", "uncheck"}:
+        checked = subcommand == "check"
+        source = str(options.get("done_date_source", "today"))
+        task = task_files.set_task_checked(
+            task_path, args.selector, checked=checked, done_date_source=source
+        )
+        verb = "Checked" if checked else "Unchecked"
+        emit(ctx, text=f"{verb} task on line {task.line}", json_key="line", json_value=task.line)
+        return
+
+    if subcommand == "validate":
+        parsed = task_files.parse_task_file(task_path)
+        errors = task_files.validate_tasks(parsed, task_path)
+        ctx.json_payload["errors"] = errors
+        if errors:
+            raise logging.Error(file_path=str(task_path), message="\n".join(errors))
+        emit(ctx, text=f"Tasks valid: {task_path}", json_key="valid", json_value=True)
+        return
+
+    if subcommand == "promote":
+        parsed = task_files.parse_task_file(task_path)
+        entries = task_files.completed_entries(parsed)
+        existing = {
+            (change_type, message)
+            for change_type, _index, message in ctx.changelog.list_unreleased()
+        }
+        new_entries = [
+            (change_type, text)
+            for change_type, text, _line in entries
+            if (change_type, text) not in existing
+        ]
+        ctx.json_payload["promoted"] = [
+            {"change_type": change_type, "message": text}
+            for change_type, text in new_entries
+        ]
+        if args.dry_run:
+            for change_type, text in new_entries:
+                emit(ctx, text=f"would promote: [{change_type}] {text}")
+            print_dry_run(ctx, f"would promote {len(new_entries)} task(s)")
+            return
+        ctx.changelog.add_many(new_entries)
+        if new_entries:
+            ctx.changelog.write_to_file()
+        if not getattr(args, "keep", False):
+            promoted_lines = {
+                line
+                for change_type, text, line in entries
+                if (change_type, text) in set(new_entries) or (change_type, text) in existing
+            }
+            task_files.remove_completed_tasks(task_path, promoted_lines)
+        emit(ctx, text=f"Promoted {len(new_entries)} task(s)", json_key="count", json_value=len(new_entries))
+
+
+def command_fragments(args: argparse.Namespace, ctx: CliContext) -> None:
+    """Manages changelog fragments."""
+
+    from changelogmanager import fragments as fragment_files  # noqa: PLC0415
+
+    config = getattr(args, "resolved_config_path", None)
+    options = get_fragments_options(config)
+    directory_arg = getattr(args, "fragment_dir", None) or options.get("directory")
+    fragment_dir = fragment_files.discover_fragment_dir(directory_arg)
+    subcommand = args.fragments_command
+
+    if subcommand == "list":
+        fragments = fragment_files.read_fragments(fragment_dir)
+        payload = []
+        for fragment in fragments:
+            emit(ctx, text=f"[{fragment.change_type}] {fragment.path}: {fragment.text}")
+            payload.append(
+                {
+                    "path": str(fragment.path),
+                    "change_type": fragment.change_type,
+                    "text": fragment.text,
+                }
+            )
+        if not fragments:
+            emit(ctx, text=f"No fragments found in {fragment_dir}")
+        ctx.json_payload["fragments"] = payload
+        return
+
+    if subcommand == "add":
+        path = fragment_files.write_fragment(
+            fragment_dir, args.change_type, args.message, getattr(args, "slug", None)
+        )
+        emit(ctx, text=f"Wrote fragment: {path}", json_key="fragment", json_value=str(path))
+        return
+
+    if subcommand == "validate":
+        errors = fragment_files.validate_fragments(fragment_dir)
+        ctx.json_payload["errors"] = errors
+        if errors:
+            raise logging.Error(file_path=str(fragment_dir), message="\n".join(errors))
+        emit(ctx, text=f"Fragments valid: {fragment_dir}", json_key="valid", json_value=True)
+        return
+
+    if subcommand == "collect":
+        fragments = fragment_files.read_fragments(fragment_dir)
+        existing = {
+            (change_type, message)
+            for change_type, _index, message in ctx.changelog.list_unreleased()
+        }
+        new_entries = [
+            (fragment.change_type, fragment.text)
+            for fragment in fragments
+            if (fragment.change_type, fragment.text) not in existing
+        ]
+        ctx.json_payload["collected"] = [
+            {"change_type": change_type, "message": text}
+            for change_type, text in new_entries
+        ]
+        if args.dry_run:
+            for change_type, text in new_entries:
+                emit(ctx, text=f"would collect: [{change_type}] {text}")
+            print_dry_run(ctx, f"would collect {len(new_entries)} fragment(s)")
+            return
+        ctx.changelog.add_many(new_entries)
+        if new_entries:
+            ctx.changelog.write_to_file()
+        consume = getattr(args, "consume", None) or options.get("consume") or "archive"
+        consumed = fragment_files.consume_fragments(fragments, str(consume))
+        emit(ctx, text=f"Collected {len(new_entries)} fragment(s)", json_key="count", json_value=len(new_entries))
+        ctx.json_payload["consumed"] = [str(path) for path in consumed]
 
 
 def command_remove(args: argparse.Namespace, ctx: CliContext) -> None:

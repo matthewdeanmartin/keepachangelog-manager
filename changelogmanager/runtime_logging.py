@@ -104,4 +104,4 @@ def configure_runtime_logging(*, info: bool, verbose: bool) -> None:
     handler = logging.StreamHandler(sys.stderr)
     handler.setFormatter(logging.Formatter("[%(levelname)s] %(name)s: %(message)s"))
     namespace_logger.addHandler(handler)
-    namespace_logger.setLevel(VERBOSE if verbose else logging.INFO)
+    namespace_logger.setLevel(logging.DEBUG if verbose else logging.INFO)

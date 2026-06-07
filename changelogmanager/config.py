@@ -49,6 +49,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "github": {},
         "gitlab": {},
         "pypi": {},
+        "tasks": {},
+        "fragments": {},
     }
 }
 
@@ -72,7 +74,16 @@ VERSIONING_SCHEMES: dict[str, dict[str, str]] = {
 
 # Top-level TOML tables that make up the unwrapped on-disk schema. These are the
 # keys lifted into the internal "project" namespace on load.
-UNWRAPPED_TABLES = ("versioning", "validation", "defaults", "github", "gitlab", "pypi")
+UNWRAPPED_TABLES = (
+    "versioning",
+    "validation",
+    "defaults",
+    "github",
+    "gitlab",
+    "pypi",
+    "tasks",
+    "fragments",
+)
 
 logger = get_logger(__name__)
 
@@ -383,6 +394,18 @@ def get_pypi_options(config: Optional[str]) -> dict[str, Any]:
     return get_project_table(config, "pypi")
 
 
+def get_tasks_options(config: Optional[str]) -> dict[str, Any]:
+    """Returns the [tasks] table."""
+
+    return get_project_table(config, "tasks")
+
+
+def get_fragments_options(config: Optional[str]) -> dict[str, Any]:
+    """Returns the [fragments] table."""
+
+    return get_project_table(config, "fragments")
+
+
 def get_project_table(config: Optional[str], table: str) -> dict[str, Any]:
     configuration = get_effective_configuration(config)
     value = configuration.get("project", {}).get(table, {}) or {}
@@ -560,6 +583,8 @@ def serialize_config_toml(config: Mapping[str, Any], *, prefix: str) -> str:
         ("github", "github"),
         ("gitlab", "gitlab"),
         ("pypi", "pypi"),
+        ("tasks", "tasks"),
+        ("fragments", "fragments"),
     ):
         values = project.get(key, {}) or {}
         if not isinstance(values, Mapping) or not values:
@@ -582,6 +607,9 @@ def serialize_config_toml(config: Mapping[str, Any], *, prefix: str) -> str:
         if isinstance(match, (list, tuple)) and match:
             rendered = ", ".join(toml_string(str(item)) for item in match)
             lines.append(f"match = [{rendered}]")
+        fragment_directory = component.get("fragment_directory")
+        if fragment_directory:
+            lines.append(f"fragment_directory = {toml_string(str(fragment_directory))}")
 
     return "\n".join(lines) + "\n"
 

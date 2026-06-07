@@ -219,9 +219,10 @@ def test_release_override_duplicate_version(changelog_file):
     with pytest.raises(logging.Error) as exc_info:
         changelog.release(override_version="1.0.0")
 
-    assert (
-        str(exc_info.value.message)
-        == "Unable to release an already released version '1.0.0'"
+    assert str(exc_info.value.message) == (
+        "Unable to release an already released version '1.0.0' "
+        "(latest release: 1.0.0; existing section summary: 2 populated change section(s); 2 entries; "
+        "file order: below it: 0.9.4)"
     )
 
 
@@ -237,7 +238,7 @@ def test_release_override_older_version(changelog_file):
 
     assert (
         str(exc_info.value.message)
-        == "Unable to release a version older than the last release '1.0.0'"
+        == "Unable to release a version older than the last release '1.0.0' (requested '0.0.1')"
     )
 
 

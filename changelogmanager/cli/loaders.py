@@ -50,6 +50,11 @@ def load_changelog(
     )
     preamble_keywords = get_preamble_keywords(config)
     versioning_scheme = resolve_versioning_scheme(config, file_path)
+    logger.info(
+        "Resolved changelog file %s with versioning scheme %s",
+        file_path,
+        versioning_scheme,
+    )
 
     changelog_dict = ChangelogReader(
         file_path=file_path,
