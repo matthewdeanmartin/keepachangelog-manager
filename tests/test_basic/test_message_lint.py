@@ -105,14 +105,12 @@ class TestClassifySubject:
 
 class TestSubjectOf:
     def test_skips_comments_and_blank_lines(self):
-        message = textwrap.dedent(
-            """\
+        message = textwrap.dedent("""\
 
             Added: real subject
             # this is a comment
             body text
-            """
-        )
+            """)
         assert subject_of(message) == "Added: real subject"
 
     def test_leading_comments_are_skipped(self):
@@ -133,8 +131,7 @@ class TestConfigReader:
     def test_reads_table(self, tmp_path):
         config = tmp_path / "changelogmanager.toml"
         config.write_text(
-            textwrap.dedent(
-                """\
+            textwrap.dedent("""\
                 [validation.message_lint]
                 enabled = true
                 schema = "conventional"
@@ -143,8 +140,7 @@ class TestConfigReader:
                 [[components]]
                 name = "default"
                 changelog = "CHANGELOG.md"
-                """
-            ),
+                """),
             encoding="utf-8",
         )
         opts = get_message_lint_options(str(config))

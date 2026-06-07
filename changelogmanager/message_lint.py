@@ -115,9 +115,7 @@ class LintOptions:
         return compiled
 
 
-_VALID_CATEGORIES = ", ".join(
-    name.capitalize() + ":" for name in TYPES_OF_CHANGE
-)
+_VALID_CATEGORIES = ", ".join(name.capitalize() + ":" for name in TYPES_OF_CHANGE)
 _UNCLASSIFIED_HINT = (
     f"prefix with a Keep a Changelog category ({_VALID_CATEGORIES}) "
     "or a Conventional type (feat:, fix:, ... or chore:/docs:/refactor: "
@@ -453,9 +451,7 @@ def guess_category(subject: str) -> str:
     return "changed"
 
 
-def suggest_subject(
-    subject: str, *, auto_prefix: str | None = None
-) -> str:
+def suggest_subject(subject: str, *, auto_prefix: str | None = None) -> str:
     """Proposes a rewritten subject that classifies as a KAC change.
 
     ``auto_prefix`` forces a specific category prefix (e.g. ``changed``); when

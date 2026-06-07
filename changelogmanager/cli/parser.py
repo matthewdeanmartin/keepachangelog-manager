@@ -465,19 +465,25 @@ examples:
         "uncheck", help="Mark a task not done"
     )
     tasks_uncheck_parser.add_argument("selector", help="Task line number or exact text")
-    tasks_uncheck_parser.add_argument("--tasks-file", default=None, help="Task file path")
+    tasks_uncheck_parser.add_argument(
+        "--tasks-file", default=None, help="Task file path"
+    )
     tasks_uncheck_parser.set_defaults(handler=commands.command_tasks)
 
     tasks_validate_parser = tasks_subparsers.add_parser(
         "validate", help="Validate a task file"
     )
-    tasks_validate_parser.add_argument("--tasks-file", default=None, help="Task file path")
+    tasks_validate_parser.add_argument(
+        "--tasks-file", default=None, help="Task file path"
+    )
     tasks_validate_parser.set_defaults(handler=commands.command_tasks)
 
     tasks_promote_parser = tasks_subparsers.add_parser(
         "promote", help="Move checked tasks into [Unreleased]"
     )
-    tasks_promote_parser.add_argument("--tasks-file", default=None, help="Task file path")
+    tasks_promote_parser.add_argument(
+        "--tasks-file", default=None, help="Task file path"
+    )
     tasks_promote_parser.add_argument(
         "--keep",
         action="store_true",
@@ -1039,8 +1045,7 @@ examples:
     rewrite_messages_parser = subparsers.add_parser(
         "rewrite-messages",
         help=(
-            "Plan subject rewrites over UNPUSHED commits (apply not yet "
-            "implemented)"
+            "Plan subject rewrites over UNPUSHED commits (apply not yet " "implemented)"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\

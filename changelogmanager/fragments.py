@@ -40,7 +40,9 @@ def slugify(value: str) -> str:
     return slug[:80].strip("-") or "change"
 
 
-def fragment_path(fragment_dir: Path, change_type: str, text: str, slug: str | None) -> Path:
+def fragment_path(
+    fragment_dir: Path, change_type: str, text: str, slug: str | None
+) -> Path:
     if change_type not in TYPES_OF_CHANGE:
         raise logging.Error(message=f"Unknown change type '{change_type}'")
     final_slug = slugify(slug or text)
@@ -149,4 +151,3 @@ def consume_fragments(
         shutil.move(str(fragment.path), str(target))
         consumed.append(target)
     return consumed
-

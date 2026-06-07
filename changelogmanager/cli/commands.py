@@ -492,7 +492,12 @@ def command_add(args: argparse.Namespace, ctx: CliContext) -> None:
                 changelog_entry["message"],
                 slug,
             )
-            emit(ctx, text=f"Wrote fragment: {path}", json_key="fragment", json_value=str(path))
+            emit(
+                ctx,
+                text=f"Wrote fragment: {path}",
+                json_key="fragment",
+                json_value=str(path),
+            )
         return
 
     changelog = ctx.changelog
@@ -530,7 +535,12 @@ def command_tasks(args: argparse.Namespace, ctx: CliContext) -> None:
     if subcommand == "list":
         parsed = task_files.parse_task_file(task_path)
         if not parsed:
-            emit(ctx, text=f"No tasks found in {task_path}", json_key="tasks", json_value=[])
+            emit(
+                ctx,
+                text=f"No tasks found in {task_path}",
+                json_key="tasks",
+                json_value=[],
+            )
             return
         payload = []
         for task in parsed:
@@ -551,7 +561,12 @@ def command_tasks(args: argparse.Namespace, ctx: CliContext) -> None:
 
     if subcommand == "add":
         task_files.add_task(task_path, args.change_type, args.message)
-        emit(ctx, text=f"Added task to {task_path}", json_key="tasks_file", json_value=str(task_path))
+        emit(
+            ctx,
+            text=f"Added task to {task_path}",
+            json_key="tasks_file",
+            json_value=str(task_path),
+        )
         return
 
     if subcommand in {"check", "uncheck"}:
@@ -561,7 +576,12 @@ def command_tasks(args: argparse.Namespace, ctx: CliContext) -> None:
             task_path, args.selector, checked=checked, done_date_source=source
         )
         verb = "Checked" if checked else "Unchecked"
-        emit(ctx, text=f"{verb} task on line {task.line}", json_key="line", json_value=task.line)
+        emit(
+            ctx,
+            text=f"{verb} task on line {task.line}",
+            json_key="line",
+            json_value=task.line,
+        )
         return
 
     if subcommand == "validate":
@@ -601,10 +621,16 @@ def command_tasks(args: argparse.Namespace, ctx: CliContext) -> None:
             promoted_lines = {
                 line
                 for change_type, text, line in entries
-                if (change_type, text) in set(new_entries) or (change_type, text) in existing
+                if (change_type, text) in set(new_entries)
+                or (change_type, text) in existing
             }
             task_files.remove_completed_tasks(task_path, promoted_lines)
-        emit(ctx, text=f"Promoted {len(new_entries)} task(s)", json_key="count", json_value=len(new_entries))
+        emit(
+            ctx,
+            text=f"Promoted {len(new_entries)} task(s)",
+            json_key="count",
+            json_value=len(new_entries),
+        )
 
 
 def command_fragments(args: argparse.Namespace, ctx: CliContext) -> None:
@@ -639,7 +665,12 @@ def command_fragments(args: argparse.Namespace, ctx: CliContext) -> None:
         path = fragment_files.write_fragment(
             fragment_dir, args.change_type, args.message, getattr(args, "slug", None)
         )
-        emit(ctx, text=f"Wrote fragment: {path}", json_key="fragment", json_value=str(path))
+        emit(
+            ctx,
+            text=f"Wrote fragment: {path}",
+            json_key="fragment",
+            json_value=str(path),
+        )
         return
 
     if subcommand == "validate":
@@ -647,7 +678,12 @@ def command_fragments(args: argparse.Namespace, ctx: CliContext) -> None:
         ctx.json_payload["errors"] = errors
         if errors:
             raise logging.Error(file_path=str(fragment_dir), message="\n".join(errors))
-        emit(ctx, text=f"Fragments valid: {fragment_dir}", json_key="valid", json_value=True)
+        emit(
+            ctx,
+            text=f"Fragments valid: {fragment_dir}",
+            json_key="valid",
+            json_value=True,
+        )
         return
 
     if subcommand == "collect":
@@ -675,7 +711,12 @@ def command_fragments(args: argparse.Namespace, ctx: CliContext) -> None:
             ctx.changelog.write_to_file()
         consume = getattr(args, "consume", None) or options.get("consume") or "archive"
         consumed = fragment_files.consume_fragments(fragments, str(consume))
-        emit(ctx, text=f"Collected {len(new_entries)} fragment(s)", json_key="count", json_value=len(new_entries))
+        emit(
+            ctx,
+            text=f"Collected {len(new_entries)} fragment(s)",
+            json_key="count",
+            json_value=len(new_entries),
+        )
         ctx.json_payload["consumed"] = [str(path) for path in consumed]
 
 
@@ -1151,9 +1192,7 @@ def command_lint_commits(args: argparse.Namespace, ctx: CliContext) -> None:
             # The error path skips the entry-point JSON print, so emit here.
             import orjson  # noqa: PLC0415
 
-            print(
-                orjson.dumps(ctx.json_payload, option=orjson.OPT_INDENT_2).decode()
-            )
+            print(orjson.dumps(ctx.json_payload, option=orjson.OPT_INDENT_2).decode())
         raise logging.Error(
             message=(
                 f"{len(report.unclassified)} commit(s) are not classifiable by the "
@@ -1162,9 +1201,7 @@ def command_lint_commits(args: argparse.Namespace, ctx: CliContext) -> None:
         )
 
 
-def _commits_to_show(
-    report: AuditReport, show: str
-) -> list[CommitLint]:
+def _commits_to_show(report: AuditReport, show: str) -> list[CommitLint]:
     """Selects which audited commits to print based on the --show filter."""
 
     from changelogmanager.message_lint import LintOutcome  # noqa: PLC0415
@@ -1241,7 +1278,12 @@ def _rewrite_emit_plan(
     plan_out = getattr(args, "plan_out", None)
     if plan_out:
         Path(plan_out).write_text(plan.to_tsv() + "\n", encoding="utf-8")
-        emit(ctx, text=f"Wrote plan to {plan_out}", json_key="plan_out", json_value=plan_out)
+        emit(
+            ctx,
+            text=f"Wrote plan to {plan_out}",
+            json_key="plan_out",
+            json_value=plan_out,
+        )
     else:
         for entry in plan.entries:
             emit(

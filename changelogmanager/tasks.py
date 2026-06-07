@@ -98,7 +98,9 @@ def ensure_task_file(path: Path) -> None:
 
 def add_task(path: Path, change_type: str, text: str) -> None:
     if change_type not in TYPES_OF_CHANGE:
-        raise logging.Error(file_path=str(path), message=f"Unknown change type '{change_type}'")
+        raise logging.Error(
+            file_path=str(path), message=f"Unknown change type '{change_type}'"
+        )
     if not text.strip():
         raise logging.Error(file_path=str(path), message="Task text must not be empty")
 
@@ -134,7 +136,9 @@ def resolve_task_index(tasks: list[TaskItem], selector: str) -> int:
     if not matches:
         raise logging.Error(message=f"No task found matching {selector!r}")
     if len(matches) > 1:
-        raise logging.Error(message=f"Task selector {selector!r} matched multiple tasks")
+        raise logging.Error(
+            message=f"Task selector {selector!r} matched multiple tasks"
+        )
     return matches[0]
 
 
@@ -147,7 +151,9 @@ def set_task_checked(
     line_index = task.line - 1
     task_match = TASK_RE.match(lines[line_index])
     if not task_match:
-        raise logging.Error(file_path=str(path), message=f"Line {task.line} is not a task")
+        raise logging.Error(
+            file_path=str(path), message=f"Line {task.line} is not a task"
+        )
 
     text, _done = strip_done_metadata(task_match.group(3))
     marker = "x" if checked else " "
@@ -156,7 +162,9 @@ def set_task_checked(
         suffix = f" <!-- done: {date.today().isoformat()} -->"
     lines[line_index] = f"{task_match.group(1)}- [{marker}] {text}{suffix}"
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="UTF-8")
-    return parse_task_file(path)[resolve_task_index(parse_task_file(path), str(task.line))]
+    return parse_task_file(path)[
+        resolve_task_index(parse_task_file(path), str(task.line))
+    ]
 
 
 def validate_tasks(tasks: list[TaskItem], path: Path) -> list[str]:
@@ -164,7 +172,9 @@ def validate_tasks(tasks: list[TaskItem], path: Path) -> list[str]:
     seen: set[tuple[str | None, str]] = set()
     for task in tasks:
         if task.change_type is None:
-            errors.append(f"{path}:{task.line}: task is not under a known change-type heading")
+            errors.append(
+                f"{path}:{task.line}: task is not under a known change-type heading"
+            )
         if not task.text:
             errors.append(f"{path}:{task.line}: task text must not be empty")
         if task.done_date and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", task.done_date):
@@ -192,4 +202,3 @@ def remove_completed_tasks(path: Path, promoted_lines: set[int]) -> None:
         if line_number not in promoted_lines
     ]
     path.write_text("\n".join(kept).rstrip() + "\n", encoding="UTF-8")
-

@@ -76,4 +76,3 @@ def test_fragments_collect_keeps_old_add_behavior_opt_in(tmp_path, monkeypatch):
     changelog = Path("CHANGELOG.md").read_text(encoding="UTF-8")
     assert "Support TASKS.md as a changelog source." in changelog
     assert (fragment_dir / "task-files.added.md").is_file()
-

@@ -37,6 +37,7 @@ def _freeze_today():
     with freeze_time(FROZEN_TODAY):
         yield
 
+
 # ---------------------------------------------------------------------------
 # Re-use the repo-level isolate_cwd so snapshot tests also run in a temp dir.
 # The root conftest.py registers it as autouse=True, so it applies here

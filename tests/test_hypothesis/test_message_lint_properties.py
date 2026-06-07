@@ -40,7 +40,11 @@ subjects = st.one_of(
     st.builds(lambda p, b: f"{p}: {b}", kac_prefixes, prose),
     st.builds(lambda t, b: f"{t}: {b}", conventional_types, prose),
     st.builds(lambda e, b: f"{e} {b}", gitmoji, prose),
-    st.builds(lambda w, b: f"{w}: {b}", st.text(string.ascii_lowercase, min_size=1, max_size=8), prose),
+    st.builds(
+        lambda w, b: f"{w}: {b}",
+        st.text(string.ascii_lowercase, min_size=1, max_size=8),
+        prose,
+    ),
 )
 
 

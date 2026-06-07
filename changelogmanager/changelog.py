@@ -170,7 +170,9 @@ class Changelog:
     def released_versions(self) -> list[str]:
         """Returns released versions in file order, excluding [Unreleased]."""
 
-        return [str(version) for version in self.changelog if version != UNRELEASED_ENTRY]
+        return [
+            str(version) for version in self.changelog if version != UNRELEASED_ENTRY
+        ]
 
     def summarize_release(self, version: str) -> str:
         """Summarizes a release section for diagnostics and runtime logging."""

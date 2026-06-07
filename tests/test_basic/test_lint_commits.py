@@ -30,7 +30,9 @@ class TestAuditCommits:
         monkeypatch.setattr(
             backfill, "git_log_between", lambda *a, **k: _commits(subjects)
         )
-        monkeypatch.setattr(backfill, "enforce_commit_budget", lambda *a, **k: len(subjects))
+        monkeypatch.setattr(
+            backfill, "enforce_commit_budget", lambda *a, **k: len(subjects)
+        )
 
         report = message_lint.audit_commits(since="v1.0.0")
 
@@ -141,7 +143,13 @@ class TestLintCommitsCli:
         # escalation beyond the prose line -> still 1 unclassified, exit 1 strict.
         assert (
             cli.main(
-                ["lint-commits", "--all-history", "--commit-schema", "keepachangelog", "--strict"]
+                [
+                    "lint-commits",
+                    "--all-history",
+                    "--commit-schema",
+                    "keepachangelog",
+                    "--strict",
+                ]
             )
             == 1
         )

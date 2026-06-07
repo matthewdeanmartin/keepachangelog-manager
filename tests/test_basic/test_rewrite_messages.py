@@ -40,9 +40,10 @@ class TestSuggestions:
         assert message_lint.suggest_subject(subject).startswith(expected_prefix)
 
     def test_auto_prefix_overrides_guess(self):
-        assert message_lint.suggest_subject(
-            "fix the parser", auto_prefix="changed"
-        ) == "Changed: fix the parser"
+        assert (
+            message_lint.suggest_subject("fix the parser", auto_prefix="changed")
+            == "Changed: fix the parser"
+        )
 
     def test_every_suggestion_relints_as_passing(self):
         for subject in ["wip", "junk", "do formatting again", "asdf", "update x"]:
@@ -57,7 +58,9 @@ class TestPlanRewrite:
         monkeypatch.setattr(
             message_lint,
             "resolve_unpushed_range",
-            lambda **k: message_lint.UnpushedRange("origin/main..HEAD", True, "@{push}"),
+            lambda **k: message_lint.UnpushedRange(
+                "origin/main..HEAD", True, "@{push}"
+            ),
         )
         subjects = ["Added: real", "chore: tidy", "do formatting again", "wip"]
         monkeypatch.setattr(
@@ -89,7 +92,12 @@ class TestPlanRewrite:
 
         plan = message_lint.plan_rewrite()
         payload = plan.to_json()
-        assert sorted(payload) == ["counts", "entries", "has_upstream", "unpushed_range"]
+        assert sorted(payload) == [
+            "counts",
+            "entries",
+            "has_upstream",
+            "unpushed_range",
+        ]
         assert payload["has_upstream"] is False
 
         tsv = plan.to_tsv()
@@ -120,7 +128,9 @@ class TestRewriteMessagesCli:
         monkeypatch.setattr(
             message_lint,
             "resolve_unpushed_range",
-            lambda **k: message_lint.UnpushedRange("origin/main..HEAD", True, "@{push}"),
+            lambda **k: message_lint.UnpushedRange(
+                "origin/main..HEAD", True, "@{push}"
+            ),
         )
         monkeypatch.setattr(
             backfill,
@@ -189,7 +199,9 @@ class TestUnpushedRangeRealRepo:
         # A bare "remote" plus a clone; commit, push, then add local-only commits.
         remote = tmp_path / "remote.git"
         subprocess.run(
-            ["git", "init", "--bare", "-q", str(remote)], check=True, capture_output=True
+            ["git", "init", "--bare", "-q", str(remote)],
+            check=True,
+            capture_output=True,
         )
         repo = tmp_path / "work"
         subprocess.run(
