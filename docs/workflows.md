@@ -1,5 +1,7 @@
 # Key Workflows
 
+For detailed release mechanics, see [Releasing](releases.md). For checklist-style planning and fragment-file staging, see [Tasks and fragments](tasks.md).
+
 ## Day-to-day development
 
 ### Add a change interactively
@@ -146,142 +148,9 @@ ______________________________________________________________________
 
 ## Releasing
 
-### Where your version number lives — an important design choice
+For local version calculation, `release`, `version`, and `--bump-versions`, see [Releasing](releases.md).
 
-Before using `release`, decide where your project's authoritative version number lives.
-This choice changes which release workflow you need.
-
-**Option A — changelog is the single source of truth.**
-`pyproject.toml` (and any `__version__` string in your source) is never checked by your
-build tool, or your build tool is told to read the version dynamically from the installed
-package metadata. In this case the `release` command alone is sufficient: it promotes
-`[Unreleased]` to a version entry, and nothing else needs to change before you build.
-
-**Option B — version appears in multiple places.**
-Your `pyproject.toml` has `version = "x.y.z"` and/or your source has `__version__ = "x.y.z"`.
-These must match the released version before you run `uv build` or the package will carry
-the wrong version number. You have two sub-options:
-
-- **Guess the version first:** compute the next version yourself (e.g. from
-  `changelogmanager version --reference future`), set it in `pyproject.toml` manually,
-  push that change, then trigger the release job. This is error-prone — if your guess is
-  wrong, or a new commit changes the bump level between your edit and the job running,
-  the versions drift.
-- **Use `--bump-versions`:** let the `release` command bump `pyproject.toml` (and Python
-  source `__version__` strings) to the released version atomically, in the same step.
-  This is the recommended approach when you need version strings in multiple places.
-  See [Syncing version strings with `--bump-versions`](#syncing-version-strings-with---bump-versions) below.
-
-### Automatic version bump
-
-`release` inspects the change types in `[Unreleased]` and bumps the version according to the configured scheme (`semver`, `pep440`, or `calver`):
-
-| Change type present | Bump |
-|---|---|
-| `removed` | Major |
-| `added` or `security` | Minor |
-| `changed`, `deprecated`, `fixed` only | Patch/micro |
-
-```sh
-changelogmanager release
-```
-
-### Override the version
-
-```sh
-changelogmanager release --override-version 2.0.0
-```
-
-The `v` prefix is accepted and stripped automatically (`v2.0.0` becomes `2.0.0`).
-
-### Non-interactive releases
-
-For scripts, CI, or any non-interactive run, add `--yes`:
-
-```sh
-changelogmanager release --yes
-```
-
-Without `--yes`, non-interactive release runs are refused. Pair it with `--dry-run` first if you want a preview.
-
-### Syncing version strings with `--bump-versions`
-
-If your project stores a version number outside the changelog — in `pyproject.toml`,
-in a `__version__` variable, or both — use `--bump-versions` to keep them in sync.
-
-**Prerequisite:** install the `jiggle` optional extra:
-
-```sh
-# uv project dependency
-uv add "keepachangelog-manager-fork[jiggle]"
-
-# or standalone tool install
-uv tool install "keepachangelog-manager-fork[jiggle]"
-
-# or pip
-pip install "keepachangelog-manager-fork[jiggle]"
-```
-
-**Release and sync in one step:**
-
-```sh
-changelogmanager release --bump-versions --yes
-```
-
-This does, in order:
-
-1. Promotes `[Unreleased]` to the inferred next version in `CHANGELOG.md`.
-1. Writes that same version string into `[project] version` in `pyproject.toml`.
-1. Updates any `__version__ = "..."` variables found in your Python source tree.
-
-**Limit to `pyproject.toml` only** (skip Python source files):
-
-```sh
-changelogmanager release --bump-versions --pyproject-only --yes
-```
-
-**Preview without writing anything:**
-
-```sh
-changelogmanager release --bump-versions --dry-run
-```
-
-**JSON output** includes the list of modified files:
-
-```sh
-changelogmanager --json release --bump-versions --yes
-```
-
-```json
-{
-  "released": "1.3.0",
-  "bumped_version": "1.3.0",
-  "bumped_files": ["pyproject.toml", "mypackage/__about__.py"]
-}
-```
-
-The typical build sequence after running `--bump-versions` is:
-
-```sh
-changelogmanager release --bump-versions --yes
-uv build
-uv publish
-```
-
-______________________________________________________________________
-
-## Querying versions
-
-```sh
-# most recently released version
-changelogmanager version
-
-# the version before that
-changelogmanager version --reference previous
-
-# what the next release would be, based on Unreleased changes
-changelogmanager version --reference future
-```
+For forge-specific publishing flows, see [GitHub automation](github.md) and [GitLab automation](gitlab.md).
 
 ______________________________________________________________________
 
@@ -374,79 +243,6 @@ changelogmanager --error-format github validate
 ```
 
 Errors are printed in GitHub Actions annotation format (`::error file=...`), making them appear inline in pull request diffs.
-
-______________________________________________________________________
-
-## GitHub releases
-
-### Create a draft release
-
-```sh
-changelogmanager github-release \
-  --repository owner/repo
-```
-
-This deletes any existing draft releases and creates a new draft from the `[Unreleased]` section. The release tag is set to the inferred future version.
-
-If `--github-token` is omitted, the command falls back to the `GITHUB_TOKEN` environment variable.
-
-### Publish the release immediately
-
-```sh
-changelogmanager github-release \
-  --github-token "$GITHUB_TOKEN" \
-  --repository owner/repo \
-  --release
-```
-
-### Typical CI pattern
-
-```yaml
-- name: Create GitHub release
-  run: |
-    changelogmanager github-release \
-      --repository "${{ github.repository }}" \
-      --release
-```
-
-Run `github-release` while `[Unreleased]` still exists. If you also want to rewrite `CHANGELOG.md`, do that in a later step or workflow with `changelogmanager release --override-version "$TAG"` after the GitHub release tag is known.
-
-______________________________________________________________________
-
-## GitLab releases
-
-```sh
-changelogmanager gitlab-release --project group/project
-```
-
-GitLab has no draft-release state, so the command is an upsert: it updates the release if the computed tag already exists, otherwise it creates it and lets GitLab create the tag from `--ref`.
-
-Useful variants:
-
-```sh
-changelogmanager gitlab-release --project group/project --ref "$CI_COMMIT_SHA"
-changelogmanager gitlab-release --project group/project --gitlab-url https://gitlab.example.com
-```
-
-The command looks for credentials in `--gitlab-token`, then `GITLAB_TOKEN`, then `CI_JOB_TOKEN`. In practice the default `CI_JOB_TOKEN` usually cannot create releases, so CI jobs should normally supply a project/group/personal access token via `GITLAB_TOKEN`.
-
-See [GitLab automation](gitlab.md) for a concrete `.gitlab-ci.yml` example.
-
-______________________________________________________________________
-
-## GitHub release PR automation
-
-```sh
-changelogmanager github-pr \
-  --repository owner/repo \
-  --head release/bump-123 \
-  --base main \
-  --title "chore: release 1.2.3"
-```
-
-This opens a pull request for a release branch, or updates the title/body if the PR already exists. It is mainly intended for GitHub Actions workflows that cut a release branch and then want an auditable PR back to the target branch.
-
-See [GitHub automation](github.md) for the repository's end-to-end release workflow.
 
 ______________________________________________________________________
 

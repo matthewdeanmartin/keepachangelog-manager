@@ -54,7 +54,7 @@ uv add "keepachangelog-manager-fork[jiggle]"
 pip install "keepachangelog-manager-fork[jiggle]"
 ```
 
-See [Syncing version strings with --bump-versions](workflows.md#syncing-version-strings-with---bump-versions)
+See [Syncing version strings with --bump-versions](releases.md#syncing-version-strings-with---bump-versions)
 for usage details.
 
 ### `format` - optional mdformat integration

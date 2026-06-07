@@ -87,7 +87,7 @@ The `[Unreleased]` section is renamed to the inferred next version with today's 
 >
 > Without this, the changelog and `pyproject.toml` (and any `__version__` in your source)
 > will drift, and your package will be published under the wrong version number.
-> See [Syncing version strings](workflows.md#syncing-version-strings-with---bump-versions)
+> See [Syncing version strings](releases.md#syncing-version-strings-with---bump-versions)
 > for the full details and the `[jiggle]` extra required to enable this flag.
 
 ## 5. Validate at any time
@@ -150,6 +150,8 @@ running batch component operations. See the [Desktop GUI](gui.md) page for detai
 
 ## What's next
 
-- Learn the full set of [workflows](workflows.md) including backfill, GitHub/GitLab releases, commit seeding, exports, and automation flags
+- Learn the full set of [workflows](workflows.md) including backfill, commit seeding, exports, validation, and config patterns
+- Track future release notes with [Tasks and fragments](tasks.md)
+- Read the dedicated [Releasing](releases.md) guide for `version`, `release`, and `--bump-versions`
 - Read the complete [CLI reference](cli.md) for every flag and option
 - Try the [Desktop GUI](gui.md) for an interactive front-end

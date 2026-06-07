@@ -119,10 +119,10 @@ def classify_subject(subject: str, *, schema: str = "auto") -> LintResult: ...
    key in `CONVENTIONAL_TO_KAC` whose value is `None`, return `SKIP`. This is
    what lets `chore: do formatting again` pass while a prefix-less
    `do formatting again` fails.
-2. Otherwise call `backfill.classify_commit_subject(subject, schema=schema)`.
+1. Otherwise call `backfill.classify_commit_subject(subject, schema=schema)`.
    - non-`None` → `CHANGELOG` with the returned `change_type`.
    - `None` → `UNCLASSIFIED`.
-3. For the explicit `keepachangelog` schema, a `Word:` prefix whose `Word` is
+1. For the explicit `keepachangelog` schema, a `Word:` prefix whose `Word` is
    not in `TYPES_OF_CHANGE` must yield `UNCLASSIFIED` with a reason naming the
    valid categories (this is the headline requirement). Because
    `KEEPACHANGELOG_RE` only matches the six valid categories, an unknown `Word:`
@@ -232,8 +232,7 @@ project as a pre-commit repo:
 
 `commit-msg` stage is required: that is the only stage where pre-commit passes
 the message file. Document that `--hook-stage commit-msg` / installing the
-`commit-msg` hook type is necessary (`pre-commit install --hook-type
-commit-msg`).
+`commit-msg` hook type is necessary (`pre-commit install --hook-type commit-msg`).
 
 ### Example failure output (llvm format)
 
@@ -498,16 +497,16 @@ actually use".
 1. **Phase 1 — core + hook.** `message_lint.py`, config reader,
    `changelogmanager-lint-message` entry point, `.pre-commit-hooks.yaml`,
    property test for the lockstep invariant. Highest value, lowest risk.
-2. **Phase 2 — audit.** `lint-commits` command (read-only) reusing the git
+1. **Phase 2 — audit.** `lint-commits` command (read-only) reusing the git
    walk; JSON output for CI gating.
-3. **Phase 3 — rewrite plan/suggest core + LLM CLI (apply stubbed).** Shared
+1. **Phase 3 — rewrite plan/suggest core + LLM CLI (apply stubbed).** Shared
    plan core scoped to **unpushed commits only** (`@{upstream}..HEAD`); top-level
    `rewrite-messages` command with the LLM-facing plan-mode default. **`--apply`
    ships as an explicit fail-fast stub** requiring `--yes`/`input()` consent in
    its eventual form; the real rewrite (via `git filter-repo`, fail-closed
    re-lint, dirty-tree/pushed-commit refusal) is deferred until full safeties
    and isolated tests are in place.
-4. **Phase 4 — GUI rewriter (apply stubbed).** `RewriteMessagesScreen` on top of
+1. **Phase 4 — GUI rewriter (apply stubbed).** `RewriteMessagesScreen` on top of
    the Phase 3 core: editable plan table, live re-lint, unpushed-only scope
    banner. The Apply button is present but disabled until the apply path is real.
 
@@ -631,7 +630,7 @@ Fix (two independent layers, in `tests/test_snapshots/conftest.py`):
 1. **Freeze time** — an autouse `freeze_time(FROZEN_TODAY)` fixture (using the
    already-present `freezegun` dev dep) pins `now()` for every snapshot test, so
    the released date is deterministic.
-2. **Mask the frozen date** — `normalise_md`/`normalise_paths` replace the frozen
+1. **Mask the frozen date** — `normalise_md`/`normalise_paths` replace the frozen
    value with a `<TODAY>` placeholder. This is defence-in-depth: the snapshot
    passes regardless of the specific frozen date (verified by temporarily setting
    it to `2099-12-31` — still green), while the static `2024-*` fixture dates stay

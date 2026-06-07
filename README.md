@@ -47,6 +47,7 @@ Edit entries
 
 - create and validate changelogs
 - add, edit, list, and remove `[Unreleased]` entries
+- keep future release notes in `TASKS.md` and promote finished items into `[Unreleased]`
 - work with multi-component repositories (multiple changelog) via TOML config files
 
 Flip Unreleased Changelog to a Released Changelog
@@ -58,6 +59,7 @@ Initialize or bulk update Changelog
 
 - seed `[Unreleased]` from git history using Conventional Commit subjects
 - backfill missing released versions from local git tags
+- support fragment-file workflows for teams that prefer `changelog.d` over direct changelog edits
 
 Many features for bash scripting ergonomics.
 
@@ -169,6 +171,17 @@ uv tool install "keepachangelog-manager-fork[jiggle]"
 changelogmanager release --bump-versions --yes
 ```
 
+### 8. Start the next round of tasks
+
+After a release, it is usually time to collect the next set of user-facing changes that will eventually land in `[Unreleased]`:
+
+```sh
+changelogmanager tasks add added "Support release task docs"
+changelogmanager tasks add fixed "Keep promoted task text out of TASKS.md"
+changelogmanager tasks list
+```
+
+When tasks are complete, mark them checked and promote them into the changelog. If your team prefers fragment files instead of a shared task list, the tool also supports changelog fragments; see [`./docs/tasks.md`](docs/tasks.md).
 
 ## CLI Visuals
 
@@ -189,6 +202,8 @@ changelogmanager release --bump-versions --yes
 - [Quick start](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/quickstart.md)
 - [Installation](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/installation.md)
 - [Key workflows](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/workflows.md)
+- [Releasing](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/releases.md)
+- [Tasks and fragments](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/tasks.md)
 - [Scripting and CI integration](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/scripting.md)
 - [CLI reference](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/cli.md)
 - [Desktop GUI](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/gui.md)

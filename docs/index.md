@@ -44,7 +44,9 @@ On top of what the `keepachangelog` library provides, this tool gives you:
 - [GitLab automation](gitlab.md) — release creation plus the `CI_JOB_TOKEN` caveat
 - [Quick start](quickstart.md) — up and running in two minutes
 - [Installation](installation.md) — all installation methods
-- [Key Workflows](workflows.md) — day-to-day usage patterns
+- [Key Workflows](workflows.md) — day-to-day local usage patterns
+- [Releasing](releases.md) — version calculation, local release mechanics, and `--bump-versions`
+- [Tasks and fragments](tasks.md) — checklist-based planning and fragment-file workflows
 - [Scripting and CI integration](scripting.md) — exit codes, `--json`, `jq` patterns, and full `release.yml` examples
 - [CLI reference](cli.md) — every command and option
 - [Desktop GUI](gui.md) — running the optional Tkinter front-end

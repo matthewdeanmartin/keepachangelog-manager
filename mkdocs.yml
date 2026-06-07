@@ -21,6 +21,9 @@ nav:
   - Quick start: quickstart.md
   - Installation: installation.md
   - Key Workflows: workflows.md
+  - Releasing: releases.md
+  - Tasks and fragments: tasks.md
+  - Scripting and CI integration: scripting.md
   - CLI reference: cli.md
   - Desktop GUI: gui.md
   - Generic CI: CI.md

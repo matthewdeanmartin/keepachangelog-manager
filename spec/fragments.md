@@ -269,4 +269,3 @@ alternate fragment layouts do not leak into collection logic.
 - Should task promotion be able to create fragments instead of writing directly to
   `[Unreleased]`?
 - Should `backfill` and GitHub issue imports support `--fragment` from the start?
-
