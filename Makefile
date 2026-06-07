@@ -55,7 +55,8 @@ flake8:
 
 pylint:
 	$(UV) run python -c "from pathlib import Path; Path('$(BUILD_DIR)').mkdir(exist_ok=True)"
-	$(UV) run pylint $(PACKAGE) -r n --msg-template='$(PYLINT_TEMPLATE)' > $(BUILD_DIR)/pylint-report.txt
+	echo "::add-matcher::.github/pylint-matcher.json"
+	$(UV) run pylint $(PACKAGE) -r n --msg-template='$(PYLINT_TEMPLATE)' >$(BUILD_DIR)/pylint-report.txt | tee build/pylint-report.txt
 
 mypy:
 	$(UV) run mypy $(PACKAGE)
