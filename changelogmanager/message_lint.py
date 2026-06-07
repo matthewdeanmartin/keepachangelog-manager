@@ -381,6 +381,7 @@ def _git(args: list[str], *, cwd: str | None) -> subprocess.CompletedProcess[str
         capture_output=True,
         text=True,
         cwd=cwd,
+        check=False,
     )
 
 

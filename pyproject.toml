@@ -97,6 +97,12 @@ warn_unused_ignores = true
 warn_return_any = true
 no_implicit_reexport = true
 show_error_codes = true
+exclude = ["\\.venv", "build"]
+follow_imports = "silent"
+
+[[tool.mypy.overrides]]
+module = "semantic_version.*"
+ignore_missing_imports = true
 
 [tool.uv]
 default-groups = ["dev"]

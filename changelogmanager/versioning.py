@@ -13,7 +13,7 @@ from typing import Any
 
 from packaging.version import InvalidVersion
 from packaging.version import Version as Pep440Version
-from semantic_version import Version as SemverVersion  # type: ignore
+from semantic_version import Version as SemverVersion
 
 from changelogmanager.change_types import VersionCore
 
