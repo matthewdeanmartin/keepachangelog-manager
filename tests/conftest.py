@@ -15,6 +15,8 @@ from pathlib import Path
 import pytest
 from hypothesis import HealthCheck, settings
 
+from changelogmanager.config import clear_configuration_cache
+
 # Disable deadline globally for Hypothesis tests to prevent flakiness on slow CI/machines.
 settings.register_profile(
     "default", deadline=None, suppress_health_check=[HealthCheck.too_slow]
@@ -33,3 +35,14 @@ def isolate_cwd(tmp_path_factory: pytest.TempPathFactory) -> None:
         yield
     finally:
         os.chdir(original)
+
+
+@pytest.fixture(autouse=True)
+def isolate_config_cache() -> None:
+    """Keep process-local config caches from leaking between tests."""
+
+    clear_configuration_cache()
+    try:
+        yield
+    finally:
+        clear_configuration_cache()

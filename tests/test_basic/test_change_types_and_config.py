@@ -1,15 +1,18 @@
 import pytest
 
 import changelogmanager.llvm_diagnostics as logging
+import changelogmanager.config as config_module
 from changelogmanager.change_types import CATEGORIES, TYPES_OF_CHANGE, VersionCore
 from changelogmanager.config import (
     auto_detect_config,
+    clear_configuration_cache,
     get_component_from_config,
     get_effective_configuration,
     get_format_options,
     get_github_options,
     get_gitlab_options,
     get_preamble_keywords,
+    get_validation_options,
     get_versioning_label,
     get_versioning_scheme,
     replace_pyproject_section,
@@ -234,3 +237,97 @@ def test_auto_detect_config_ignores_invalid_pyproject(tmp_path):
     pyproject.write_text("[tool.changelogmanager\nbroken = true\n", encoding="utf-8")
 
     assert auto_detect_config(tmp_path) is None
+
+
+def test_config_reads_are_cached_across_helper_calls(tmp_path, monkeypatch):
+    config_path = tmp_path / "changelogmanager.toml"
+    config_path.write_text(
+        "[[components]]\n"
+        'name = "default"\n'
+        'changelog = "CHANGELOG.md"\n'
+        "\n"
+        "[versioning]\n"
+        'scheme = "calver"\n',
+        encoding="utf-8",
+    )
+
+    clear_configuration_cache()
+    load_calls = 0
+    original_load = config_module.tomllib.load
+
+    def counting_load(file_handle):
+        nonlocal load_calls
+        load_calls += 1
+        return original_load(file_handle)
+
+    monkeypatch.setattr(config_module.tomllib, "load", counting_load)
+
+    assert get_component_from_config(str(config_path), "default") == {
+        "name": "default",
+        "changelog": "CHANGELOG.md",
+    }
+    assert get_validation_options(str(config_path)) == {}
+    assert get_versioning_scheme(str(config_path)) == "calver"
+    assert get_preamble_keywords(str(config_path)) == (
+        "keep a changelog",
+        "calendar versioning",
+    )
+    assert load_calls == 1
+
+
+def test_auto_detected_pyproject_reuses_cached_toml_read(tmp_path, monkeypatch):
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        "[tool.changelogmanager]\n"
+        "\n"
+        "[tool.changelogmanager.versioning]\n"
+        'scheme = "pep440"\n'
+        "\n"
+        "[[tool.changelogmanager.components]]\n"
+        'name = "default"\n'
+        'changelog = "CHANGELOG.md"\n',
+        encoding="utf-8",
+    )
+
+    clear_configuration_cache()
+    load_calls = 0
+    original_load = config_module.tomllib.load
+
+    def counting_load(file_handle):
+        nonlocal load_calls
+        load_calls += 1
+        return original_load(file_handle)
+
+    monkeypatch.setattr(config_module.tomllib, "load", counting_load)
+
+    detected = auto_detect_config(tmp_path)
+
+    assert detected == str(pyproject)
+    assert get_versioning_scheme(detected) == "pep440"
+    assert load_calls == 1
+
+
+def test_config_cache_can_be_disabled_for_testing(tmp_path, monkeypatch):
+    config_path = tmp_path / "changelogmanager.toml"
+    config_path.write_text(
+        "[[components]]\n"
+        'name = "default"\n'
+        'changelog = "CHANGELOG.md"\n',
+        encoding="utf-8",
+    )
+
+    clear_configuration_cache()
+    monkeypatch.setenv(config_module.CONFIG_CACHE_DISABLE_ENV, "1")
+    load_calls = 0
+    original_load = config_module.tomllib.load
+
+    def counting_load(file_handle):
+        nonlocal load_calls
+        load_calls += 1
+        return original_load(file_handle)
+
+    monkeypatch.setattr(config_module.tomllib, "load", counting_load)
+
+    assert get_versioning_scheme(str(config_path)) == "semver"
+    assert get_versioning_scheme(str(config_path)) == "semver"
+    assert load_calls == 2

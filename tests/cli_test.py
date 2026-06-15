@@ -94,6 +94,25 @@ def test_verbose_flag_emits_verbose_logs_without_breaking_json_stdout(
     assert "Auto-detecting configuration" in result.stderr
 
 
+def test_validate_only_logs_one_configuration_load(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    write_changelog(tmp_path / "CHANGELOG.md")
+    (tmp_path / "changelogmanager.toml").write_text(
+        "[[components]]\n"
+        'name = "default"\n'
+        'changelog = "CHANGELOG.md"\n'
+        "\n"
+        "[validation]\n"
+        "enforce_preamble = false\n",
+        encoding="utf-8",
+    )
+
+    result = run_cli(["--verbose", "--error-format", "github", "validate"])
+
+    assert result.exit_code == 0
+    assert result.stderr.count("Loading configuration from") == 1
+
+
 def test_invalid_reference_returns_parser_error():
     """Invalid enum values should fail during parsing."""
 

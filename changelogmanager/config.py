@@ -2,6 +2,7 @@
 
 """Configuration Management"""
 
+import os
 import re
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
@@ -35,6 +36,7 @@ CONFIG_FILE_CANDIDATES = (
 PYPROJECT_FILE = "pyproject.toml"
 DEFAULT_CONFIG_FILE = CONFIG_FILE_CANDIDATES[0]
 DEFAULT_VERSIONING_SCHEME = "semver"
+CONFIG_CACHE_DISABLE_ENV = "CHANGELOGMANAGER_DISABLE_CONFIG_CACHE"
 
 # Internal normalized config keeps everything under "project" so the existing
 # readers (get_versioning_scheme, get_validation_options, ...) are unchanged.
@@ -86,6 +88,47 @@ UNWRAPPED_TABLES = (
 )
 
 logger = get_logger(__name__)
+_RAW_TOML_CACHE: dict[str, dict[str, Any]] = {}
+_LOADED_CONFIG_CACHE: dict[str, dict[str, Any]] = {}
+
+
+def clear_configuration_cache() -> None:
+    """Clears cached TOML/config reads for tests or same-process rewrites."""
+
+    _RAW_TOML_CACHE.clear()
+    _LOADED_CONFIG_CACHE.clear()
+
+
+def _configuration_cache_enabled() -> bool:
+    value = os.environ.get(CONFIG_CACHE_DISABLE_ENV, "")
+    return value.lower() not in {"1", "true", "yes", "on"}
+
+
+def _configuration_cache_key(path: Path) -> str:
+    return str(path.resolve(strict=False))
+
+
+def _get_cached_copy(
+    cache: dict[str, dict[str, Any]], path: Path
+) -> dict[str, Any] | None:
+    if not _configuration_cache_enabled():
+        return None
+    cached = cache.get(_configuration_cache_key(path))
+    return deepcopy(cached) if cached is not None else None
+
+
+def _store_cached_value(
+    cache: dict[str, dict[str, Any]], path: Path, value: Mapping[str, Any]
+) -> None:
+    if not _configuration_cache_enabled():
+        return
+    cache[_configuration_cache_key(path)] = deepcopy(dict(value))
+
+
+def _clear_configuration_cache_for_path(path: Path) -> None:
+    key = _configuration_cache_key(path)
+    _RAW_TOML_CACHE.pop(key, None)
+    _LOADED_CONFIG_CACHE.pop(key, None)
 
 
 def validate_configuration(file_path: str, config: Mapping[str, Any]) -> None:
@@ -142,10 +185,14 @@ def load_configuration(config_path: str) -> dict[str, Any]:
     """Loads a TOML configuration file (pyproject.toml or standalone .toml)."""
 
     path = Path(config_path)
+    cached = _get_cached_copy(_LOADED_CONFIG_CACHE, path)
+    if cached is not None:
+        logger.log(VERBOSE, "Using cached configuration from %s", path)
+        return cached
     logger.info("Loading configuration from %s", path)
-    if path.name == PYPROJECT_FILE:
-        return load_pyproject(path)
-    return load_toml(path)
+    loaded = load_pyproject(path) if path.name == PYPROJECT_FILE else load_toml(path)
+    _store_cached_value(_LOADED_CONFIG_CACHE, path, loaded)
+    return deepcopy(loaded)
 
 
 def read_toml(path: Path) -> dict[str, Any]:
@@ -159,9 +206,15 @@ def read_toml(path: Path) -> dict[str, Any]:
                 "(tomllib unavailable)"
             ),
         )
+    cached = _get_cached_copy(_RAW_TOML_CACHE, path)
+    if cached is not None:
+        logger.log(VERBOSE, "Using cached TOML configuration from %s", path)
+        return cached
     logger.log(VERBOSE, "Reading TOML configuration from %s", path)
     with path.open("rb") as file_handle:
-        return dict(tomllib.load(file_handle))
+        data = dict(tomllib.load(file_handle))
+    _store_cached_value(_RAW_TOML_CACHE, path, data)
+    return deepcopy(data)
 
 
 def load_toml(path: Path) -> dict[str, Any]:
@@ -204,9 +257,8 @@ def auto_detect_config(start_dir: Optional[Path] = None) -> Optional[str]:
     pyproject_path = base / PYPROJECT_FILE
     if pyproject_path.is_file() and HAS_TOMLLIB:
         try:
-            with pyproject_path.open("rb") as file_handle:
-                data = tomllib.load(file_handle)
-        except (OSError, ValueError):
+            data = read_toml(pyproject_path)
+        except (OSError, ValueError, logging.Error):
             logger.warning(
                 "Failed to inspect %s while auto-detecting config", pyproject_path
             )
@@ -473,8 +525,9 @@ def write_configuration(config_path: str, config: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if config_format_from_path(config_path) == "pyproject":
         write_pyproject(path, config)
-        return
-    write_standalone_toml(path, config)
+    else:
+        write_standalone_toml(path, config)
+    _clear_configuration_cache_for_path(path)
 
 
 def merge_mappings(base: dict[str, Any], updates: Mapping[str, Any]) -> dict[str, Any]:

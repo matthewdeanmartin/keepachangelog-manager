@@ -8,10 +8,14 @@ import pytest
 tk = pytest.importorskip("tkinter")
 
 import changelogmanager.gui as gui_package
-from changelogmanager.gui.app import AppController
+from changelogmanager.gui.app import SCREEN_CLASSES, AppController
 from changelogmanager.gui.screens.backfill import BackfillScreen
 from changelogmanager.gui.screens.components import ComponentsScreen
+from changelogmanager.gui.screens.fragments_screen import FragmentsScreen
+from changelogmanager.gui.screens.lint_screen import LintScreen
 from changelogmanager.gui.screens.releases import ReleasesScreen
+from changelogmanager.gui.screens.tasks_screen import TasksScreen
+from changelogmanager.gui.screens.tools_screen import ToolsScreen
 from changelogmanager.gui.state import AppState
 
 VALID_CHANGELOG = """\
@@ -166,6 +170,138 @@ def test_components_screen_validate_all_lists_components_and_runs(
     assert f"--config {config_path}" in output
     assert "validate --all" in output
     assert "[exit 0]" in output
+
+
+def test_new_screens_are_registered():
+    titles = {cls.title for cls in SCREEN_CLASSES}
+    assert {"Tasks", "Fragments", "Commit Lint", "Tools / Export"} <= titles
+
+
+def _capture_argv(monkeypatch, module):
+    """Patches ``run_cli`` in a screen module and records the argv it is given."""
+
+    calls: list[list[str]] = []
+
+    def fake_run_cli(argv):
+        calls.append(list(argv))
+        return 0, "ok"
+
+    monkeypatch.setattr(module, "run_cli", fake_run_cli)
+    return calls
+
+
+def test_tasks_screen_promote_dry_run_argv(gui_root, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    write_changelog(tmp_path / "CHANGELOG.md")
+    import changelogmanager.gui.screens.tasks_screen as mod
+
+    controller = AppController(gui_root)
+    controller.dry_run_var.set(True)
+    controller.sync_state_from_vars()
+    screen = controller.screens[TasksScreen.title]
+
+    calls = _capture_argv(monkeypatch, mod)
+    screen.promote()
+
+    promote_calls = [c for c in calls if "promote" in c]
+    assert promote_calls, calls
+    argv = promote_calls[0]
+    assert argv[-2:] == ["tasks", "promote"] or "promote" in argv
+    assert "--dry-run" in argv
+
+
+def test_tasks_screen_add_argv(gui_root, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    write_changelog(tmp_path / "CHANGELOG.md")
+    import changelogmanager.gui.screens.tasks_screen as mod
+
+    controller = AppController(gui_root)
+    screen = controller.screens[TasksScreen.title]
+    calls = _capture_argv(monkeypatch, mod)
+
+    screen.add_type_var.set("fixed")
+    screen.add_message_var.set("A new task")
+    screen.add_task()
+
+    add_calls = [c for c in calls if "add" in c]
+    assert add_calls, calls
+    argv = add_calls[0]
+    assert argv[-3:] == ["add", "fixed", "A new task"]
+
+
+def test_fragments_screen_collect_argv(gui_root, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    write_changelog(tmp_path / "CHANGELOG.md")
+    import changelogmanager.gui.screens.fragments_screen as mod
+
+    controller = AppController(gui_root)
+    controller.dry_run_var.set(True)
+    controller.sync_state_from_vars()
+    screen = controller.screens[FragmentsScreen.title]
+    calls = _capture_argv(monkeypatch, mod)
+
+    screen.consume_var.set("delete")
+    screen.collect()
+
+    collect_calls = [c for c in calls if "collect" in c]
+    assert collect_calls, calls
+    argv = collect_calls[0]
+    assert "fragments" in argv and "collect" in argv
+    assert argv[argv.index("--consume") + 1] == "delete"
+    assert "--dry-run" in argv
+
+
+def test_lint_screen_lint_and_rewrite_argv(gui_root, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    write_changelog(tmp_path / "CHANGELOG.md")
+    import changelogmanager.gui.screens.lint_screen as mod
+
+    controller = AppController(gui_root)
+    screen = controller.screens[LintScreen.title]
+    calls = _capture_argv(monkeypatch, mod)
+
+    screen.all_history_var.set(True)
+    screen.strict_var.set(True)
+    screen.schema_var.set("conventional")
+    screen.lint_commits()
+
+    argv = calls[-1]
+    assert argv[0:1] != []  # has at least an --error-format prefix
+    assert "lint-commits" in argv
+    assert "--all-history" in argv
+    assert "--strict" in argv
+    assert argv[argv.index("--commit-schema") + 1] == "conventional"
+
+    screen.auto_prefix_var.set("changed")
+    screen.plan_rewrites()
+    argv = calls[-1]
+    assert "rewrite-messages" in argv
+    assert argv[argv.index("--auto-prefix") + 1] == "changed"
+
+
+def test_tools_screen_version_and_export_argv(gui_root, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    write_changelog(tmp_path / "CHANGELOG.md")
+    import changelogmanager.gui.screens.tools_screen as mod
+
+    controller = AppController(gui_root)
+    controller.dry_run_var.set(True)
+    controller.sync_state_from_vars()
+    screen = controller.screens[ToolsScreen.title]
+    calls = _capture_argv(monkeypatch, mod)
+
+    screen.reference_var.set("future")
+    screen.get_version()
+    assert calls[-1][-2:] == ["version", "--reference"] or "future" in calls[-1]
+    assert "future" in calls[-1]
+
+    screen.export_json()
+    argv = calls[-1]
+    assert "to-json" in argv
+    assert "--dry-run" in argv
+
+    screen.check_credentials()
+    assert calls[-1][-2:] == ["credentials", "check"]
 
 
 def test_run_gui_reports_missing_tkinter_and_gui_subcommand_sets_handler(monkeypatch):

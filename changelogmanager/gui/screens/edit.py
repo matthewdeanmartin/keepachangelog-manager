@@ -305,24 +305,105 @@ class EditScreen(
         if not changelog.has_unreleased():
             messagebox.showinfo("Release", "No [Unreleased] entries to release.")
             return
+        # Persist any in-editor edits first so the CLI release sees them.
+        self.save()
         try:
             future = str(changelog.suggest_future_version())
         except Exception as exc:  # pylint: disable=broad-exception-caught
             future = "?"
             logger.warning("Could not suggest version: %s", exc)
-        if not messagebox.askyesno(
-            "Release", f"Promote [Unreleased] to {future} and save?"
-        ):
+
+        bump, pyproject_only = self.prompt_release_options(future)
+        if bump is None:
+            return  # cancelled
+
+        from changelogmanager.gui.cli_runner import (
+            run_cli,
+        )  # pylint: disable=import-outside-toplevel
+
+        argv: list[str] = []
+        if self.app_state.config_path:
+            argv += ["--config", self.app_state.config_path]
+        argv += ["--error-format", self.app_state.error_format]
+        argv += ["--input-file", self.app_state.input_file, "release", "--yes"]
+        if bump:
+            argv.append("--bump-versions")
+            if pyproject_only:
+                argv.append("--pyproject-only")
+        if self.app_state.dry_run:
+            argv.append("--dry-run")
+
+        code, output = run_cli(argv)
+        if code != 0:
+            messagebox.showerror(
+                "Release failed", output.strip() or f"release exited {code}"
+            )
+            self.status(f"Release failed (exit {code})")
             return
-        try:
-            changelog.release(None)
-            text = self.apply_prologue(changelog.render())
-            Path(changelog.get_file_path()).write_text(text, encoding="utf-8")
-        except Exception as exc:  # pylint: disable=broad-exception-caught
-            messagebox.showerror("Release failed", str(getattr(exc, "message", exc)))
-            return
-        self.status(f"Released {future}")
+        if output.strip():
+            messagebox.showinfo("Release", output.strip())
+        self.status(f"Released {future}" + (" (dry run)" if self.app_state.dry_run else ""))
         self.controller.reload()
+
+    def prompt_release_options(
+        self, future: str
+    ) -> tuple[bool | None, bool]:
+        """Confirms the release and collects the version-bump options.
+
+        Returns ``(bump, pyproject_only)``; ``bump`` is ``None`` when the user
+        cancels.
+        """
+
+        dialog = tk.Toplevel(self.controller.root)
+        dialog.title("Release")
+        dialog.transient(self.controller.root)
+        dialog.grab_set()
+
+        ttk.Label(
+            dialog,
+            text=f"Promote [Unreleased] to {future}?",
+            font=("", 10, "bold"),
+        ).pack(anchor="w", padx=12, pady=(12, 6))
+
+        bump_var = tk.BooleanVar(value=False)
+        pyproject_var = tk.BooleanVar(value=False)
+        bump_check = ttk.Checkbutton(
+            dialog,
+            text="Bump versions (pyproject.toml + __version__; needs jiggle-version)",
+            variable=bump_var,
+        )
+        bump_check.pack(anchor="w", padx=12)
+        pyproject_check = ttk.Checkbutton(
+            dialog,
+            text="pyproject.toml only (skip Python source files)",
+            variable=pyproject_var,
+        )
+        pyproject_check.pack(anchor="w", padx=30)
+
+        def sync_pyproject() -> None:
+            pyproject_check.state(["!disabled"] if bump_var.get() else ["disabled"])
+
+        sync_pyproject()
+        bump_check.configure(command=sync_pyproject)
+
+        result: dict[str, bool] = {}
+
+        def confirm() -> None:
+            result["bump"] = bump_var.get()
+            result["pyproject_only"] = pyproject_var.get()
+            dialog.destroy()
+
+        button_row = ttk.Frame(dialog)
+        button_row.pack(fill=tk.X, padx=12, pady=12)
+        ttk.Button(button_row, text="Release", command=confirm).pack(side=tk.RIGHT)
+        ttk.Button(button_row, text="Cancel", command=dialog.destroy).pack(
+            side=tk.RIGHT, padx=6
+        )
+
+        self.controller.root.wait_window(dialog)
+        if "bump" not in result:
+            return None, False
+        return result["bump"], result["pyproject_only"]
 
     # ------------------------------------------------------------------
     # Prologue / links helpers

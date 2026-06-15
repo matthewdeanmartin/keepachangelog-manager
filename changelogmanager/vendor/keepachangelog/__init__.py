@@ -105,8 +105,21 @@ def add_category(release: dict[str, Any], line: str) -> list[str]:
     return existing_category
 
 
+BULLET_PATTERN = re.compile(r"^[*+-]\s")
+
+
 def add_information(category: list[str], line: str) -> None:
     category.append(line.lstrip(" *-").rstrip(" -"))
+
+
+def append_continuation(category: list[str], line: str) -> None:
+    """Folds a soft-wrapped continuation line into the previous entry.
+
+    Keep a Changelog entries may be wrapped across multiple physical lines, with
+    continuation lines indented under the bullet. The parser works line-by-line,
+    so without this a wrapped bullet would be split into several entries.
+    """
+    category[-1] = f"{category[-1]} {line.strip()}".rstrip(" -")
 
 
 def parse_to_dict(
@@ -128,7 +141,12 @@ def parse_to_dict(
         elif match := LINK_PATTERN.fullmatch(line):
             urls[match.group(1).lower()] = match.group(2)
         elif line:
-            add_information(category, line)
+            if BULLET_PATTERN.match(line) or not category:
+                add_information(category, line)
+            else:
+                # A non-bullet, non-blank line following an entry is a
+                # soft-wrapped continuation of that entry, not a new one.
+                append_continuation(category, line)
 
     for version, url in urls.items():
         changes.setdefault(version, {"metadata": {"version": version}})["metadata"][

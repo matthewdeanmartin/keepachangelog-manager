@@ -13,7 +13,11 @@ from changelogmanager.gui.screens.base import Screen
 from changelogmanager.gui.screens.components import ComponentsScreen
 from changelogmanager.gui.screens.config_window import open_config_window
 from changelogmanager.gui.screens.edit import EditScreen
+from changelogmanager.gui.screens.fragments_screen import FragmentsScreen
+from changelogmanager.gui.screens.lint_screen import LintScreen
 from changelogmanager.gui.screens.releases import ReleasesScreen
+from changelogmanager.gui.screens.tasks_screen import TasksScreen
+from changelogmanager.gui.screens.tools_screen import ToolsScreen
 from changelogmanager.gui.state import AppState, running_in_ci
 from changelogmanager.gui.widgets import StatusBar
 from changelogmanager.runtime_logging import get_logger
@@ -22,9 +26,13 @@ logger = get_logger(__name__)
 
 SCREEN_CLASSES: tuple[type[Screen], ...] = (
     EditScreen,
+    TasksScreen,
+    FragmentsScreen,
     BackfillScreen,
+    LintScreen,
     ReleasesScreen,
     ComponentsScreen,
+    ToolsScreen,
 )
 
 
