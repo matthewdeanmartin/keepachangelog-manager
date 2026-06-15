@@ -59,7 +59,9 @@ def coerce_same_scheme(value: object, scheme: str) -> VersionValue:
 
 
 def normalize_scheme(scheme: str | None) -> str:
-    return scheme if scheme in SUPPORTED_VERSIONING_SCHEMES else "semver"
+    if scheme is not None and scheme in SUPPORTED_VERSIONING_SCHEMES:
+        return scheme
+    return "semver"
 
 
 def version_scheme_label(scheme: str) -> str:

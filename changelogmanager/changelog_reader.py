@@ -9,9 +9,9 @@ import difflib
 from collections import OrderedDict
 from collections.abc import Generator, Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-import re2  # type: ignore
+import re2  # type: ignore[import-untyped]
 
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import (
@@ -386,7 +386,8 @@ class ChangelogReader:
             return
 
         for rule in ENTRY_RULES:
-            match = rule["pattern"].match(entry)
+            pattern = cast(Any, rule["pattern"])
+            match = pattern.match(entry)
             if match:
                 yield logging.Error(
                     file_path=self.file_path,

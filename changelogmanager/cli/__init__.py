@@ -89,7 +89,7 @@ def __getattr__(name: str) -> object:
     # Lazy re-export: tests patch ``cli.inquirer.prompt`` so we expose it here
     # without paying the 200ms blessed/inquirer import on every CLI invocation.
     if name == "inquirer":
-        import inquirer as _inq  # type: ignore  # noqa: PLC0415
+        import inquirer as _inq  # type: ignore[import-untyped]  # noqa: PLC0415
 
         globals()["inquirer"] = _inq
         return _inq

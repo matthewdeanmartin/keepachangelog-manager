@@ -923,6 +923,11 @@ def command_github_pr(args: argparse.Namespace, ctx: CliContext) -> None:
     title = args.title or f"docs: update CHANGELOG.md for release on {args.head}"
     body = args.body or f"Update `CHANGELOG.md` on branch `{args.head}`."
 
+    if not args.repository or not args.head or not args.base:
+        raise logging.Error(
+            message="Repository, head branch, and base branch are required for GitHub PR",
+        )
+
     if args.dry_run:
         print_dry_run(
             ctx,

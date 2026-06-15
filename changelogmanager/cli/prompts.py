@@ -38,7 +38,7 @@ _inquirer_module: Any = None
 def _get_inquirer() -> Any:
     global _inquirer_module  # noqa: PLW0603
     if _inquirer_module is None:
-        import inquirer as _inq  # type: ignore # noqa: PLC0415
+        import inquirer as _inq  # type: ignore[import-untyped] # noqa: PLC0415
 
         _inquirer_module = _inq
     return _inquirer_module

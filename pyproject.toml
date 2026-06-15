@@ -63,6 +63,8 @@ lint = [
     "pylint>1.0.0",
     "ruff>=0.15.12",
     "types-jsonschema",
+    "ty",
+    "pyrefly",
 ]
 security = [
     "bandit>1.0.0",
@@ -135,6 +137,7 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "RET", "ARG", "P
 ignore = [
     "E203", "E501", # line length handled by line-length,
     "E402", # Sick and tired of this stupid rule.
+    "UP045",
 ]
 
 [tool.ruff.lint.per-file-ignores]

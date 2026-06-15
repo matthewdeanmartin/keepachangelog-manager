@@ -7,10 +7,10 @@ from collections import OrderedDict
 from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import orjson
-import re2  # type: ignore
+import re2  # type: ignore[import-untyped]
 
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import (
@@ -44,14 +44,18 @@ logger = get_logger(__name__)
 def require_string_entries(
     entries: object, *, file_path: str, change_type: str
 ) -> list[str]:
-    if not isinstance(entries, list) or not all(
-        isinstance(entry, str) for entry in entries
-    ):
+    if not isinstance(entries, list):
         raise logging.Error(
             file_path=file_path,
             message=f"Invalid '{change_type}' entries in [Unreleased]",
         )
-    return entries
+    for entry in entries:
+        if not isinstance(entry, str):
+            raise logging.Error(
+                file_path=file_path,
+                message=f"Invalid '{change_type}' entries in [Unreleased]",
+            )
+    return cast(list[str], entries)
 
 
 class Changelog:
@@ -164,7 +168,7 @@ class Changelog:
             if not isinstance(messages, list):
                 continue
             for index, message in enumerate(messages):
-                result.append((change_type, index, message))
+                result.append((str(change_type), int(index), str(message)))
         return result
 
     def released_versions(self) -> list[str]:

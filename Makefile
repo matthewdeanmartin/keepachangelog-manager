@@ -65,11 +65,17 @@ mypy:
 ruff:
 	$(UV) run ruff check .
 
+ty:
+	$(UV) run ty check $(PACKAGE)
+
+pyrefly:
+	$(UV) run pyrefly check $(PACKAGE)
+
 bandit:
 	$(UV) run python -c "from pathlib import Path; Path('$(BUILD_DIR)').mkdir(exist_ok=True)"
 	$(UV) run bandit --format json --output $(BUILD_DIR)/bandit-report.json --recursive $(PACKAGE)
 
-lint: flake8 pylint mypy ruff
+lint: flake8 pylint mypy ruff ty pyrefly
 
 quality: format lint bandit test validate
 

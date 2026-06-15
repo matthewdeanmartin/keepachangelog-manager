@@ -308,7 +308,8 @@ def discover_tags(
             cwd=cwd,
         )
     except (subprocess.CalledProcessError, FileNotFoundError) as exc:
-        raise logging.Error(message=f"git tag discovery failed: {exc}") from exc
+        logger.warning("git tag discovery failed (not a git repo?): %s", exc)
+        return []
 
     rows = [line.split("\t", 1) for line in result.stdout.splitlines() if line.strip()]
     if since or until:

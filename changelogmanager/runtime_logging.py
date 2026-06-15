@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import sys
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Optional, cast
 
 VERBOSE = 15
 LOGGER_NAME = "changelogmanager"
@@ -15,7 +15,7 @@ LOGGER_NAME = "changelogmanager"
 
 def coerce_log_kwargs(
     kwargs: Mapping[str, object],
-) -> tuple[Any, bool, int, Mapping[str, object] | None]:
+) -> tuple[Any, bool, int, Optional[Mapping[str, Any]]]:
     unknown = set(kwargs) - {"exc_info", "stack_info", "stacklevel", "extra"}
     if unknown:
         raise TypeError(f"Unexpected logging keyword arguments: {sorted(unknown)!r}")
@@ -46,10 +46,11 @@ def coerce_log_kwargs(
         raise TypeError("stacklevel must be an int")
 
     extra_value = kwargs.get("extra")
+    extra: Optional[Mapping[str, Any]] = None
     if extra_value is None:
         extra = None
     elif isinstance(extra_value, Mapping):
-        extra = extra_value
+        extra = cast(Mapping[str, Any], extra_value)
     else:
         raise TypeError("extra must be a mapping")
 
@@ -78,7 +79,7 @@ def install_verbose_level() -> None:
                 extra=extra,
             )
 
-    logging.Logger.verbose = verbose  # type: ignore[attr-defined]
+    logging.Logger.verbose = verbose  # type: ignore
 
 
 def get_logger(name: str) -> logging.Logger:

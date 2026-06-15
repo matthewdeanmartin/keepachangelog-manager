@@ -18,7 +18,7 @@ from collections.abc import Iterable
 from contextlib import suppress
 from os import PathLike
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from changelogmanager.versioning import parse_version, version_metadata
 
@@ -174,9 +174,16 @@ def to_dict(
 ) -> dict[str, dict[str, Any]]:
     """Convert a Keep a Changelog markdown document into a dictionary."""
 
-    if isinstance(changelog_path, (str, PathLike)):
+    if isinstance(changelog_path, str):
         with Path(changelog_path).open(encoding="utf-8") as change_log:
             return parse_to_dict(change_log, show_unreleased)
+
+    if isinstance(changelog_path, PathLike):
+        # PathLike[object] vs PathLike[str] conflict between tools
+        path_obj = cast(Any, changelog_path)
+        with Path(path_obj).open(encoding="utf-8") as change_log:
+            return parse_to_dict(change_log, show_unreleased)
+
     return parse_to_dict(changelog_path, show_unreleased)
 
 

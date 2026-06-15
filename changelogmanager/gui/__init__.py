@@ -19,7 +19,7 @@ try:
 
     TK_IMPORT_ERROR: Exception | None = None
 except Exception as exc:  # pylint: disable=broad-exception-caught  # pragma: no cover
-    tk = None  # type: ignore[assignment]  # pylint: disable=invalid-name
+    tk = None  # type: ignore
     TK_IMPORT_ERROR = exc
 
 logger = get_logger(__name__)

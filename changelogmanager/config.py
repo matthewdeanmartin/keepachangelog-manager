@@ -16,12 +16,12 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from changelogmanager.message_lint import LintOptions
 
 try:
-    import tomllib  # type: ignore[import-not-found]
+    import tomllib  # type: ignore
 
     HAS_TOMLLIB = True
 except ImportError:  # Python < 3.11
     try:
-        import tomli as tomllib  # type: ignore[import-not-found]
+        import tomli as tomllib  # type: ignore
 
         HAS_TOMLLIB = True
     except ImportError:
@@ -110,7 +110,7 @@ def _configuration_cache_key(path: Path) -> str:
 
 def _get_cached_copy(
     cache: dict[str, dict[str, Any]], path: Path
-) -> dict[str, Any] | None:
+) -> Optional[dict[str, Any]]:
     if not _configuration_cache_enabled():
         return None
     cached = cache.get(_configuration_cache_key(path))
@@ -211,6 +211,8 @@ def read_toml(path: Path) -> dict[str, Any]:
         logger.log(VERBOSE, "Using cached TOML configuration from %s", path)
         return cached
     logger.log(VERBOSE, "Reading TOML configuration from %s", path)
+    if tomllib is None:
+        raise RuntimeError("tomllib is unexpectedly None")
     with path.open("rb") as file_handle:
         data = dict(tomllib.load(file_handle))
     _store_cached_value(_RAW_TOML_CACHE, path, data)
