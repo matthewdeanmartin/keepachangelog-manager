@@ -33,7 +33,7 @@ jobs:
 #
 #    steps:
 #      - name: Commisery
-#        uses: tomtom-international/commisery-action@bc4dbb43a159cc94986c104655153711eaeb8eb0 # v5.0.0
+#        uses: tomtom-international/commisery-action@f88e8737a52bfbe4b20225399da697acdda5035d # v7.0.0
 #        with:
 #          token: ${{ github.token }}
 
@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
@@ -50,7 +50,7 @@ jobs:
         with: { python-version: '3.14' }
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           enable-cache: true
 
