@@ -1,22 +1,12 @@
 import pytest
 
-import changelogmanager.llvm_diagnostics as diagnostics
 from changelogmanager import version_bumper
 
 
-def test_jiggle_available_reflects_import_state(monkeypatch):
-    monkeypatch.setattr(version_bumper, "HAS_JIGGLE", True)
+def test_jiggle_available_is_always_true():
+    # The bump helpers are vendored now, so availability is unconditional.
     assert version_bumper.jiggle_available() is True
-
-    monkeypatch.setattr(version_bumper, "HAS_JIGGLE", False)
-    assert version_bumper.jiggle_available() is False
-
-
-def test_bump_version_files_requires_optional_dependency(monkeypatch):
-    monkeypatch.setattr(version_bumper, "HAS_JIGGLE", False)
-
-    with pytest.raises(diagnostics.Error, match="jiggle-version is required"):
-        version_bumper.bump_version_files("1.2.3")
+    assert version_bumper.HAS_JIGGLE is True
 
 
 def test_bump_version_files_honors_pyproject_only(monkeypatch, tmp_path):

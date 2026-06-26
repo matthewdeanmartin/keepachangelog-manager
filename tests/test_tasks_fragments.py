@@ -61,6 +61,66 @@ def test_tasks_promote_moves_checked_items_to_unreleased(tmp_path, monkeypatch):
     assert "Leave unfinished work alone." in tasks
 
 
+def test_tasks_use_per_component_tasks_file(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("changelogmanager.toml").write_text(
+        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n\n'
+        '[[components]]\nname = "api"\nchangelog = "api/CHANGELOG.md"\n'
+        'tasks_file = "api/TASKS.md"\n',
+        encoding="UTF-8",
+    )
+
+    # `tasks add` for the api component must write to that component's tasks file,
+    # not the top-level TASKS.md — no --tasks-file flag given.
+    result = cli.main(
+        [
+            "--config",
+            "changelogmanager.toml",
+            "--component",
+            "api",
+            "tasks",
+            "add",
+            "fixed",
+            "Component-scoped task",
+        ]
+    )
+
+    assert result == 0
+    assert Path("api/TASKS.md").read_text(encoding="UTF-8").count(
+        "Component-scoped task"
+    )
+    assert not Path("TASKS.md").exists()
+
+
+def test_tasks_explicit_flag_beats_component_tasks_file(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("changelogmanager.toml").write_text(
+        '[[components]]\nname = "api"\nchangelog = "api/CHANGELOG.md"\n'
+        'tasks_file = "api/TASKS.md"\n',
+        encoding="UTF-8",
+    )
+
+    result = cli.main(
+        [
+            "--config",
+            "changelogmanager.toml",
+            "--component",
+            "api",
+            "tasks",
+            "add",
+            "fixed",
+            "Override target",
+            "--tasks-file",
+            "OVERRIDE.md",
+        ]
+    )
+
+    assert result == 0
+    # Explicit --tasks-file wins over the component's tasks_file.
+    assert "Override target" in Path("OVERRIDE.md").read_text(encoding="UTF-8")
+    assert not Path("api/TASKS.md").exists()
+
+
 def test_fragments_collect_keeps_old_add_behavior_opt_in(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     Path("CHANGELOG.md").write_text(CHANGELOG, encoding="UTF-8")

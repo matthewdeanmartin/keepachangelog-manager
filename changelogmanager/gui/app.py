@@ -6,8 +6,15 @@ from __future__ import annotations
 
 import tkinter as tk
 from functools import partial
-from tkinter import filedialog, ttk
+from tkinter import filedialog, messagebox, simpledialog, ttk
 
+from changelogmanager.config import (
+    add_component_to_config,
+    default_config_path_for_format,
+    get_component_from_config,
+    get_component_tasks_file,
+    get_components_from_config,
+)
 from changelogmanager.gui.screens.backfill import BackfillScreen
 from changelogmanager.gui.screens.base import Screen
 from changelogmanager.gui.screens.components import ComponentsScreen
@@ -21,6 +28,7 @@ from changelogmanager.gui.screens.tools_screen import ToolsScreen
 from changelogmanager.gui.state import AppState, running_in_ci
 from changelogmanager.gui.widgets import StatusBar, add_tooltip
 from changelogmanager.runtime_logging import get_logger
+from changelogmanager.tasks import default_task_file_name
 
 logger = get_logger(__name__)
 
@@ -52,6 +60,9 @@ class AppController:  # pylint: disable=too-many-instance-attributes
         self.component_var = tk.StringVar(value=self.state.component)
         self.error_format_var = tk.StringVar(value=self.state.error_format)
         self.dry_run_var = tk.BooleanVar(value=self.state.dry_run)
+        # Primary tasks file, prefilled with the file that would be used right now
+        # (no more "blank = auto"). The Tasks screen reads this shared var.
+        self.tasks_file_var = tk.StringVar(value=default_task_file_name())
 
         self.screens: dict[str, Screen] = {}
         self.current: Screen | None = None
@@ -122,6 +133,24 @@ class AppController:  # pylint: disable=too-many-instance-attributes
         ttk.Button(
             self.changelog_picker, text="Browse…", command=self.browse_input_file
         ).pack(side=tk.LEFT)
+
+        # Primary tasks file picker — occupies the same slot as the changelog
+        # picker but is shown only on screens that work on TASKS.md (Tasks).
+        self.tasks_file_picker = ttk.Frame(row)
+        tasks_label = ttk.Label(self.tasks_file_picker, text="Tasks file:")
+        tasks_label.pack(side=tk.LEFT)
+        add_tooltip(
+            tasks_label,
+            "The primary TASKS.md this workspace acts on (prefilled with the "
+            "first existing of TASKS.md, .changelogmanager/TASKS.md).",
+        )
+        ttk.Entry(
+            self.tasks_file_picker, textvariable=self.tasks_file_var, width=38
+        ).pack(side=tk.LEFT, padx=4)
+        ttk.Button(
+            self.tasks_file_picker, text="Browse…", command=self.browse_tasks_file
+        ).pack(side=tk.LEFT)
+
         self._config_label = ttk.Label(row, text="Config:")
         self._config_label.pack(side=tk.LEFT, padx=(12, 0))
         ttk.Entry(row, textvariable=self.config_var, width=26).pack(
@@ -139,11 +168,27 @@ class AppController:  # pylint: disable=too-many-instance-attributes
             component_label,
             "Which configured component (sub-project) to act on. Components map "
             "names to separate CHANGELOG.md files in config; 'default' is the "
-            "top-level changelog.",
+            "top-level changelog. Pick one from the dropdown or add a new one.",
         )
-        ttk.Entry(row2, textvariable=self.component_var, width=16).pack(
-            side=tk.LEFT, padx=4
+        # Editable combobox: lists configured component names but still allows a
+        # free-typed name (e.g. when no config file exists yet).
+        self.component_combo = ttk.Combobox(
+            row2, textvariable=self.component_var, width=16, values=()
         )
+        self.component_combo.pack(side=tk.LEFT, padx=4)
+        self.component_combo.bind(
+            "<<ComboboxSelected>>", lambda _e: self.on_component_selected()
+        )
+        new_component_button = ttk.Button(
+            row2, text="New…", width=6, command=self.add_component
+        )
+        new_component_button.pack(side=tk.LEFT)
+        add_tooltip(
+            new_component_button,
+            "Add a new component (name + changelog file) to the config file and "
+            "select it.",
+        )
+        self.refresh_component_choices()
         error_format_label = ttk.Label(row2, text="Error format:")
         error_format_label.pack(side=tk.LEFT, padx=(12, 0))
         add_tooltip(
@@ -184,6 +229,8 @@ class AppController:  # pylint: disable=too-many-instance-attributes
 
         self.sync_state_from_vars()
         self.state.reload()
+        if getattr(self, "component_combo", None) is not None:
+            self.refresh_component_choices()
         if self.state.load_error:
             self.set_status(f"{self.state.input_file}: {self.state.load_error}")
         else:
@@ -205,21 +252,33 @@ class AppController:  # pylint: disable=too-many-instance-attributes
             self.current.pack_forget()
         screen.pack(fill=tk.BOTH, expand=True)
         self.current = screen
-        self._apply_changelog_picker_visibility(screen)
+        self._apply_picker_visibility(screen)
         logger.info("Switched to screen %s", title)
         screen.on_show()
 
-    def _apply_changelog_picker_visibility(self, screen: Screen) -> None:
-        """Show the Changelog file picker only on screens that use it."""
+    def _apply_picker_visibility(self, screen: Screen) -> None:
+        """Show the primary-file picker that applies to the current screen.
 
-        picker = getattr(self, "changelog_picker", None)
-        if picker is None:
+        The Changelog and Tasks-file pickers share the same top-panel slot; at
+        most one is shown. A screen opts into the tasks picker with
+        ``uses_tasks_file = True``; otherwise the changelog picker is shown for
+        screens with ``uses_changelog = True``.
+        """
+
+        changelog_picker = getattr(self, "changelog_picker", None)
+        tasks_picker = getattr(self, "tasks_file_picker", None)
+        if changelog_picker is None or tasks_picker is None:
             return
-        if getattr(screen, "uses_changelog", True):
-            if not picker.winfo_manager():
-                picker.pack(side=tk.LEFT, before=self._config_label)
-        else:
-            picker.pack_forget()
+
+        wants_tasks = getattr(screen, "uses_tasks_file", False)
+        wants_changelog = getattr(screen, "uses_changelog", True) and not wants_tasks
+
+        changelog_picker.pack_forget()
+        tasks_picker.pack_forget()
+        if wants_changelog:
+            changelog_picker.pack(side=tk.LEFT, before=self._config_label)
+        elif wants_tasks:
+            tasks_picker.pack(side=tk.LEFT, before=self._config_label)
 
     def set_status(self, message: str) -> None:
         """Updates the bottom status bar."""
@@ -238,6 +297,16 @@ class AppController:  # pylint: disable=too-many-instance-attributes
             self.input_file_var.set(path)
             self.reload()
 
+    def browse_tasks_file(self) -> None:
+        path = filedialog.askopenfilename(
+            title="Select tasks file",
+            filetypes=[("Markdown", "*.md"), ("All files", "*.*")],
+        )
+        if path:
+            self.tasks_file_var.set(path)
+            if self.current is not None:
+                self.current.on_show()
+
     def browse_config_file(self) -> None:
         path = filedialog.askopenfilename(
             title="Select config file",
@@ -253,3 +322,109 @@ class AppController:  # pylint: disable=too-many-instance-attributes
     def open_config(self) -> None:
         self.sync_state_from_vars()
         open_config_window(self)
+
+    # ------------------------------------------------------------------
+    # Component dropdown
+    # ------------------------------------------------------------------
+    def configured_component_names(self) -> list[str]:
+        """Returns component names declared in the current config (may be empty)."""
+
+        config_path = self.config_var.get().strip() or self.state.config_path
+        if not config_path:
+            return []
+        try:
+            components = get_components_from_config(config_path)
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.warning("Could not list components: %s", exc)
+            return []
+        return [str(c.get("name")) for c in components if c.get("name")]
+
+    def refresh_component_choices(self) -> None:
+        """Repopulates the component dropdown from config, preserving the value."""
+
+        names = self.configured_component_names()
+        current = self.component_var.get().strip()
+        if current and current not in names:
+            names = [*names, current]
+        self.component_combo.configure(values=tuple(names))
+
+    def on_component_selected(self) -> None:
+        """Point the Changelog and Tasks-file pickers at the selected component."""
+
+        self.sync_state_from_vars()
+        config_path = self.config_var.get().strip() or self.state.config_path
+        name = self.component_var.get().strip()
+        if not config_path or not name:
+            return
+        try:
+            component = get_component_from_config(config_path, name)
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            self.set_status(f"Component {name}: {exc}")
+            return
+        changelog = str(component.get("changelog") or "").strip()
+        if changelog:
+            self.input_file_var.set(changelog)
+        # Per-component tasks file; fall back to the resolved default so the
+        # Tasks-file picker is never left pointing at the previous component.
+        tasks_file = get_component_tasks_file(config_path, name)
+        self.tasks_file_var.set(tasks_file or default_task_file_name())
+        self.reload()
+
+    def add_component(self) -> None:
+        """Prompts for a new component and writes it into the config file."""
+
+        config_path = self.config_var.get().strip() or self.state.config_path
+        if not config_path:
+            # No config yet: offer to create the default standalone config.
+            if not messagebox.askyesno(
+                "No config file",
+                "No config file is selected. Create 'changelogmanager.toml' "
+                "to hold the new component?",
+            ):
+                return
+            config_path = default_config_path_for_format("toml")
+
+        name = simpledialog.askstring(
+            "New component", "Component name:", parent=self.root
+        )
+        if not name or not name.strip():
+            return
+        changelog = simpledialog.askstring(
+            "New component",
+            f"Changelog file for '{name.strip()}':",
+            parent=self.root,
+            initialvalue="CHANGELOG.md",
+        )
+        if not changelog or not changelog.strip():
+            return
+        # Optional per-component tasks file. Blank = the component inherits the
+        # global [tasks].file / default discovery, so an empty answer is fine.
+        tasks_file = simpledialog.askstring(
+            "New component",
+            f"Tasks file for '{name.strip()}' (optional, blank = default):",
+            parent=self.root,
+            initialvalue="",
+        )
+        tasks_file = (tasks_file or "").strip() or None
+
+        try:
+            add_component_to_config(
+                config_path,
+                name.strip(),
+                changelog.strip(),
+                tasks_file=tasks_file,
+            )
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            messagebox.showerror(
+                "Add component failed", str(getattr(exc, "message", exc))
+            )
+            return
+
+        self.config_var.set(config_path)
+        self.component_var.set(name.strip())
+        self.input_file_var.set(changelog.strip())
+        if tasks_file:
+            self.tasks_file_var.set(tasks_file)
+        self.refresh_component_choices()
+        self.reload()
+        self.set_status(f"Added component '{name.strip()}' to {config_path}")

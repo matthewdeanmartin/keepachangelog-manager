@@ -1,31 +1,28 @@
 # SPDX-License-Identifier: Apache-2.0; see LICENSE.md.
 
-"""pyproject.toml / __version__ bumping via jiggle-version (optional dependency)."""
+"""pyproject.toml / __version__ bumping via a vendored jiggle-version subset."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.runtime_logging import get_logger
-
-if TYPE_CHECKING:
-    pass
+from changelogmanager.vendor.jiggle_version import (
+    find_source_files,
+    update_pyproject_toml,
+    update_python_file,
+)
 
 logger = get_logger(__name__)
 
-try:
-    from jiggle_version.discover import find_source_files
-    from jiggle_version.update import update_pyproject_toml, update_python_file
-
-    HAS_JIGGLE = True
-except ImportError:
-    HAS_JIGGLE = False
+# The version-bump helpers are now vendored (changelogmanager.vendor.jiggle_version),
+# so they are always importable. Kept as a module constant for backwards
+# compatibility with callers/tests that reference it.
+HAS_JIGGLE = True
 
 
 def jiggle_available() -> bool:
-    """Returns True when jiggle-version is importable."""
+    """Returns True; the version-bump helpers are vendored and always available."""
     return HAS_JIGGLE
 
 
@@ -38,17 +35,7 @@ def bump_version_files(
     """Bumps version strings in pyproject.toml and optionally Python source files.
 
     Returns the list of files that were modified.
-
-    Raises logging.Error if jiggle-version is not installed.
     """
-    if not HAS_JIGGLE:
-        raise logging.Error(
-            message=(
-                "jiggle-version is required to bump version files. "
-                "Install it with: pip install 'keepachangelog-manager-fork[jiggle]'"
-            )
-        )
-
     root = project_root or Path.cwd()
     bumped: list[Path] = []
 

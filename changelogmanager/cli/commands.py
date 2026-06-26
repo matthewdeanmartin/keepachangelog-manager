@@ -31,6 +31,7 @@ from changelogmanager.cli.loaders import resolve_formatter
 from changelogmanager.config import (
     config_format_from_path,
     default_config_path_for_format,
+    get_component_tasks_file,
     get_effective_configuration,
     get_fragments_options,
     get_tasks_options,
@@ -528,7 +529,14 @@ def command_tasks(args: argparse.Namespace, ctx: CliContext) -> None:
 
     config = getattr(args, "resolved_config_path", None)
     options = get_tasks_options(config)
-    task_file_arg = getattr(args, "tasks_file", None) or options.get("file")
+    # Precedence (flag > component config > global config > discovery), mirroring
+    # how the changelog file is resolved per component in loaders.resolve_changelog_file.
+    component = getattr(args, "component", "default")
+    task_file_arg = (
+        getattr(args, "tasks_file", None)
+        or get_component_tasks_file(config, component)
+        or options.get("file")
+    )
     task_path = task_files.discover_task_file(task_file_arg)
     subcommand = args.tasks_command
 

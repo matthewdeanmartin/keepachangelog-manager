@@ -4,9 +4,12 @@ import changelogmanager.config as config_module
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import CATEGORIES, TYPES_OF_CHANGE, VersionCore
 from changelogmanager.config import (
+    add_component_to_config,
     auto_detect_config,
     clear_configuration_cache,
     get_component_from_config,
+    get_component_tasks_file,
+    get_components_from_config,
     get_effective_configuration,
     get_format_options,
     get_github_options,
@@ -168,6 +171,112 @@ def test_serialize_config_toml_includes_optional_tables_and_match_globs():
     assert '[github]\nrepository = "octo/example"' in rendered
     assert '[gitlab]\nproject = 123\nurl = "https://gitlab.example.com"' in rendered
     assert 'match = ["api/**", "shared/*"]' in rendered
+
+
+def test_add_component_to_config_appends_and_persists(tmp_path):
+    config_path = tmp_path / "changelogmanager.toml"
+    config_path.write_text(
+        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n',
+        encoding="utf-8",
+    )
+    clear_configuration_cache()
+
+    added = add_component_to_config(str(config_path), "api", "docs/API.md")
+    assert added == {"name": "api", "changelog": "docs/API.md"}
+
+    clear_configuration_cache()
+    names = [c["name"] for c in get_components_from_config(str(config_path))]
+    assert names == ["default", "api"]
+    component = get_component_from_config(str(config_path), "api")
+    assert component["changelog"] == "docs/API.md"
+
+
+def test_add_component_to_config_creates_default_when_file_absent(tmp_path):
+    config_path = tmp_path / "changelogmanager.toml"
+    clear_configuration_cache()
+
+    add_component_to_config(str(config_path), "svc", "svc/CHANGELOG.md")
+
+    assert config_path.is_file()
+    clear_configuration_cache()
+    names = [c["name"] for c in get_components_from_config(str(config_path))]
+    # The built-in default component plus the new one.
+    assert "default" in names
+    assert "svc" in names
+
+
+def test_add_component_to_config_rejects_duplicate_and_blank(tmp_path):
+    config_path = tmp_path / "changelogmanager.toml"
+    config_path.write_text(
+        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n',
+        encoding="utf-8",
+    )
+    clear_configuration_cache()
+
+    with pytest.raises(logging.Error):
+        add_component_to_config(str(config_path), "default", "CHANGELOG.md")
+    with pytest.raises(logging.Error):
+        add_component_to_config(str(config_path), "  ", "CHANGELOG.md")
+
+
+def test_add_component_to_config_persists_tasks_file(tmp_path):
+    config_path = tmp_path / "changelogmanager.toml"
+    config_path.write_text(
+        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n',
+        encoding="utf-8",
+    )
+    clear_configuration_cache()
+
+    added = add_component_to_config(
+        str(config_path), "api", "docs/API.md", tasks_file="docs/API_TASKS.md"
+    )
+    assert added == {
+        "name": "api",
+        "changelog": "docs/API.md",
+        "tasks_file": "docs/API_TASKS.md",
+    }
+
+    clear_configuration_cache()
+    component = get_component_from_config(str(config_path), "api")
+    assert component["tasks_file"] == "docs/API_TASKS.md"
+
+
+def test_get_component_tasks_file_resolution(tmp_path):
+    config_path = tmp_path / "changelogmanager.toml"
+    config_path.write_text(
+        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n\n'
+        '[[components]]\nname = "api"\nchangelog = "api/CHANGELOG.md"\n'
+        'tasks_file = "api/TASKS.md"\n',
+        encoding="utf-8",
+    )
+    clear_configuration_cache()
+
+    # Component carrying tasks_file returns it.
+    assert get_component_tasks_file(str(config_path), "api") == "api/TASKS.md"
+    # Component without tasks_file returns None (caller falls back to default).
+    assert get_component_tasks_file(str(config_path), "default") is None
+    # Unknown component degrades gracefully to None (never raises).
+    assert get_component_tasks_file(str(config_path), "nope") is None
+    # No config at all -> None.
+    assert get_component_tasks_file(None, "api") is None
+
+
+def test_serialize_config_toml_includes_component_tasks_file():
+    config = {
+        "project": {
+            "components": [
+                {
+                    "name": "api",
+                    "changelog": "api/CHANGELOG.md",
+                    "tasks_file": "api/TASKS.md",
+                }
+            ],
+        }
+    }
+
+    rendered = serialize_config_toml(config, prefix="")
+
+    assert 'tasks_file = "api/TASKS.md"' in rendered
 
 
 def test_replace_pyproject_section_replaces_only_changelogmanager_block():

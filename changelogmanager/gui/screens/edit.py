@@ -369,7 +369,7 @@ class EditScreen(
         pyproject_var = tk.BooleanVar(value=False)
         bump_check = ttk.Checkbutton(
             dialog,
-            text="Bump versions (pyproject.toml + __version__; needs jiggle-version)",
+            text="Bump versions (pyproject.toml + __version__)",
             variable=bump_var,
         )
         bump_check.pack(anchor="w", padx=12)

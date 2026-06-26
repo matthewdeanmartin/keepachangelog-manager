@@ -1,5 +1,5 @@
 """Vendored third-party code used by changelogmanager."""
 
-from . import keepachangelog
+from . import jiggle_version, keepachangelog
 
-__all__ = ["keepachangelog"]
+__all__ = ["jiggle_version", "keepachangelog"]

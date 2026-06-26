@@ -11,6 +11,7 @@ import changelogmanager.gui as gui_package
 from changelogmanager.gui.app import SCREEN_CLASSES, AppController
 from changelogmanager.gui.screens.backfill import BackfillScreen
 from changelogmanager.gui.screens.components import ComponentsScreen
+from changelogmanager.gui.screens.edit import EditScreen
 from changelogmanager.gui.screens.fragments_screen import FragmentsScreen
 from changelogmanager.gui.screens.lint_screen import LintScreen
 from changelogmanager.gui.screens.releases import ReleasesScreen
@@ -161,8 +162,8 @@ def test_components_screen_validate_all_lists_components_and_runs(
     controller.show_screen(ComponentsScreen.title)
 
     labels = [child.cget("text") for child in screen.listing_body.winfo_children()]
-    assert "• api → api/CHANGELOG.md" in labels
-    assert "• web → web/CHANGELOG.md" in labels
+    assert any("api → api/CHANGELOG.md" in text for text in labels)
+    assert any("web → web/CHANGELOG.md" in text for text in labels)
 
     screen.validate_all()
 
@@ -170,6 +171,35 @@ def test_components_screen_validate_all_lists_components_and_runs(
     assert f"--config {config_path}" in output
     assert "validate --all" in output
     assert "[exit 0]" in output
+
+
+def test_selecting_component_updates_tasks_file_picker(gui_root, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "changelogmanager.toml").write_text(
+        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n\n'
+        '[[components]]\nname = "api"\nchangelog = "api/CHANGELOG.md"\n'
+        'tasks_file = "api/TASKS.md"\n',
+        encoding="utf-8",
+    )
+    write_changelog(tmp_path / "CHANGELOG.md")
+    write_changelog(tmp_path / "api" / "CHANGELOG.md")
+
+    controller = AppController(gui_root)
+    controller.config_var.set("changelogmanager.toml")
+    controller.sync_state_from_vars()
+
+    screen = controller.screens[ComponentsScreen.title]
+    controller.show_screen(ComponentsScreen.title)
+    screen.select_component("api")
+
+    # The active component's changelog and tasks file drive the workspace pickers.
+    assert controller.input_file_var.get() == "api/CHANGELOG.md"
+    assert controller.tasks_file_var.get() == "api/TASKS.md"
+
+    # A component without a tasks_file falls back to the resolved default.
+    screen.select_component("default")
+    assert controller.tasks_file_var.get().endswith("TASKS.md")
+    assert controller.tasks_file_var.get() != "api/TASKS.md"
 
 
 def test_new_screens_are_registered():
@@ -226,7 +256,13 @@ def test_tasks_screen_add_argv(gui_root, tmp_path, monkeypatch):
     add_calls = [c for c in calls if "add" in c]
     assert add_calls, calls
     argv = add_calls[0]
-    assert argv[-3:] == ["add", "fixed", "A new task"]
+    # The add type/message are passed positionally, in order.
+    idx = argv.index("add")
+    assert argv[idx : idx + 3] == ["add", "fixed", "A new task"]
+    # The tasks file is now always populated (prefilled to the resolved default),
+    # so it is forwarded as an explicit --tasks-file rather than left blank.
+    assert "--tasks-file" in argv
+    assert argv[argv.index("--tasks-file") + 1].endswith("TASKS.md")
 
 
 def test_fragments_screen_collect_argv(gui_root, tmp_path, monkeypatch):
@@ -369,20 +405,31 @@ def test_changelog_picker_hidden_on_commit_lint(gui_root, tmp_path, monkeypatch)
     assert controller.changelog_picker.winfo_manager()  # shown again
 
 
-def test_tasks_screen_shows_default_file_hint(gui_root, tmp_path, monkeypatch):
+def test_tasks_file_picker_prefilled_and_swaps_with_changelog(
+    gui_root, tmp_path, monkeypatch
+):
     monkeypatch.chdir(tmp_path)
     write_changelog(tmp_path / "CHANGELOG.md")
 
     controller = AppController(gui_root)
+    # The tasks file is prefilled with the resolved default (no "blank = auto").
+    assert controller.tasks_file_var.get().endswith("TASKS.md")
+    # The Tasks screen shares the controller's tasks-file var.
     screen = controller.screens[TasksScreen.title]
+    assert screen.tasks_file_var is controller.tasks_file_var
+
+    # On the Tasks screen the top panel shows the Tasks-file picker, not the
+    # Changelog picker; they share the same slot.
     controller.show_screen(TasksScreen.title)
     gui_root.update_idletasks()
-    # Blank entry -> shows the resolved default file name.
-    assert "TASKS.md" in screen.default_file_var.get()
-    # Explicit entry -> the hint clears.
-    screen.tasks_file_var.set("docs/TASKS.md")
+    assert controller.tasks_file_picker.winfo_manager()
+    assert not controller.changelog_picker.winfo_manager()
+
+    # Back on a changelog screen the Changelog picker returns.
+    controller.show_screen(EditScreen.title)
     gui_root.update_idletasks()
-    assert screen.default_file_var.get() == ""
+    assert controller.changelog_picker.winfo_manager()
+    assert not controller.tasks_file_picker.winfo_manager()
 
 
 def test_run_gui_reports_missing_tkinter_and_gui_subcommand_sets_handler(monkeypatch):

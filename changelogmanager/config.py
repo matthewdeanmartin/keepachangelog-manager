@@ -303,6 +303,31 @@ def get_component_from_config(config: str, component: str) -> dict[str, Any]:
     return filter_component(project.get("components", []), component)
 
 
+def get_component_tasks_file(config: Optional[str], component: str) -> Optional[str]:
+    """Returns the ``tasks_file`` declared for ``component``, if any.
+
+    Returns ``None`` when there is no config, the component is unknown, or the
+    component has no ``tasks_file`` key — callers then fall back to the global
+    ``[tasks].file`` setting or task-file discovery. Unlike
+    :func:`get_component_from_config` this never raises on a missing component, so
+    the tasks commands degrade gracefully to the default task file.
+    """
+
+    if not config:
+        return None
+    try:
+        component_config = get_component_from_config(config=config, component=component)
+    except (logging.Error, OSError):
+        logger.warning(
+            "Could not resolve component %s for tasks_file lookup", component
+        )
+        return None
+    tasks_file = component_config.get("tasks_file")
+    if tasks_file in (None, ""):
+        return None
+    return str(tasks_file)
+
+
 def get_components_from_config(config: str) -> list[dict[str, Any]]:
     """Retrieves all components from the configuration file"""
 
@@ -313,6 +338,58 @@ def get_components_from_config(config: str) -> list[dict[str, Any]]:
         "components", []
     )
     return components
+
+
+def add_component_to_config(
+    config_path: str,
+    name: str,
+    changelog: str,
+    *,
+    tasks_file: Optional[str] = None,
+) -> dict[str, Any]:
+    """Adds a new component to ``config_path`` and writes it back.
+
+    Loads the effective configuration (creating a default if the file is absent),
+    appends a ``{name, changelog}`` component (optionally carrying a per-component
+    ``tasks_file``), and serializes it through :func:`write_configuration` so the
+    on-disk shape matches what the rest of the code expects. Returns the appended
+    component.
+
+    Raises :class:`logging.Error` when ``name``/``changelog`` are blank or a
+    component with the same name already exists (case-sensitive, matching how
+    ``get_component_from_config`` looks names up).
+    """
+
+    name = name.strip()
+    changelog = changelog.strip()
+    if not name or not changelog:
+        raise logging.Error(
+            file_path=config_path,
+            message="Component name and changelog path are both required",
+        )
+
+    config = get_effective_configuration(
+        config_path if Path(config_path).is_file() else None
+    )
+    project = dict(config.get("project", {}) or {})
+    components = list(project.get("components", []) or [])
+
+    if any(existing.get("name") == name for existing in components):
+        raise logging.Error(
+            file_path=config_path,
+            message=f"A component named {name!r} already exists",
+        )
+
+    component: dict[str, Any] = {"name": name, "changelog": changelog}
+    if tasks_file and tasks_file.strip():
+        component["tasks_file"] = tasks_file.strip()
+    components.append(component)
+    project["components"] = components
+    config["project"] = project
+
+    write_configuration(config_path, config)
+    logger.info("Added component %s (%s) to %s", name, changelog, config_path)
+    return component
 
 
 def get_format_options(config: Optional[str]) -> dict[str, Any]:
@@ -694,6 +771,9 @@ def serialize_config_toml(config: Mapping[str, Any], *, prefix: str) -> str:
         fragment_directory = component.get("fragment_directory")
         if fragment_directory:
             lines.append(f"fragment_directory = {toml_string(str(fragment_directory))}")
+        tasks_file = component.get("tasks_file")
+        if tasks_file:
+            lines.append(f"tasks_file = {toml_string(str(tasks_file))}")
 
     return "\n".join(lines) + "\n"
 

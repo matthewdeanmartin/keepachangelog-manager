@@ -39,6 +39,39 @@ def test_apply_config_defaults_only_updates_builtin_defaults(monkeypatch):
     assert seen_configs == ["changelogmanager.toml"]
 
 
+def test_error_format_autodetects_github_in_github_actions(monkeypatch):
+    monkeypatch.setattr(config_resolve, "CONFIG_DEFAULTS", ())
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+
+    args = argparse.Namespace(error_format=None)
+    config_resolve.apply_config_defaults(args, None)
+
+    assert args.error_format == "github"
+
+
+def test_error_format_defaults_to_llvm_outside_github_actions(monkeypatch):
+    monkeypatch.setattr(config_resolve, "CONFIG_DEFAULTS", ())
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.delenv("GITLAB_CI", raising=False)
+
+    args = argparse.Namespace(error_format=None)
+    config_resolve.apply_config_defaults(args, None)
+
+    assert args.error_format == "llvm"
+
+
+def test_explicit_error_format_beats_github_actions_autodetect(monkeypatch):
+    monkeypatch.setattr(config_resolve, "CONFIG_DEFAULTS", ())
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+
+    args = argparse.Namespace(error_format="llvm")
+    config_resolve.apply_config_defaults(args, None)
+
+    # An explicit "-f llvm" is a real string, not the None sentinel, so the
+    # GitHub Actions autodetect must not override it.
+    assert args.error_format == "llvm"
+
+
 def test_config_source_text_prefers_explicit_then_detected_then_defaults():
     assert (
         config_resolve.config_source_text(

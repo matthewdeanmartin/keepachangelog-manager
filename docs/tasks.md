@@ -17,12 +17,15 @@ close to Keep a Changelog categories.
 
 ### Task file discovery
 
-Unless you pass `--tasks-file`, the CLI looks for:
+The task file is resolved with this precedence (highest first):
 
-1. `TASKS.md`
-1. `.changelogmanager/TASKS.md`
+1. `--tasks-file` on the command line
+1. the selected component's `tasks_file` (see
+   [Per-component task files](#per-component-task-files))
+1. the global `[tasks].file` config setting
+1. discovery of an existing `TASKS.md`, then `.changelogmanager/TASKS.md`
 
-If neither file exists, `tasks add` creates `TASKS.md`.
+If none of those resolve to an existing file, `tasks add` creates `TASKS.md`.
 
 ### Expected format
 
@@ -185,3 +188,41 @@ consume = "archive"
 ```
 
 CLI flags still override config for one-off paths or consume modes.
+
+### Per-component task files
+
+When a project tracks several components (each with its own `CHANGELOG.md`), each
+component can also have its own task file. Add a `tasks_file` key to the
+component:
+
+```toml
+[[components]]
+name = "api"
+changelog = "api/CHANGELOG.md"
+tasks_file = "api/TASKS.md"
+
+[[components]]
+name = "web"
+changelog = "web/CHANGELOG.md"
+# no tasks_file: falls back to [tasks].file, then discovery
+```
+
+Select the component with the global `--component` flag and the `tasks`
+subcommands act on that component's task file:
+
+```bash
+# adds to api/TASKS.md
+changelogmanager --component api tasks add fixed "Handle empty payloads"
+
+# promotes api/TASKS.md into api/CHANGELOG.md's [Unreleased]
+changelogmanager --component api tasks promote
+```
+
+`--tasks-file` still wins over a component's `tasks_file` for one-off paths. A
+component without a `tasks_file` falls back to `[tasks].file` and then discovery,
+so adding the key is purely opt-in.
+
+In the GUI, picking a component in the Workspace panel (or on the
+**Components / Batch** screen) repoints both the Changelog and the Tasks-file
+pickers at that component's files. The **New…** component dialog prompts for an
+optional tasks file.

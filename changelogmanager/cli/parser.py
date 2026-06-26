@@ -66,8 +66,11 @@ examples:
         "-f",
         "--error-format",
         choices=["llvm", "github"],
-        default="llvm",
-        help="Type of formatting to apply to error messages",
+        # Default is None (not "llvm") so config_resolve can tell an explicit
+        # -f from the absence of one. With no flag and no config value, the
+        # format is autodetected (github inside GitHub Actions, else llvm).
+        default=None,
+        help="Type of formatting to apply to error messages (default: autodetect)",
     )
     parser.add_argument(
         # Default is None (not "CHANGELOG.md") so the loader can distinguish an
@@ -320,7 +323,7 @@ examples:
         action="store_true",
         default=False,
         help=(
-            "Bump the version in pyproject.toml (and Python source __version__ vars) to match the released version. Requires jiggle-version."
+            "Bump the version in pyproject.toml (and Python source __version__ vars) to match the released version."
         ),
     )
     release_parser.add_argument(

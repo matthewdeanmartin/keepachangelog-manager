@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from typing import Any
 
 import changelogmanager.llvm_diagnostics as logging
@@ -32,6 +33,27 @@ def configure_logging(error_format: str) -> None:
     )
 
 
+def running_in_github_actions() -> bool:
+    """Returns True when the process appears to be running inside GitHub Actions.
+
+    GitHub Actions always sets ``GITHUB_ACTIONS=true`` (and exposes the
+    ``GITHUB_*`` family). We key off ``GITHUB_ACTIONS`` specifically so that
+    GitLab CI (which also sets a generic ``CI``) does not trip this branch.
+    """
+
+    return os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true"
+
+
+def detect_default_error_format() -> str:
+    """Picks the default diagnostic format when neither flag nor config sets it.
+
+    Inside GitHub Actions, ``github`` annotations render inline on the PR/run,
+    so default to that; everywhere else keep the human-friendly ``llvm`` format.
+    """
+
+    return "github" if running_in_github_actions() else "llvm"
+
+
 def resolve_config(config: str | None) -> str | None:
     """Returns ``config`` if provided, otherwise auto-detects in cwd."""
 
@@ -52,7 +74,7 @@ def resolve_config(config: str | None) -> str | None:
 #
 # Precedence: explicit CLI flag > env var (handled in command handlers) > config > default.
 CONFIG_DEFAULTS: tuple[tuple[str, Any, str, Any], ...] = (
-    ("error_format", get_defaults_options, "error_format", "llvm"),
+    ("error_format", get_defaults_options, "error_format", None),
     ("commit_schema", get_defaults_options, "commit_schema", "auto"),
     ("schema_version", get_defaults_options, "schema_version", DEFAULT_SCHEMA_VERSION),
     ("bump_versions", get_defaults_options, "bump_versions", False),
@@ -81,6 +103,15 @@ def apply_config_defaults(args: argparse.Namespace, config: str | None) -> None:
         if key in options and options[key] is not None:
             logger.info("Applying config default %s=%s", attr, options[key])
             setattr(args, attr, options[key])
+
+    # Final tier for error_format: when neither an explicit -f flag nor config
+    # supplied a value (it is still None), autodetect from the running CI so
+    # GitHub Actions gets inline annotations without extra flags. An explicit
+    # -f (e.g. "-f llvm") is a real string and is left untouched.
+    if getattr(args, "error_format", None) is None:
+        detected = detect_default_error_format()
+        logger.info("Resolved default error_format=%s from environment", detected)
+        args.error_format = detected
 
 
 def config_source_text(args: argparse.Namespace, config_path: str | None) -> str:

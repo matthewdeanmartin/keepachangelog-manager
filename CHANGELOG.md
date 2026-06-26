@@ -4,15 +4,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- GUI Workspace: Component field is now a dropdown of configured components with a 'New…' button to add a component to the config file
+- CLI autodetects GitHub Actions and defaults --error-format to github (inline annotations); explicit -f and config still take precedence
+- GUI Components/Batch screen: 'Add component' button and clickable component rows that set the active workspace component (component drives the changelog)
+- Per-component task files: components can declare a 'tasks_file' key; tasks commands resolve it via --tasks-file > component tasks_file > [tasks].file > discovery, selected with --component. GUI New… dialog prompts for it and selecting a component repoints the Tasks-file picker
+
+### Changed
+- kacl-gui console script now launches the GUI directly instead of requiring the 'gui' subcommand
+- GUI Tasks screen: the tasks file is now a prefilled primary Tasks-file picker in the Workspace panel (mirrors the Changelog picker) instead of a 'blank = auto' box with a hint label
+- Version bumping (release --bump-versions) is now built in: a minimal subset of jiggle-version is vendored (changelogmanager/vendor/jiggle_version, stdlib-only — no pathspec/tomlkit). The optional [jiggle] extra and jiggle-version dependency are removed
+
 ## [6.3.0] - 2026-06-15
 ### Fixed
 - Soft-wrapped (multi-line) changelog entries are no longer split into separate bullets when parsed; continuation lines are now folded back into their entry, so rendered output (e.g. GitHub release bodies) keeps each entry as a single bullet
 
 ### Added
-- Tkinter GUI: new Tasks, Fragments, Commit Lint, and Tools/Export screens surface the
-  tasks, fragments, lint-commits, rewrite-messages, version, to-json, to-html, skill export,
-  and credentials check commands; the Edit screen's Release dialog now offers --bump-versions
-  and --pyproject-only
+- Tkinter GUI: new Tasks, Fragments, Commit Lint, and Tools/Export screens surface the tasks, fragments, lint-commits, rewrite-messages, version, to-json, to-html, skill export, and credentials check commands; the Edit screen's Release dialog now offers --bump-versions and --pyproject-only
 
 ## [6.2.0] - 2026-06-07
 ### Added

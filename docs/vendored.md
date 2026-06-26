@@ -32,6 +32,21 @@ This repository also vendors `llvm_diagnostics` under
 That diagnostic layer is what powers the CLI's `llvm` and `github` error-format
 output.
 
+### `jiggle_version`
+
+| | `jiggle_version` |
+|---|---|
+| **Role** | Bumps `pyproject.toml` / `__version__` strings for `release --bump-versions` |
+| **Origin** | Vendored subset of [`matthewdeanmartin/jiggle_version`](https://github.com/matthewdeanmartin/jiggle_version) (MIT, from 2.1.1) |
+| **Location** | `changelogmanager/vendor/jiggle_version/` |
+
+Version bumping is now **built in** — there is no optional `[jiggle]` extra and no
+runtime dependency to install. Only three functions are vendored
+(`find_source_files`, `update_pyproject_toml`, `update_python_file`), and they were
+reimplemented to use only the standard library: upstream's `pathspec`-based
+`.gitignore` walk and `tomlkit`-based pyproject rewrite were dropped. See
+`changelogmanager/vendor/jiggle_version/UPSTREAM.md` for exactly what was cut.
+
 ## Why this page exists
 
 Most users do not need these implementation details to use the tool. The main

@@ -30,15 +30,12 @@ Source = "https://github.com/matthewdeanmartin/keepachangelog-manager"
 
 [project.scripts]
 changelogmanager = "changelogmanager.__main__:main"
-kacl-gui = "changelogmanager.__main__:main"
+kacl-gui = "changelogmanager.__main__:gui_main"
 keepachangelog-manager = "changelogmanager.__main__:main"
 changelogmanager-lint-message = "changelogmanager.lint_message_cli:main"
 
 
 [project.optional-dependencies]
-jiggle = [
-    "jiggle-version>=2.1.0,<3",
-]
 format = [
     "mdformat>=0.7",
 ]
@@ -144,10 +141,16 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["F401", "F811", "ARG001", "ARG002", "ARG005", "A004"]
 "changelogmanager/llvm_diagnostics/*" = ["N818", "A001"]
+# Vendored from jiggle-version: keep the upstream structure (the two file-match
+# branches stay separate for readability) rather than refactoring a copy.
+"changelogmanager/vendor/jiggle_version/*" = ["SIM114"]
 "tests/test_vendored_keepachangelog/*" = ["I001", "PTH118", "PTH123", "SIM117", "UP015", "W291"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["changelogmanager"]
+# Ship the vendored jiggle-version attribution (MIT requires the license to
+# travel with the copied code).
+force-include = { "changelogmanager/vendor/jiggle_version/LICENSE" = "changelogmanager/vendor/jiggle_version/LICENSE", "changelogmanager/vendor/jiggle_version/UPSTREAM.md" = "changelogmanager/vendor/jiggle_version/UPSTREAM.md" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

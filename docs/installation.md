@@ -36,23 +36,13 @@ You should see the top-level help text listing all available commands.
 
 ## Optional extras
 
-### `jiggle` — version string synchronisation
+### Version string synchronisation (built in)
 
-The `jiggle` extra adds support for the `release --bump-versions` flag, which updates
-`pyproject.toml` and Python source `__version__` strings to match the changelog release
-version. It is not installed by default because it pulls in
-[jiggle-version](https://github.com/matthewdeanmartin/jiggle_version) and its dependencies.
-
-```sh
-# uv tool install (global CLI)
-uv tool install "keepachangelog-manager-fork[jiggle]"
-
-# uv project dependency
-uv add "keepachangelog-manager-fork[jiggle]"
-
-# pip
-pip install "keepachangelog-manager-fork[jiggle]"
-```
+The `release --bump-versions` flag updates `pyproject.toml` and Python source
+`__version__` strings to match the changelog release version. This works out of the
+box — a minimal subset of
+[jiggle-version](https://github.com/matthewdeanmartin/jiggle_version) is vendored, so
+there is no extra to install (the former `[jiggle]` extra has been removed).
 
 See [Syncing version strings with --bump-versions](releases.md#syncing-version-strings-with---bump-versions)
 for usage details.

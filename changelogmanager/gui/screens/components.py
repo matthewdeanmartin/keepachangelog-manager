@@ -23,6 +23,7 @@ class ComponentsScreen(Screen):  # pylint: disable=too-many-ancestors
     title = "Components / Batch"
 
     def build_body(self) -> None:
+        self.commands.add("Add component", self.add_component)
         self.commands.add("Validate all", self.validate_all)
         self.commands.add("Validate changed", self.validate_changed)
         self.commands.add("From-commits all", self.from_commits_all)
@@ -61,10 +62,41 @@ class ComponentsScreen(Screen):  # pylint: disable=too-many-ancestors
                 anchor="w"
             )
             return
+        ttk.Label(
+            self.listing_body,
+            text="Select a component to make it the active workspace component:",
+        ).pack(anchor="w", pady=(0, 2))
+        active = self.app_state.component
         for component in components:
-            name = component.get("name", "?")
+            name = str(component.get("name", "?"))
             path = component.get("changelog", "?")
-            ttk.Label(self.listing_body, text=f"• {name} → {path}").pack(anchor="w")
+            tasks_file = component.get("tasks_file")
+            marker = "●" if name == active else "○"
+            label = f"{marker} {name} → {path}"
+            if tasks_file:
+                label += f"  (tasks: {tasks_file})"
+            ttk.Button(
+                self.listing_body,
+                text=label,
+                style="Toolbutton",
+                command=lambda n=name: self.select_component(n),
+            ).pack(anchor="w", fill=tk.X)
+
+    def select_component(self, name: str) -> None:
+        """Make ``name`` the active workspace component (drives the changelog)."""
+
+        self.controller.component_var.set(name)
+        # Reuse the controller's component->changelog wiring, then reflect it here.
+        self.controller.on_component_selected()
+        self.controller.refresh_component_choices()
+        self.on_show()
+        self.status(f"Active component: {name}")
+
+    def add_component(self) -> None:
+        """Add a component via the shared controller flow, then refresh the list."""
+
+        self.controller.add_component()
+        self.on_show()
 
     # ------------------------------------------------------------------
     def base_argv(self) -> list[str]:
