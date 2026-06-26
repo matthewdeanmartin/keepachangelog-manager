@@ -1,11 +1,13 @@
 # Generic CI
 
-This page covers changelog validation patterns that work in any CI system. GitHub-specific release automation lives in
-[GitHub automation](github.md), and GitLab-specific release jobs live in [GitLab automation](gitlab.md).
+This page covers changelog validation and release-note quality checks that work
+in any CI system. GitHub-specific release automation lives in
+[GitHub automation](github.md), and GitLab release jobs live in
+[GitLab automation](gitlab.md).
 
-## Use `validate` as a quality gate
+## Minimal validation gate
 
-The simplest cross-platform gate is to fail CI when the changelog is malformed:
+The simplest cross-platform gate is:
 
 ```sh
 uv sync --frozen
@@ -14,19 +16,28 @@ uv run changelogmanager validate
 
 Why this works well:
 
-- `validate` exits `1` on errors, so the job fails automatically
+- `validate` exits `1` on errors
 - the command is read-only unless you add `--fix`
-- the same invocation works on GitHub Actions, GitLab CI, local pre-push hooks, and generic shell-based CI
+- the same invocation works in GitHub Actions, GitLab CI, pre-push hooks, and generic shell runners
 
-## GitHub-style annotations when you want them
+## Add commit-subject linting
 
-If your CI runner understands GitHub Actions annotations, use:
+If you want backfill-friendly commit history, add:
+
+```sh
+uv run changelogmanager lint-commits --strict
+```
+
+This fails when commits in the selected range are not classifiable by the chosen
+schema.
+
+## GitHub-style annotations when useful
 
 ```sh
 uv run changelogmanager --error-format github validate
 ```
 
-Otherwise keep the default LLVM-style diagnostics, which work well in terminals and many editors:
+Otherwise keep the default LLVM-style diagnostics:
 
 ```text
 CHANGELOG.md:5:3: error: Incompatible change type provided, MUST be one of: Added, Changed, ...
@@ -34,36 +45,49 @@ CHANGELOG.md:5:3: error: Incompatible change type provided, MUST be one of: Adde
 
 ## Multi-component repositories
 
-If your repository tracks multiple changelogs in config, validate all configured components:
+Validate every configured component:
 
 ```sh
 uv run changelogmanager --config changelogmanager.toml validate --all
 ```
 
-If you only want to validate components whose changelog files changed in git:
+Validate only components whose changelog files changed in git:
 
 ```sh
 uv run changelogmanager --config changelogmanager.toml validate --all --changed-only
 ```
 
-## Machine-readable CI output
+Route commits into all configured components:
 
-For wrapper scripts or CI helpers that want structured output:
+```sh
+uv run changelogmanager --config changelogmanager.toml from-commits --all
+```
+
+## Machine-readable CI output
 
 ```sh
 uv run changelogmanager --json validate
 uv run changelogmanager --quiet validate
+uv run changelogmanager --json lint-commits --all-history
 ```
 
-`--json` emits one JSON object on stdout. `--quiet` suppresses the normal human-oriented output while still preserving
-diagnostics and exit codes.
+- `--json` emits one JSON object on stdout
+- `--quiet` suppresses human-friendly non-error output
+- diagnostics still go to stderr
 
-## Autofix in CI
+## Prefer pre-commit for early feedback
 
-`validate --fix` exists, but it is usually better in CI as a separate opt-in job or local developer command:
+If you want to stop bad changelog edits or low-signal commit subjects before CI,
+use [Pre-commit](precommit.md). That is usually a better fit than teaching the
+main CI gate to rewrite files for developers.
 
-```sh
-uv run changelogmanager validate --fix --dry-run
-```
+## What this repository does in GitHub Actions
 
-That lets CI report what would change without silently rewriting tracked files in the main validation gate.
+This repository currently uses:
+
+- `.github/workflows/build_and_test.yml` for full CI on pushes to `main` and PRs
+- `.github/workflows/quality_checks.yml` for PR changelog validation
+- `.github/workflows/zizmor.yml` for workflow safety checks
+
+Those files are examples of how to combine `uv`, changelog validation, and
+broader quality gates in a real project.

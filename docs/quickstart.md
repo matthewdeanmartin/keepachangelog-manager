@@ -38,16 +38,20 @@ the generated preamble.
 
 ## Already have tagged releases?
 
-If you are adopting the tool in an existing repository, you can backfill missing released sections from local git history before adding new unreleased entries:
+If you are adopting the tool in an existing repository, you can backfill missing
+released sections from local git history before adding new unreleased entries:
 
 ```sh
-changelogmanager backfill --source all --dry-run
-changelogmanager backfill --source all
+changelogmanager backfill --source local --dry-run
+changelogmanager backfill --source local
 ```
 
-Backfill uses local tags and can classify commit subjects between tag intervals using Conventional Commits, gitmoji, or
-Keep a Changelog-flavored prefixes. If no richer commit entries are available, each missing version gets a conservative
-placeholder under `Changed`, for example: `Release notes unavailable; backfilled from tag \`v1.2.3\`.`Existing versions already present in`CHANGELOG.md\` are left alone.
+Backfill uses local tags and can classify commit subjects between tag intervals
+using Conventional Commits, gitmoji, or Keep a Changelog-flavored prefixes. If
+no richer commit entries are available, each missing version gets a conservative
+placeholder under `Changed`, for example `Release notes unavailable; backfilled
+from tag \`v1.2.3\`.` Existing versions already present in `CHANGELOG.md` are
+left alone.
 
 ## 3. Add a change
 
@@ -145,8 +149,10 @@ If you'd rather click than type, run:
 changelogmanager gui
 ```
 
-This opens a multi-screen Tkinter app for editing `[Unreleased]`, backfilling from history, publishing releases, and
-running batch component operations. See the [Desktop GUI](gui.md) page for details.
+This opens a multi-screen Tkinter app for editing `[Unreleased]`, managing
+tasks and fragments, backfilling from history, auditing commit messages,
+publishing releases, and running batch component operations. See the
+[Desktop GUI](gui.md) page for details.
 
 ## What's next
 

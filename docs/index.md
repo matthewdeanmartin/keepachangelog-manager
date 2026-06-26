@@ -1,52 +1,46 @@
 # keepachangelog-manager
 
-**keepachangelog-manager** is a CLI tool and Python library for managing `CHANGELOG.md` files that follow the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
+**keepachangelog-manager** is a CLI tool and Python library for managing
+`CHANGELOG.md` files that follow the
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
-## vendored keepachangelog vs keepachangelog-manager
-
-These are two separate layers that now live in this repository:
-
-| | [keepachangelog](https://pypi.org/project/keepachangelog/) | keepachangelog-manager |
-|---|---|---|
-| **What it is** | A slim vendored parser/serializer subpackage | A CLI tool and higher-level library |
-| **What it does** | Parses `CHANGELOG.md` into Python dicts and back | Validates, edits, releases, and exports your changelog |
-| **Where it lives** | `changelogmanager/vendor/keepachangelog/` | `changelogmanager/` |
-
-`keepachangelog-manager` vendors the tiny subset of
-[`Colin-b/keepachangelog`](https://github.com/Colin-b/keepachangelog) that it
-uses internally for parsing and serialisation. The vendored copy keeps only
-`to_dict(...)`, `to_dict(..., show_unreleased=True)`, and `from_dict(...)`,
-plus the small helpers those functions need.
+This project is a fork of the original `keepachangelog-manager`, and it also
+vendors a small subset of the upstream `keepachangelog` parser internally. If
+you want that implementation split explained, see [Vendored code and forks](vendored.md).
 
 ## What keepachangelog-manager adds
 
-On top of what the `keepachangelog` library provides, this tool gives you:
+On top of the base parser/serializer, this tool provides:
 
-- **Validation + autofix** — catches malformed headings, bad semver, wrong date formats, empty sections, duplicate entries, and can normalise common issues with `validate --fix`
-- **Interactive and scripted editing** — add, list, edit, or remove `[Unreleased]` entries from the CLI
-- **Automatic semver bumping** — infers the next version from change categories (`removed` → major, `added`/`security` → minor, everything else → patch)
-- **Release workflow** — promotes `[Unreleased]` to a dated version, with `release --yes` for non-interactive runs
-- **Historical backfill** — create missing released sections from local git tags with `backfill --source tags`
-- **Git history seeding** — build `[Unreleased]` from commit history with `from-commits`, including Conventional Commits, gitmoji, and Keep a Changelog-flavored subjects
-- **Multiple export formats** — export the changelog as JSON or HTML
-- **Bundled skill export** — install the packaged `keepachangelog-manager-cli` skill into Copilot or Claude skill directories
-- **GitHub integration** — creates draft/published releases and opens or updates release pull requests
-- **GitLab integration** — creates or updates GitLab releases, including self-hosted instances
-- **Config bootstrap + inspection** — generate or update `changelogmanager.toml` / `pyproject.toml` config with `config init`, then inspect the active config with `config`
-- **Script-friendly output** — use `--dry-run`, `--quiet`, and `--json` in automation
-- **Multi-component repos** — point commands at any `CHANGELOG.md` via TOML config or `[tool.changelogmanager]` in `pyproject.toml`
-- **Desktop GUI** — an optional Tkinter window for editing, backfill, releases, and batch operations, launched with `changelogmanager gui`
+- **Validation + autofix** with `validate` and `validate --fix`
+- **Interactive and scripted editing** of `[Unreleased]`
+- **Automatic version calculation** for `semver`, `pep440`, and `calver`
+- **Release promotion** from `[Unreleased]` into dated version sections
+- **Version string syncing** with `release --bump-versions`
+- **Backfill from local and online sources** including git tags, commit intervals, GitHub Releases, merged GitHub PRs, and PyPI history
+- **Commit-message linting** with `lint-commits`
+- **Unpushed rewrite planning** with `rewrite-messages`
+- **Task and fragment staging workflows** using `TASKS.md`, `changelog.d/`, and `tickets/`
+- **JSON and HTML export**
+- **Bundled skill export**
+- **GitHub and GitLab release automation**
+- **Stored credential support** through the OS keyring
+- **Multi-component repository support**
+- **Tkinter GUI** for editing, staging, auditing, backfill, release, and export flows
 
 ## Next steps
 
-- [Generic CI](CI.md) — validation-focused quality gates that work in any CI system
-- [GitHub automation](github.md) — draft releases, release PRs, and the repository's GitHub Actions release flow
-- [GitLab automation](gitlab.md) — release creation plus the `CI_JOB_TOKEN` caveat
-- [Quick start](quickstart.md) — up and running in two minutes
-- [Installation](installation.md) — all installation methods
-- [Key Workflows](workflows.md) — day-to-day local usage patterns
-- [Releasing](releases.md) — version calculation, local release mechanics, and `--bump-versions`
-- [Tasks and fragments](tasks.md) — checklist-based planning and fragment-file workflows
-- [Scripting and CI integration](scripting.md) — exit codes, `--json`, `jq` patterns, and full `release.yml` examples
-- [CLI reference](cli.md) — every command and option
-- [Desktop GUI](gui.md) — running the optional Tkinter front-end
+- [Quick start](quickstart.md)
+- [Installation](installation.md)
+- [Key Workflows](workflows.md)
+- [Releasing](releases.md)
+- [Tasks and fragments](tasks.md)
+- [Scripting and CI integration](scripting.md)
+- [CLI reference](cli.md)
+- [Desktop GUI](gui.md)
+- [Pre-commit](precommit.md)
+- [Generic CI](CI.md)
+- [GitHub automation](github.md)
+- [GitLab automation](gitlab.md)
+- [Vendored code and forks](vendored.md)
+- [Contributing](contributing.md)

@@ -55,7 +55,7 @@ stages:
 
 validate-changelog:
   stage: validate
-  image: python:3.13
+  image: python:3.14
   script:
     - pip install uv
     - uv sync --frozen
@@ -63,7 +63,7 @@ validate-changelog:
 
 release:
   stage: release
-  image: python:3.13
+  image: python:3.14
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   before_script:

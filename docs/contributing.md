@@ -2,8 +2,9 @@
 
 ## Development setup
 
-This project uses [uv](https://docs.astral.sh/uv/) for dependency management, but contributors should normally use the
-`Makefile` as the main entry point for local development tasks.
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management.
+Inside this repository, prefer `make` targets and run raw Python commands through
+`uv run`.
 
 ```sh
 git clone https://github.com/matthewdeanmartin/keepachangelog-manager
@@ -12,66 +13,104 @@ make help
 make sync
 ```
 
-## Preferred local workflow
+Common targets:
 
-Use Make targets instead of ad-hoc raw commands whenever possible:
-
-- `make format` / `make format-check`
+- `make format`
 - `make lint`
 - `make test`
-- `make validate` — validates `CHANGELOG.md` with `keepachangelog-manager`
-- `make quality` — standard pre-PR checks
-- `make prerelease` — prerelease checks plus docs sync and build
+- `make validate`
+- `make quality`
+- `make prerelease`
 - `make build`
 
-`make quality` is the usual “before I open a PR” target. `make prerelease` is the
-stronger “before a release” target.
+Raw command equivalents should stay inside `uv`:
 
-## Changelog and release workflow
+```sh
+uv run pytest
+uv run changelogmanager --help
+uv run changelogmanager gui
+```
 
-This repository dogfoods `keepachangelog-manager`.
+## Dogfooding the tool
 
-- Use `keepachangelog-manager` / `changelogmanager` to add, edit, validate, and release changelog entries
-- Run `make validate` to confirm the changelog stays valid
-- Prefer the tool over manual changelog surgery when changing `[Unreleased]` or preparing releases
+This repository uses `keepachangelog-manager` on itself.
 
-Releases themselves are handled by GitHub Actions. The repository keeps a draft GitHub Release in sync from the
-`[Unreleased]` section, and publishing that release triggers the release workflow that bumps versions, opens the release
-PR, builds artifacts, and publishes to PyPI. See [GitHub automation](github.md).
+- The repo root has a real `CHANGELOG.md`.
+- `pyproject.toml` contains `[tool.changelogmanager]` config.
+- User-facing changes should be recorded with the CLI instead of ad-hoc editing when possible.
+
+Typical local commands:
+
+```sh
+uv run changelogmanager add --change-type changed --message "Describe the behavior change"
+uv run changelogmanager validate
+uv run changelogmanager version --reference future
+```
+
+For release preparation:
+
+```sh
+uv run changelogmanager release --dry-run
+uv run changelogmanager release --bump-versions --yes
+```
+
+## Local workflow
+
+The usual contributor loop is:
+
+1. `make sync`
+1. make code and doc changes
+1. update `CHANGELOG.md` for user-facing behavior
+1. run `make quality`
+1. run `make prerelease` for release-related work
+
+`make quality` is the standard pre-PR check. `make prerelease` adds version checks,
+snapshot checks, docs sync, and a build.
+
+## Test isolation and changelog safety
+
+Tests must never touch the repository's own `CHANGELOG.md`.
+
+The suite enforces this with autouse fixtures in `tests/conftest.py`:
+
+- each test runs from a fresh temporary working directory
+- config caches are cleared between tests
+
+When adding tests:
+
+- use `tmp_path` and relative paths
+- avoid deriving changelog paths from `__file__` back into the repo root
+- rely on the isolated working directory unless a test explicitly needs to override it
+
+If a test run pollutes the root `CHANGELOG.md`, fix the path-resolution or working-directory leak rather than simply reverting the file.
+
+## GitHub Actions in this repository
+
+Current workflows:
+
+- `build_and_test.yml`: full CI on pushes to `main`, pull requests, and manual runs; installs Python 3.14 and `uv`, syncs extras, runs `make format`, then `make lint bandit test validate`
+- `quality_checks.yml`: pull-request changelog validation workflow that currently runs `make validate`
+- `create_draft_release.yml`: updates the GitHub draft release from `[Unreleased]` on pushes to `main`
+- `release.yml`: runs after a GitHub Release is published; bumps the changelog and version files, opens or updates the release PR, builds distributions, and publishes to PyPI via OIDC
+- `zizmor.yml`: checks workflow safety when `.github/**` changes
+
+The release flow is:
+
+1. merge changelog updates to `main`
+1. let `create_draft_release.yml` refresh the GitHub draft release
+1. publish the GitHub Release when ready
+1. let `release.yml` perform the bump, build, and publish flow
+
+For details, see [GitHub automation](github.md) and [Scripting and CI integration](scripting.md).
 
 ## Before submitting changes
 
 1. Sync your environment with `make sync`.
-1. Update `CHANGELOG.md` with `keepachangelog-manager` when the change is user-facing.
-1. Run `make quality` before opening a PR.
-1. Run `make prerelease` before cutting or validating a release.
+1. Add or update tests for changed behavior.
+1. Update `CHANGELOG.md` when the change is user-facing.
+1. Run `make quality`.
 
-## Project structure
+## Before validating release changes
 
-```
-changelogmanager/
-  __main__.py          entry point
-  cli/
-    entry.py           CLI bootstrap
-    parser.py          argparse parser construction
-    commands.py        command handlers
-  changelog.py         Changelog class — mutation and query logic
-  changelog_reader.py  ChangelogReader — parsing, validation, and autofix
-  change_types.py      category definitions and version bump mapping
-  config.py            TOML config loading and serialization
-  gui/                 Tkinter desktop app
-  github.py            GitHub API client for release management
-  gitlab.py            GitLab API client for release management
-  llvm_diagnostics/    vendored diagnostic message formatting
-```
-
-## Diagnostics (`llvm_diagnostics`)
-
-Error, warning, and info messages are raised as exceptions from `changelogmanager.llvm_diagnostics`. The `main()` function catches them and calls `.report()`, which prints to stderr in the configured format. This means validation errors do not produce stack traces — they produce readable diagnostic output.
-
-## Submitting changes
-
-1. Open an issue to discuss larger changes before writing code.
-1. Keep pull requests focused; one logical change per PR.
-1. Add or update tests for any changed behaviour.
-1. Run `make quality` before opening a PR, and `make prerelease` before validating a release.
+1. Run `make prerelease`.
+1. Confirm docs and workflows still agree, especially `docs/github.md`, `docs/scripting.md`, `.github/workflows/create_draft_release.yml`, and `.github/workflows/release.yml`.

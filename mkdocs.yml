@@ -26,8 +26,10 @@ nav:
   - Scripting and CI integration: scripting.md
   - CLI reference: cli.md
   - Desktop GUI: gui.md
+  - Pre-commit: precommit.md
   - Generic CI: CI.md
   - GitHub automation: github.md
   - GitLab automation: gitlab.md
+  - Vendored code and forks: vendored.md
   - Changelog: CHANGELOG.md
   - Contributing: contributing.md
