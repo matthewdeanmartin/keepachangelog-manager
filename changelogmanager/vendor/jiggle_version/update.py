@@ -11,6 +11,7 @@ value on the single ``version = ...`` line, leaving every other byte untouched.
 ``update_setup_cfg`` is intentionally not vendored: ``bump_version_files`` never
 calls it.
 """
+
 from __future__ import annotations
 
 import re

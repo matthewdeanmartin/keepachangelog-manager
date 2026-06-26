@@ -9,6 +9,7 @@ version bump must never descend into (``.git``, ``.tox``, ``.venv``,
 ``__pycache__``). The set of filenames searched for is unchanged, so the result
 for a normal project layout matches upstream.
 """
+
 from __future__ import annotations
 
 import logging

@@ -86,8 +86,8 @@ def test_tasks_use_per_component_tasks_file(tmp_path, monkeypatch):
     )
 
     assert result == 0
-    assert Path("api/TASKS.md").read_text(encoding="UTF-8").count(
-        "Component-scoped task"
+    assert (
+        Path("api/TASKS.md").read_text(encoding="UTF-8").count("Component-scoped task")
     )
     assert not Path("TASKS.md").exists()
 

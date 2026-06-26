@@ -9,6 +9,7 @@ the ``--all`` CLI flows.
 
 from __future__ import annotations
 
+import functools
 import tkinter as tk
 from tkinter import scrolledtext, ttk
 
@@ -79,7 +80,7 @@ class ComponentsScreen(Screen):  # pylint: disable=too-many-ancestors
                 self.listing_body,
                 text=label,
                 style="Toolbutton",
-                command=lambda n=name: self.select_component(n),
+                command=functools.partial(self.select_component, name),
             ).pack(anchor="w", fill=tk.X)
 
     def select_component(self, name: str) -> None:
