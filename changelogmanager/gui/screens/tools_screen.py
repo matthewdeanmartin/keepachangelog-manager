@@ -18,7 +18,9 @@ from changelogmanager.gui.cli_runner import run_cli
 from changelogmanager.gui.screens.base import Screen
 
 
-class ToolsScreen(Screen):  # pylint: disable=too-many-ancestors,too-many-instance-attributes
+class ToolsScreen(
+    Screen
+):  # pylint: disable=too-many-ancestors,too-many-instance-attributes
     """Version queries, exports, skill export, and credential status."""
 
     title = "Tools / Export"

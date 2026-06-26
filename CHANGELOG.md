@@ -10,9 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Tkinter GUI: new Tasks, Fragments, Commit Lint, and Tools/Export screens surface the
-- tasks, fragments, lint-commits, rewrite-messages, version, to-json, to-html, skill export,
-- and credentials check commands; the Edit screen's Release dialog now offers --bump-versions
-- and --pyproject-only
+  tasks, fragments, lint-commits, rewrite-messages, version, to-json, to-html, skill export,
+  and credentials check commands; the Edit screen's Release dialog now offers --bump-versions
+  and --pyproject-only
 
 ## [6.2.0] - 2026-06-07
 ### Added

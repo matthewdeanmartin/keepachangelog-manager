@@ -66,11 +66,18 @@ class Changelog:
         file_path: str = DEFAULT_CHANGELOG_FILE,
         changelog: Optional[dict[str, Any]] = None,
         versioning_scheme: str = "semver",
+        initial_version: Optional[str] = None,  # pylint: disable=redefined-outer-name
     ) -> None:
-        """Constructor"""
+        """Constructor.
+
+        ``initial_version`` optionally overrides the version proposed for a
+        project's very first release (default ``0.0.1`` for semver). Configure
+        it via ``[versioning].initial_version`` to start at, say, ``0.1.0``.
+        """
         self.changelog_file_path = file_path
         self.changelog = changelog if changelog else {}
         self.versioning_scheme = normalize_scheme(versioning_scheme)
+        self.initial_version_override = initial_version
         logger.log(
             VERBOSE,
             "Initialized changelog object for %s with %d version entries",
@@ -523,6 +530,17 @@ class Changelog:
         logger.info("Suggesting future version for %s", self.changelog_file_path)
 
         if self.has_only_unreleased_version():
+            if self.initial_version_override:
+                try:
+                    return parse_version(
+                        self.initial_version_override, self.versioning_scheme
+                    )
+                except Exception:  # noqa: BLE001 - fall back to the scheme default
+                    logger.warning(
+                        "Ignoring invalid initial_version %r for %s; using default",
+                        self.initial_version_override,
+                        self.versioning_scheme,
+                    )
             return initial_version(self.versioning_scheme)
 
         def determine_version(

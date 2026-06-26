@@ -310,9 +310,7 @@ def test_auto_detected_pyproject_reuses_cached_toml_read(tmp_path, monkeypatch):
 def test_config_cache_can_be_disabled_for_testing(tmp_path, monkeypatch):
     config_path = tmp_path / "changelogmanager.toml"
     config_path.write_text(
-        "[[components]]\n"
-        'name = "default"\n'
-        'changelog = "CHANGELOG.md"\n',
+        "[[components]]\n" 'name = "default"\n' 'changelog = "CHANGELOG.md"\n',
         encoding="utf-8",
     )
 

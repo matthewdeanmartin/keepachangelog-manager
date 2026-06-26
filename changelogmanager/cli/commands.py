@@ -18,7 +18,7 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import changelogmanager.cli.prompts as prompts
 import changelogmanager.llvm_diagnostics as logging
@@ -532,6 +532,10 @@ def command_tasks(args: argparse.Namespace, ctx: CliContext) -> None:
     task_path = task_files.discover_task_file(task_file_arg)
     subcommand = args.tasks_command
 
+    if subcommand in {"assemble", "new", "fragments"}:
+        command_task_fragments(args, ctx, options, task_path)
+        return
+
     if subcommand == "list":
         parsed = task_files.parse_task_file(task_path)
         if not parsed:
@@ -631,6 +635,75 @@ def command_tasks(args: argparse.Namespace, ctx: CliContext) -> None:
             json_key="count",
             json_value=len(new_entries),
         )
+
+
+def command_task_fragments(
+    args: argparse.Namespace,
+    ctx: CliContext,
+    options: dict[str, Any],
+    task_path: Path,
+) -> None:
+    """Handles `tasks assemble`, `tasks new`, and `tasks fragments lint`."""
+
+    from changelogmanager import task_fragments  # noqa: PLC0415
+
+    tickets_arg = getattr(args, "tickets_dir", None) or options.get("tickets_directory")
+    tickets_dir = task_fragments.discover_tickets_dir(tickets_arg)
+    subcommand = args.tasks_command
+
+    if subcommand == "new":
+        path = task_fragments.scaffold_fragment(
+            tickets_dir, args.summary, category=args.category
+        )
+        emit(
+            ctx,
+            text=f"Created fragment: {path}",
+            json_key="fragment",
+            json_value=str(path),
+        )
+        return
+
+    if subcommand == "fragments":
+        # Only `lint` exists today; the subparser enforces the choice.
+        fragments = task_fragments.read_fragments(tickets_dir)
+        messages = task_fragments.lint_fragments(fragments)
+        ctx.json_payload["warnings"] = messages
+        for message in messages:
+            emit(ctx, text=message)
+        if not messages:
+            emit(
+                ctx,
+                text=f"No fragment problems in {tickets_dir}",
+                json_key="valid",
+                json_value=True,
+            )
+        if messages and getattr(args, "strict", False):
+            raise logging.Error(
+                file_path=str(tickets_dir),
+                message=f"{len(messages)} fragment lint warning(s)",
+            )
+        return
+
+    # The remaining subcommand is "assemble".
+    _, lint = task_fragments.assemble_tasks_file(
+        tickets_dir,
+        task_path,
+        rich=bool(getattr(args, "rich", False)),
+        dry_run=bool(getattr(args, "dry_run", False)),
+    )
+    ctx.json_payload["warnings"] = lint
+    ctx.json_payload["tasks_file"] = str(task_path)
+    for message in lint:
+        emit(ctx, text=message)
+    if getattr(args, "dry_run", False):
+        print_dry_run(ctx, f"would write {task_path} from {tickets_dir}")
+        return
+    emit(
+        ctx,
+        text=f"Assembled {task_path} from {tickets_dir}",
+        json_key="tasks_file",
+        json_value=str(task_path),
+    )
 
 
 def command_fragments(args: argparse.Namespace, ctx: CliContext) -> None:

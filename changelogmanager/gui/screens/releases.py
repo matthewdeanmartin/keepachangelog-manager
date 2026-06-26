@@ -55,15 +55,73 @@ class ReleasesScreen(
         self.head_var = tk.StringVar()
         self.base_var = tk.StringVar(value="main")
 
-        self.field(form, "Repository (owner/repo):", self.repo_var)
-        self.field(form, "GitHub token:", self.token_var, secret=True)
+        # Each row is tagged with the commands it is relevant to, so unrelated
+        # input boxes are hidden when a command is selected.
+        self.field_rows: list[tuple[frozenset[str], tk.Widget]] = []
+        gh = {"github-release", "github-pr"}
+        self.field_rows.append(
+            (frozenset(gh), self.field(form, "Repository (owner/repo):", self.repo_var))
+        )
+        self.field_rows.append(
+            (
+                frozenset(gh),
+                self.field(form, "GitHub token:", self.token_var, secret=True),
+            )
+        )
+        self.draft_row = ttk.Frame(form)
+        self.draft_row.pack(fill=tk.X, padx=4, pady=2, anchor="w")
         ttk.Checkbutton(
-            form, text="Draft (uncheck to publish)", variable=self.draft_var
-        ).pack(anchor="w", padx=4)
-        self.field(form, "PR head branch:", self.head_var)
-        self.field(form, "PR base branch:", self.base_var)
-        self.field(form, "GitLab project (id or group/project):", self.project_var)
-        self.field(form, "GitLab token:", self.gitlab_token_var, secret=True)
+            self.draft_row, text="Draft (uncheck to publish)", variable=self.draft_var
+        ).pack(anchor="w")
+        self.field_rows.append((frozenset({"github-release"}), self.draft_row))
+        self.field_rows.append(
+            (
+                frozenset({"github-pr"}),
+                self.field(form, "PR head branch:", self.head_var),
+            )
+        )
+        self.field_rows.append(
+            (
+                frozenset({"github-pr"}),
+                self.field(form, "PR base branch:", self.base_var),
+            )
+        )
+        self.field_rows.append(
+            (
+                frozenset({"gitlab-release"}),
+                self.field(
+                    form, "GitLab project (id or group/project):", self.project_var
+                ),
+            )
+        )
+        self.field_rows.append(
+            (
+                frozenset({"gitlab-release"}),
+                self.field(form, "GitLab token:", self.gitlab_token_var, secret=True),
+            )
+        )
+
+        # Optional [skip ci] tag for the release commit message (configurable;
+        # default on — matches the historical behaviour).
+        from changelogmanager.config import get_skip_ci  # noqa: PLC0415
+
+        self.skip_ci_var = tk.BooleanVar(value=get_skip_ci(self.app_state.config_path))
+        self.skip_ci_row = ttk.Frame(form)
+        self.skip_ci_row.pack(fill=tk.X, padx=4, pady=2, anchor="w")
+        skip_check = ttk.Checkbutton(
+            self.skip_ci_row,
+            text="Append [skip ci] to release commit message",
+            variable=self.skip_ci_var,
+        )
+        skip_check.pack(anchor="w")
+        from changelogmanager.gui.widgets import add_tooltip  # noqa: PLC0415
+
+        add_tooltip(
+            skip_check,
+            "When this tool's output drives a release commit, append [skip ci] "
+            "so the bump commit doesn't trigger another CI run. Uncheck to let "
+            "CI run on the release commit.",
+        )
 
         run_row = ttk.Frame(self.work_area)
         run_row.pack(fill=tk.X, pady=2)
@@ -93,13 +151,16 @@ class ReleasesScreen(
 
         self.select("github-release")
 
-    def field(self, parent, label, var, *, secret=False) -> None:  # type: ignore[no-untyped-def]
+    def field(  # type: ignore[no-untyped-def]
+        self, parent, label, var, *, secret=False
+    ) -> ttk.Frame:
         row = ttk.Frame(parent)
         row.pack(fill=tk.X, padx=4, pady=2)
         ttk.Label(row, text=label, width=30, anchor="w").pack(side=tk.LEFT)
         ttk.Entry(row, textvariable=var, width=36, show="*" if secret else "").pack(
             side=tk.LEFT, padx=4
         )
+        return row
 
     # ------------------------------------------------------------------
     def select(self, command: str) -> None:
@@ -107,6 +168,22 @@ class ReleasesScreen(
         self.command = command  # pylint: disable=attribute-defined-outside-init
         self.sample.delete("1.0", tk.END)
         self.sample.insert("1.0", SAMPLES.get(command, ""))
+        self._apply_field_visibility(command)
+
+    def _apply_field_visibility(self, command: str) -> None:
+        """Hide input rows that don't apply to the selected command."""
+
+        for relevant, row in self.field_rows:
+            if command in relevant:
+                if not row.winfo_manager():
+                    row.pack(fill=tk.X, padx=4, pady=2, anchor="w")
+            else:
+                row.pack_forget()
+        # [skip ci] applies only to the release commands, not the PR command.
+        if command == "github-pr":
+            self.skip_ci_row.pack_forget()
+        elif not self.skip_ci_row.winfo_manager():
+            self.skip_ci_row.pack(fill=tk.X, padx=4, pady=2, anchor="w")
 
     def copy_sample(self) -> None:
         text = self.sample.get("1.0", tk.END).rstrip("\n")

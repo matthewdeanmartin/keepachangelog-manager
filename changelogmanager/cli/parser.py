@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import argparse
 
-from changelogmanager.change_types import TYPES_OF_CHANGE
+from changelogmanager.change_types import ALL_TYPES_OF_CHANGE, TYPES_OF_CHANGE
 from changelogmanager.cli import commands
 from changelogmanager.gitlab import DEFAULT_GITLAB_URL
 from changelogmanager.schema_validation import DEFAULT_SCHEMA_VERSION, SCHEMA_VERSIONS
@@ -492,6 +492,60 @@ examples:
     )
     add_dry_run_argument(tasks_promote_parser)
     tasks_promote_parser.set_defaults(handler=commands.command_tasks)
+
+    tasks_assemble_parser = tasks_subparsers.add_parser(
+        "assemble",
+        help="Assemble tickets/*.md fragments into TASKS.md",
+    )
+    tasks_assemble_parser.add_argument(
+        "--tickets-dir", default=None, help="Directory of task fragments"
+    )
+    tasks_assemble_parser.add_argument(
+        "--tasks-file", default=None, help="Output TASKS.md path"
+    )
+    tasks_assemble_parser.add_argument(
+        "--rich",
+        action="store_true",
+        default=False,
+        help="Emit the grouped (Status -> Category) view with nested bodies",
+    )
+    add_dry_run_argument(tasks_assemble_parser)
+    tasks_assemble_parser.set_defaults(handler=commands.command_tasks)
+
+    tasks_new_parser = tasks_subparsers.add_parser(
+        "new", help="Scaffold a new task fragment in tickets/"
+    )
+    tasks_new_parser.add_argument("summary", help="Short task summary (the H1 title)")
+    tasks_new_parser.add_argument(
+        "--category",
+        choices=ALL_TYPES_OF_CHANGE,
+        default="added",
+        help="Fragment category (default: added)",
+    )
+    tasks_new_parser.add_argument(
+        "--tickets-dir", default=None, help="Directory of task fragments"
+    )
+    tasks_new_parser.set_defaults(handler=commands.command_tasks)
+
+    tasks_fragments_parser = tasks_subparsers.add_parser(
+        "fragments", help="Lint task fragments in tickets/"
+    )
+    tasks_fragments_subparsers = tasks_fragments_parser.add_subparsers(
+        dest="tasks_fragments_command", required=True
+    )
+    tasks_fragments_lint_parser = tasks_fragments_subparsers.add_parser(
+        "lint", help="Report fragment head problems without writing"
+    )
+    tasks_fragments_lint_parser.add_argument(
+        "--tickets-dir", default=None, help="Directory of task fragments"
+    )
+    tasks_fragments_lint_parser.add_argument(
+        "--strict",
+        action="store_true",
+        default=False,
+        help="Exit non-zero when any fragment has lint warnings",
+    )
+    tasks_fragments_lint_parser.set_defaults(handler=commands.command_tasks)
 
     fragments_parser = subparsers.add_parser(
         "fragments",

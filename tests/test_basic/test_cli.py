@@ -99,6 +99,7 @@ def test_load_changelog_uses_component_config_when_present(monkeypatch):
         lambda config: ("keep a changelog", "semantic versioning"),
     )
     monkeypatch.setattr(cli.loaders, "get_versioning_scheme", lambda config: "semver")
+    monkeypatch.setattr(cli.loaders, "get_initial_version", lambda config: None)
     monkeypatch.setattr(cli.loaders, "ChangelogReader", FakeReader)
 
     # No explicit --input-file (None): the config/component changelog is used.
@@ -140,6 +141,7 @@ def test_explicit_input_file_overrides_component_config(monkeypatch):
     )
     monkeypatch.setattr(cli.loaders, "get_preamble_keywords", lambda config: ())
     monkeypatch.setattr(cli.loaders, "get_versioning_scheme", lambda config: "semver")
+    monkeypatch.setattr(cli.loaders, "get_initial_version", lambda config: None)
     monkeypatch.setattr(cli.loaders, "ChangelogReader", FakeReader)
 
     changelog = cli.load_changelog(

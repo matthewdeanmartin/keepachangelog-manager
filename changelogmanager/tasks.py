@@ -52,6 +52,12 @@ def discover_task_file(explicit: str | None = None) -> Path:
     return Path(TASK_FILE_CANDIDATES[0])
 
 
+def default_task_file_name(explicit: str | None = None) -> str:
+    """The task-file path that would be used right now (for display in the GUI)."""
+
+    return str(discover_task_file(explicit))
+
+
 def strip_done_metadata(text: str) -> tuple[str, str | None]:
     match = DONE_RE.search(text)
     if not match:

@@ -304,6 +304,87 @@ def test_tools_screen_version_and_export_argv(gui_root, tmp_path, monkeypatch):
     assert calls[-1][-2:] == ["credentials", "check"]
 
 
+def test_releases_screen_hides_irrelevant_fields(gui_root, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    write_changelog(tmp_path / "CHANGELOG.md")
+
+    controller = AppController(gui_root)
+    screen = controller.screens[ReleasesScreen.title]
+
+    screen.select("gitlab-release")
+    gui_root.update_idletasks()
+    # GitHub repo/token/PR rows are hidden; GitLab project/token rows shown.
+    visible = {row.winfo_manager() != "" for _tags, row in screen.field_rows}
+    shown_for_gitlab = [
+        bool(row.winfo_manager())
+        for tags, row in screen.field_rows
+        if "gitlab-release" in tags
+    ]
+    hidden_for_gitlab = [
+        bool(row.winfo_manager())
+        for tags, row in screen.field_rows
+        if "gitlab-release" not in tags
+    ]
+    assert all(shown_for_gitlab)
+    assert not any(hidden_for_gitlab)
+    assert True in visible
+
+    screen.select("github-pr")
+    gui_root.update_idletasks()
+    # [skip ci] does not apply to the PR command.
+    assert not screen.skip_ci_row.winfo_manager()
+
+
+def test_releases_screen_skip_ci_default_from_config(gui_root, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    write_changelog(tmp_path / "CHANGELOG.md")
+    (tmp_path / "changelogmanager.toml").write_text(
+        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n\n'
+        "[defaults]\nskip_ci = false\n",
+        encoding="utf-8",
+    )
+    controller = AppController(gui_root)
+    controller.config_var.set("changelogmanager.toml")
+    controller.sync_state_from_vars()
+    # Rebuild the releases screen so it re-reads config for the default.
+    screen = ReleasesScreen(controller.container, controller)
+    assert screen.skip_ci_var.get() is False
+
+
+def test_changelog_picker_hidden_on_commit_lint(gui_root, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    write_changelog(tmp_path / "CHANGELOG.md")
+
+    controller = AppController(gui_root)
+    controller.show_screen(ReleasesScreen.title)
+    gui_root.update_idletasks()
+    assert controller.changelog_picker.winfo_manager()  # shown where it applies
+
+    controller.show_screen(LintScreen.title)
+    gui_root.update_idletasks()
+    assert not controller.changelog_picker.winfo_manager()  # hidden on Commit Lint
+
+    controller.show_screen(ReleasesScreen.title)
+    gui_root.update_idletasks()
+    assert controller.changelog_picker.winfo_manager()  # shown again
+
+
+def test_tasks_screen_shows_default_file_hint(gui_root, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    write_changelog(tmp_path / "CHANGELOG.md")
+
+    controller = AppController(gui_root)
+    screen = controller.screens[TasksScreen.title]
+    controller.show_screen(TasksScreen.title)
+    gui_root.update_idletasks()
+    # Blank entry -> shows the resolved default file name.
+    assert "TASKS.md" in screen.default_file_var.get()
+    # Explicit entry -> the hint clears.
+    screen.tasks_file_var.set("docs/TASKS.md")
+    gui_root.update_idletasks()
+    assert screen.default_file_var.get() == ""
+
+
 def test_run_gui_reports_missing_tkinter_and_gui_subcommand_sets_handler(monkeypatch):
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command")

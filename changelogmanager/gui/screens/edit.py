@@ -342,12 +342,12 @@ class EditScreen(
             return
         if output.strip():
             messagebox.showinfo("Release", output.strip())
-        self.status(f"Released {future}" + (" (dry run)" if self.app_state.dry_run else ""))
+        self.status(
+            f"Released {future}" + (" (dry run)" if self.app_state.dry_run else "")
+        )
         self.controller.reload()
 
-    def prompt_release_options(
-        self, future: str
-    ) -> tuple[bool | None, bool]:
+    def prompt_release_options(self, future: str) -> tuple[bool | None, bool]:
         """Confirms the release and collects the version-bump options.
 
         Returns ``(bump, pyproject_only)``; ``bump`` is ``None`` when the user

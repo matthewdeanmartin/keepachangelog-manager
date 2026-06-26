@@ -26,6 +26,10 @@ class Screen(ttk.Frame):  # pylint: disable=too-many-ancestors
     #: Title shown in the Screens menu and as the screen heading.
     title: str = "Screen"
 
+    #: Whether this screen operates on the workspace changelog file. When False,
+    #: the top-panel "Changelog" file picker is hidden (it doesn't apply here).
+    uses_changelog: bool = True
+
     def __init__(self, parent: tk.Misc, controller: AppController) -> None:
         super().__init__(parent)
         self.controller = controller

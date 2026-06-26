@@ -18,12 +18,16 @@ from tkinter import scrolledtext, ttk
 from changelogmanager.change_types import TYPES_OF_CHANGE
 from changelogmanager.gui.cli_runner import run_cli
 from changelogmanager.gui.screens.base import Screen
+from changelogmanager.gui.widgets import add_tooltip
+from changelogmanager.tasks import default_task_file_name
 
 # Matches a `tasks list` output row: "12: [x] fixed: Some text".
 _TASK_LINE = re.compile(r"^\s*(\d+):\s*\[(.)\]\s*(\S+):\s*(.*)$")
 
 
-class TasksScreen(Screen):  # pylint: disable=too-many-ancestors,too-many-instance-attributes
+class TasksScreen(
+    Screen
+):  # pylint: disable=too-many-ancestors,too-many-instance-attributes
     """Manage a lightweight TASKS.md file."""
 
     title = "Tasks"
@@ -39,12 +43,28 @@ class TasksScreen(Screen):  # pylint: disable=too-many-ancestors,too-many-instan
         row.pack(fill=tk.X, padx=4, pady=2)
         ttk.Label(row, text="Tasks file (blank = auto):").pack(side=tk.LEFT)
         self.tasks_file_var = tk.StringVar()
+        self.tasks_file_var.trace_add("write", lambda *_: self.refresh_default_file())
         ttk.Entry(row, textvariable=self.tasks_file_var, width=30).pack(
             side=tk.LEFT, padx=4
         )
+        # Show which file "blank = auto" currently resolves to.
+        self.default_file_var = tk.StringVar()
+        default_label = ttk.Label(row, textvariable=self.default_file_var)
+        default_label.pack(side=tk.LEFT, padx=4)
+        add_tooltip(
+            default_label,
+            "The task file used when the box above is left blank "
+            "(first existing of TASKS.md, .changelogmanager/TASKS.md).",
+        )
         self.keep_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(row, text="Keep on promote", variable=self.keep_var).pack(
-            side=tk.LEFT, padx=8
+        keep_check = ttk.Checkbutton(
+            row, text="Keep on promote", variable=self.keep_var
+        )
+        keep_check.pack(side=tk.LEFT, padx=8)
+        add_tooltip(
+            keep_check,
+            "Leave promoted tasks in TASKS.md after copying them into "
+            "[Unreleased]. Off: completed tasks are removed once promoted.",
         )
 
         # Parsed task list with inline check/uncheck buttons.
@@ -76,7 +96,17 @@ class TasksScreen(Screen):  # pylint: disable=too-many-ancestors,too-many-instan
         self.output.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
     def on_show(self) -> None:
+        self.refresh_default_file()
         self.refresh_list()
+
+    def refresh_default_file(self) -> None:
+        """Update the hint showing which file 'blank = auto' resolves to."""
+
+        explicit = self.tasks_file_var.get().strip() or None
+        if explicit:
+            self.default_file_var.set("")
+        else:
+            self.default_file_var.set(f"→ {default_task_file_name()}")
 
     # ------------------------------------------------------------------
     def base_argv(self) -> list[str]:

@@ -18,7 +18,9 @@ from changelogmanager.gui.cli_runner import run_cli
 from changelogmanager.gui.screens.base import Screen
 
 
-class FragmentsScreen(Screen):  # pylint: disable=too-many-ancestors,too-many-instance-attributes
+class FragmentsScreen(
+    Screen
+):  # pylint: disable=too-many-ancestors,too-many-instance-attributes
     """Manage changelog fragment files."""
 
     title = "Fragments"

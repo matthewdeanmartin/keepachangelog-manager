@@ -21,10 +21,14 @@ from changelogmanager.gui.screens.base import Screen
 _SCHEMAS = ["auto", "conventional", "gitmoji", "keepachangelog"]
 
 
-class LintScreen(Screen):  # pylint: disable=too-many-ancestors,too-many-instance-attributes
+class LintScreen(
+    Screen
+):  # pylint: disable=too-many-ancestors,too-many-instance-attributes
     """Audit commit messages and plan rewrites."""
 
     title = "Commit Lint"
+    # Operates purely on git history; never reads/writes the workspace changelog.
+    uses_changelog = False
 
     def build_body(self) -> None:
         self.commands.add("Lint commits", self.lint_commits)
@@ -41,9 +45,9 @@ class LintScreen(Screen):  # pylint: disable=too-many-ancestors,too-many-instanc
         self.until_var = tk.StringVar()
         ttk.Entry(row, textvariable=self.until_var, width=14).pack(side=tk.LEFT, padx=4)
         self.all_history_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            row, text="All history", variable=self.all_history_var
-        ).pack(side=tk.LEFT, padx=8)
+        ttk.Checkbutton(row, text="All history", variable=self.all_history_var).pack(
+            side=tk.LEFT, padx=8
+        )
         ttk.Label(row, text="Schema:").pack(side=tk.LEFT, padx=(8, 0))
         self.schema_var = tk.StringVar(value="auto")
         ttk.Combobox(

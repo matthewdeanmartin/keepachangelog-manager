@@ -19,7 +19,7 @@ from changelogmanager.gui.screens.releases import ReleasesScreen
 from changelogmanager.gui.screens.tasks_screen import TasksScreen
 from changelogmanager.gui.screens.tools_screen import ToolsScreen
 from changelogmanager.gui.state import AppState, running_in_ci
-from changelogmanager.gui.widgets import StatusBar
+from changelogmanager.gui.widgets import StatusBar, add_tooltip
 from changelogmanager.runtime_logging import get_logger
 
 logger = get_logger(__name__)
@@ -111,14 +111,19 @@ class AppController:  # pylint: disable=too-many-instance-attributes
 
         row = ttk.Frame(top)
         row.pack(fill=tk.X, padx=4, pady=2)
-        ttk.Label(row, text="Changelog:").pack(side=tk.LEFT)
-        ttk.Entry(row, textvariable=self.input_file_var, width=38).pack(
-            side=tk.LEFT, padx=4
-        )
-        ttk.Button(row, text="Browse…", command=self.browse_input_file).pack(
-            side=tk.LEFT
-        )
-        ttk.Label(row, text="Config:").pack(side=tk.LEFT, padx=(12, 0))
+        # The changelog file picker is grouped so it can be hidden on screens
+        # that don't operate on a workspace changelog (Tasks, Fragments, etc.).
+        self.changelog_picker = ttk.Frame(row)
+        self.changelog_picker.pack(side=tk.LEFT)
+        ttk.Label(self.changelog_picker, text="Changelog:").pack(side=tk.LEFT)
+        ttk.Entry(
+            self.changelog_picker, textvariable=self.input_file_var, width=38
+        ).pack(side=tk.LEFT, padx=4)
+        ttk.Button(
+            self.changelog_picker, text="Browse…", command=self.browse_input_file
+        ).pack(side=tk.LEFT)
+        self._config_label = ttk.Label(row, text="Config:")
+        self._config_label.pack(side=tk.LEFT, padx=(12, 0))
         ttk.Entry(row, textvariable=self.config_var, width=26).pack(
             side=tk.LEFT, padx=4
         )
@@ -128,11 +133,24 @@ class AppController:  # pylint: disable=too-many-instance-attributes
 
         row2 = ttk.Frame(top)
         row2.pack(fill=tk.X, padx=4, pady=2)
-        ttk.Label(row2, text="Component:").pack(side=tk.LEFT)
+        component_label = ttk.Label(row2, text="Component:")
+        component_label.pack(side=tk.LEFT)
+        add_tooltip(
+            component_label,
+            "Which configured component (sub-project) to act on. Components map "
+            "names to separate CHANGELOG.md files in config; 'default' is the "
+            "top-level changelog.",
+        )
         ttk.Entry(row2, textvariable=self.component_var, width=16).pack(
             side=tk.LEFT, padx=4
         )
-        ttk.Label(row2, text="Error format:").pack(side=tk.LEFT, padx=(12, 0))
+        error_format_label = ttk.Label(row2, text="Error format:")
+        error_format_label.pack(side=tk.LEFT, padx=(12, 0))
+        add_tooltip(
+            error_format_label,
+            "How diagnostics are printed: 'llvm' for human-readable file:line "
+            "messages, 'github' for GitHub Actions inline annotations.",
+        )
         ttk.Combobox(
             row2,
             textvariable=self.error_format_var,
@@ -140,8 +158,12 @@ class AppController:  # pylint: disable=too-many-instance-attributes
             width=8,
             state="readonly",
         ).pack(side=tk.LEFT, padx=4)
-        ttk.Checkbutton(row2, text="Dry run", variable=self.dry_run_var).pack(
-            side=tk.LEFT, padx=12
+        dry_run_check = ttk.Checkbutton(row2, text="Dry run", variable=self.dry_run_var)
+        dry_run_check.pack(side=tk.LEFT, padx=12)
+        add_tooltip(
+            dry_run_check,
+            "Preview destructive actions (release, backfill, promote) without "
+            "writing files or calling GitHub/GitLab.",
         )
         ttk.Button(row2, text="Reload", command=self.reload).pack(side=tk.LEFT, padx=4)
 
@@ -183,8 +205,21 @@ class AppController:  # pylint: disable=too-many-instance-attributes
             self.current.pack_forget()
         screen.pack(fill=tk.BOTH, expand=True)
         self.current = screen
+        self._apply_changelog_picker_visibility(screen)
         logger.info("Switched to screen %s", title)
         screen.on_show()
+
+    def _apply_changelog_picker_visibility(self, screen: Screen) -> None:
+        """Show the Changelog file picker only on screens that use it."""
+
+        picker = getattr(self, "changelog_picker", None)
+        if picker is None:
+            return
+        if getattr(screen, "uses_changelog", True):
+            if not picker.winfo_manager():
+                picker.pack(side=tk.LEFT, before=self._config_label)
+        else:
+            picker.pack_forget()
 
     def set_status(self, message: str) -> None:
         """Updates the bottom status bar."""

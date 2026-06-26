@@ -480,6 +480,35 @@ def get_versioning_scheme(config: Optional[str]) -> str:
     return scheme
 
 
+def get_initial_version(config: Optional[str]) -> Optional[str]:
+    """Returns the configured first-release version, if any.
+
+    Read from ``[versioning].initial_version``. ``None`` means "use the
+    scheme default" (``0.0.1`` for semver). Set it to e.g. ``0.1.0`` to start a
+    project's first release there instead.
+    """
+
+    configuration = get_effective_configuration(config)
+    versioning = configuration.get("project", {}).get("versioning", {}) or {}
+    value = versioning.get("initial_version")
+    if value in (None, ""):
+        return None
+    return str(value)
+
+
+def get_skip_ci(config: Optional[str]) -> bool:
+    """Whether generated release commit messages should include ``[skip ci]``.
+
+    Read from ``[defaults].skip_ci``. Defaults to ``True`` (the historical
+    behaviour); set it to ``false`` so version-bump commit messages do not
+    suppress CI.
+    """
+
+    defaults = get_defaults_options(config)
+    value = defaults.get("skip_ci", True)
+    return bool(value)
+
+
 def get_versioning_label(scheme: str) -> str:
     """Returns a human label for a versioning scheme."""
 

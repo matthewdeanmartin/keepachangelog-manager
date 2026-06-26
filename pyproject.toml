@@ -30,6 +30,7 @@ Source = "https://github.com/matthewdeanmartin/keepachangelog-manager"
 
 [project.scripts]
 changelogmanager = "changelogmanager.__main__:main"
+kacl-gui = "changelogmanager.__main__:main"
 keepachangelog-manager = "changelogmanager.__main__:main"
 changelogmanager-lint-message = "changelogmanager.lint_message_cli:main"
 

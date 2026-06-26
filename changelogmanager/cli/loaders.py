@@ -15,6 +15,7 @@ from changelogmanager.changelog_reader import ChangelogReader
 from changelogmanager.config import (
     get_component_from_config,
     get_format_options,
+    get_initial_version,
     get_preamble_keywords,
     get_validation_options,
     get_versioning_scheme,
@@ -67,6 +68,7 @@ def load_changelog(
         file_path=file_path,
         changelog=changelog_dict,
         versioning_scheme=versioning_scheme,
+        initial_version=get_initial_version(config),
     )
 
 
