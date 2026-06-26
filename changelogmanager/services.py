@@ -112,14 +112,8 @@ def release_changelog(
         write,
     )
 
-    if bump_versions:
-        from changelogmanager.version_bumper import jiggle_available  # noqa: PLC0415
-
-        if not jiggle_available():
-            raise logging.Error(
-                message="--bump-versions requires jiggle-version. Install it with: pip install 'keepachangelog-manager-fork[jiggle]'"
-            )
-
+    # Version bumping is built in (vendored), so --bump-versions needs no extra
+    # dependency or availability check.
     changelog.release(override_version)
     new_version = str(next(iter(changelog.get())))
     logger.info(

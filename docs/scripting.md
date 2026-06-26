@@ -255,8 +255,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install with jiggle extra
-        run: uv sync --frozen --extra jiggle
+      - name: Install
+        run: uv sync --frozen
 
       - name: Release changelog and bump versions
         run: |

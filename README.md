@@ -164,10 +164,9 @@ Then promote `[Unreleased]` into a real release:
 changelogmanager release --yes
 ```
 
-If your version also lives in `pyproject.toml` or Python `__version__` strings, install the `jiggle` extra and do it in one step:
+If your version also lives in `pyproject.toml` or Python `__version__` strings, do it in one step (built in, no extra to install):
 
 ```sh
-uv tool install "keepachangelog-manager-fork[jiggle]"
 changelogmanager release --bump-versions --yes
 ```
 

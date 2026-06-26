@@ -90,8 +90,8 @@ jobs:
         with:
           enable-cache: false
 
-      - name: Sync dependencies (with jiggle extra)
-        run: uv sync --frozen --extra jiggle
+      - name: Sync dependencies
+        run: uv sync --frozen
 
       - name: Bump changelog and version files
         id: release
@@ -121,7 +121,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "${BRANCH}"
           git add CHANGELOG.md pyproject.toml
-          # Surface any other files jiggle touched (e.g. __about__.py)
+          # Surface any other files the version bump touched (e.g. __about__.py)
           git add -u
           if git diff --cached --quiet; then
             echo "::warning::No files changed after release --bump-versions; is the version already bumped?"

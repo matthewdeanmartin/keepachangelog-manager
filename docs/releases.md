@@ -58,20 +58,7 @@ Without `--yes`, non-interactive runs are refused. Use `--dry-run` first if you 
 
 ## Syncing version strings with `--bump-versions` { #syncing-version-strings-with---bump-versions }
 
-If your project stores the version outside the changelog, use `--bump-versions` to keep everything aligned in one step.
-
-Install the optional extra first:
-
-```sh
-# uv project dependency
-uv add "keepachangelog-manager-fork[jiggle]"
-
-# or standalone tool install
-uv tool install "keepachangelog-manager-fork[jiggle]"
-
-# or pip
-pip install "keepachangelog-manager-fork[jiggle]"
-```
+If your project stores the version outside the changelog, use `--bump-versions` to keep everything aligned in one step. This is built in — no extra to install.
 
 Release and sync together:
 

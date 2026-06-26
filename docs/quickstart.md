@@ -92,7 +92,7 @@ The `[Unreleased]` section is renamed to the inferred next version with today's 
 > Without this, the changelog and `pyproject.toml` (and any `__version__` in your source)
 > will drift, and your package will be published under the wrong version number.
 > See [Syncing version strings](releases.md#syncing-version-strings-with---bump-versions)
-> for the full details and the `[jiggle]` extra required to enable this flag.
+> for the full details. This works out of the box — no extra to install.
 
 ## 5. Validate at any time
 
