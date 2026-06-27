@@ -74,14 +74,3 @@ function kacHeading(changeType: string): string {
 function indentContinuation(text: string): string {
   return text.split('\n').join('\n  ');
 }
-
-/** Done shipping tasks that have no matching changelog fragment slug. */
-export function tasksMissingChangelog(
-  tasks: TaskFragment[],
-  fragments: ChangelogFragment[],
-): TaskFragment[] {
-  const fragSlugs = new Set(fragments.map((f) => f.slug));
-  return tasks.filter(
-    (t) => t.status === 'done' && shipsToChangelog(t.category) && !fragSlugs.has(t.taskId),
-  );
-}

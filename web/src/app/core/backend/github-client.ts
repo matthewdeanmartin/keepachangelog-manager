@@ -72,4 +72,13 @@ export class GitHubClient {
     const user = await this.request<{ login: string }>('GET', '/user');
     return user.login;
   }
+
+  /** Remaining core API quota, for the rate-limit display. */
+  async rateLimit(): Promise<{ remaining: number; limit: number }> {
+    const data = await this.request<{ resources: { core: { remaining: number; limit: number } } }>(
+      'GET',
+      '/rate_limit',
+    );
+    return data.resources.core;
+  }
 }

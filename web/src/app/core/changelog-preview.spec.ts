@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  buildUnreleasedGroups,
-  renderUnreleasedMarkdown,
-  tasksMissingChangelog,
-} from './changelog-preview';
+import { buildUnreleasedGroups, renderUnreleasedMarkdown } from './changelog-preview';
 import { ChangelogFragment, TaskFragment } from './models';
 
 function task(partial: Partial<TaskFragment>): TaskFragment {
@@ -68,23 +64,5 @@ describe('renderUnreleasedMarkdown', () => {
 
   it('shows a placeholder when empty', () => {
     expect(renderUnreleasedMarkdown([])).toContain('No shipping changes');
-  });
-});
-
-describe('tasksMissingChangelog', () => {
-  it('flags done shipping tasks with no matching fragment slug', () => {
-    const missing = tasksMissingChangelog(
-      [task({ taskId: 'orphan', category: 'added', status: 'done' })],
-      [frag({ slug: 'something-else' })],
-    );
-    expect(missing.map((t) => t.taskId)).toEqual(['orphan']);
-  });
-
-  it('does not flag tasks that have a matching fragment', () => {
-    const missing = tasksMissingChangelog(
-      [task({ taskId: 'matched', category: 'added', status: 'done' })],
-      [frag({ slug: 'matched' })],
-    );
-    expect(missing).toEqual([]);
   });
 });

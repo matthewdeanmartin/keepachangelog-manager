@@ -1,25 +1,29 @@
 import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { CommitBarComponent } from './features/commit-bar.component';
+import { KATL_VERSION } from './core/version';
 
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet, RouterLink, RouterLinkActive, CommitBarComponent],
   template: `
+    <a class="skip" href="#main">Skip to content</a>
     <header class="topbar">
       <a class="brand" routerLink="/board">KATL <span>· Keep A Task Log</span></a>
-      <nav>
+      <nav aria-label="Primary">
         <a routerLink="/board" routerLinkActive="active">Board</a>
         <a routerLink="/changelog" routerLinkActive="active">Changelog</a>
         <a routerLink="/preview" routerLinkActive="active">Release preview</a>
         <a routerLink="/workspace" routerLinkActive="active">Workspace</a>
+        <a routerLink="/help" routerLinkActive="active">Help</a>
       </nav>
     </header>
-    <main><router-outlet /></main>
+    <main id="main"><router-outlet /></main>
     <app-commit-bar />
     <footer>
       <span
-        >Browser-only · fragments round-trip with the <code>keepachangelog-manager</code> CLI</span
+        >Browser-only · fragments round-trip with the <code>keepachangelog-manager</code> CLI ·
+        <a routerLink="/help">v{{ version }}</a></span
       >
     </footer>
   `,
@@ -29,6 +33,19 @@ import { CommitBarComponent } from './features/commit-bar.component';
         display: flex;
         flex-direction: column;
         min-height: 100vh;
+      }
+      .skip {
+        position: absolute;
+        left: -999px;
+        top: 0;
+        background: #fff;
+        color: #1f2933;
+        padding: 0.5rem 0.9rem;
+        z-index: 100;
+      }
+      .skip:focus {
+        left: 0.5rem;
+        top: 0.5rem;
       }
       .topbar {
         display: flex;
@@ -77,7 +94,12 @@ import { CommitBarComponent } from './features/commit-bar.component';
         font-size: 0.8rem;
         text-align: center;
       }
+      footer a {
+        color: #7b8794;
+      }
     `,
   ],
 })
-export class AppComponent {}
+export class AppComponent {
+  version = KATL_VERSION;
+}

@@ -205,7 +205,9 @@ export class WorkspaceComponent {
       await this.repo.useBackend(backend);
       // Persist only the non-secret repo choice, never the token.
       this.writePref({ owner: this.owner, repo: this.repoName, baseBranch: this.baseBranch });
-      this.status.set(`Connected as ${login}. Loaded ${this.repo.tasks().length} tickets.`);
+      const rl = await client.rateLimit().catch(() => null);
+      const quota = rl ? ` API quota: ${rl.remaining}/${rl.limit}.` : '';
+      this.status.set(`Connected as ${login}. Loaded ${this.repo.tasks().length} tickets.${quota}`);
       this.router.navigate(['/board']);
     } catch (e) {
       this.isError.set(true);

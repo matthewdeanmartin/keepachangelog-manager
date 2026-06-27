@@ -98,6 +98,14 @@ export class RepoService {
     if (task) this.remove(task.path);
   }
 
+  /** Update just a ticket's status (used by board drag-and-drop). No-op if the
+   * status is unchanged, so a drop onto the same column is a no-op diff. */
+  setTaskStatus(taskId: string, status: string): void {
+    const task = this.getTask(taskId);
+    if (!task || task.status === status) return;
+    this.saveTask({ ...task, status });
+  }
+
   /** Create the next sequential ticket id, e.g. "0006-my-slug". */
   nextTaskId(summary: string): string {
     const nums = this.tasks()

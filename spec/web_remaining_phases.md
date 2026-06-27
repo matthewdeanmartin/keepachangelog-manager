@@ -139,7 +139,6 @@ backend round-trips files on disk that the Python CLI then parses.
 > `body-sections` parse/serialize layer, so **unknown sections survive verbatim**
 > and editing is a proven fixed point (no cursor jumps / data loss). Lint shows as
 > friendly "Hints". `core/body-sections.ts` + `core/templates.ts`; 12 new tests.
-> **Next: W3 (board interactions).**
 
 The rigid head is already a form. This phase makes the **whole ticket** feel like
 a ticket tool, not a markdown editor:
@@ -164,6 +163,15 @@ trailing newline); custom fields and unknown body sections survive a form edit.
 
 ## 6. Phase W3 — board as a tool, not a list
 
+> **Progress (2026-06-27): W3 ✅.** The Board now supports **drag-and-drop**
+> between status columns (HTML5 DnD → `setTaskStatus`, a no-op when unchanged so a
+> same-column drop is a no-op diff), a **filter bar** (search over title/id/labels
+> + assignee + type dropdowns), a **By milestone** lane view toggle, and per-column
+> **quick-add**. The card is now a reusable `TicketCardComponent`; filter/group
+> logic lives in tested `core/board-filter.ts` (7 tests). Quick-add focus uses a
+> `viewChildren` + `effect` (no a11y-flagged `autofocus`). **Next: W4 (release
+> preview → PR).**
+
 - **Drag-and-drop between status columns** (writes `Status` in the head; marks
   dirty).
 - **Filters / grouping:** by assignee, category (shipping vs not), milestone,
@@ -176,6 +184,18 @@ trailing newline); custom fields and unknown body sections survive a form edit.
 tickets that would ship.
 
 ## 7. Phase W4 — release preview & PR for changelog assembly
+
+> **Progress (2026-06-27): W4 ✅.** The Release preview screen now has a
+> **readiness report** (tested `core/release-readiness.ts`, 5 tests): done
+> shipping tickets missing a fragment, changelog fragments with no matching
+> ticket, and in-progress/blocked tickets, with a ready/not-ready banner. An
+> **"Open release PR"** action bundles pending fragment changes into a single PR
+> via the GitHub backend (`repo.commit()`), with copy stating CI's
+> `fragments collect` assembles `CHANGELOG.md` on merge — the app never assembles
+> it. Non-GitHub backends show why the PR step is N/A. The header makes explicit
+> that non-shipping **and unknown** categories never ship. (The old
+> `tasksMissingChangelog` helper was folded into the readiness module.)
+> **Next: W5 (Pages hardening + docs).**
 
 The app previews `[Unreleased]` today. Extend toward the release ceremony,
 without ever owning `CHANGELOG.md` assembly (the CLI does that):
@@ -194,9 +214,15 @@ release PR contains exactly the fragment files, not a hand-assembled changelog.
 
 ## 8. Phase W5 — Pages hardening & docs
 
-- The shared GitHub Pages deploy exists; finish: version in footer, SPA 404
-  fallback (done in workflow), demo repo linked from a landing page, sample
-  `tickets/` + `changelog.d/` fixtures.
+> **Progress (2026-06-27): W5 ✅ (core).** Added an in-app **Help** page (getting
+> started, token permissions, fragment format, security model, known limitations),
+> a **version** in the footer linking to Help (`core/version.ts`), a11y touches
+> (skip-to-content link, `aria-label`ed nav), and a **GitHub rate-limit display**
+> on connect (`GitHubClient.rateLimit()`, with a new client spec; 3 tests). The
+> Pages deploy workflow + SPA 404 fallback already existed. Remaining nice-to-haves
+> deferred: a marketing landing page, retry-on-transient-error, and remote-conflict
+> detection (tracked in W7-style hardening / open questions). **Next: W6 is the
+> paid GitHub App — out of scope; the web MVP (W1–W5) is functionally complete.**
 - **Docs pages:** getting started, token permissions, fragment format (link the
   real specs), security model, known limitations.
 - **Accessibility & resilience:** keyboard-navigable board and forms,

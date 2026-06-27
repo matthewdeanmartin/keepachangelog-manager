@@ -1,4 +1,9 @@
 # Build the KATL Angular app (web/) and deploy it to GitHub Pages.
+#
+# - Pushes to main that touch web/ run the full quality gate, then deploy.
+# - Pull requests that touch web/ run the gate + build only (no deploy), so a
+#   broken change can't reach Pages.
+# - Manual runs (workflow_dispatch) build and deploy from the selected ref.
 name: Deploy KATL web app
 
 on:
@@ -7,33 +12,44 @@ on:
     paths:
       - 'web/**'
       - '.github/workflows/web-pages.yml'
+  pull_request:
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-pages.yml'
   workflow_dispatch:
 
+# Least privilege; the deploy job needs pages + id-token.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+      # Quality gate (mirrors `make check`): lint, formatting, unit tests, dead code.
       # Vitest runs the pure-logic specs in Node — no browser needed.
+      - run: npm run lint
+      - run: npm run format:check
       - run: npm test
+      - run: npm run dead-code
       # base-href must match the repo name so assets resolve under
       # https://<user>.github.io/keepachangelog-manager/
       - run: npm run build -- --base-href=/keepachangelog-manager/
@@ -41,11 +57,18 @@ jobs:
         run: cp dist/web/browser/index.html dist/web/browser/404.html
       - uses: actions/upload-pages-artifact@v3
         with:
+          # Path is relative to the repo root (working-directory does not apply
+          # to action `with:` inputs).
           path: web/dist/web/browser
 
   deploy:
+    # Only deploy from main (or a manual dispatch); PRs stop after build.
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

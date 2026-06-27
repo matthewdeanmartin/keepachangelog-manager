@@ -1,8 +1,26 @@
-import { Component, computed, inject } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChildren,
+} from '@angular/core';
 import { Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { RepoService } from '../core/repo.service';
-import { TASK_STATUSES, TaskFragment, lookupCategory } from '../core/models';
-import { emojiGlyph, statusGlyph } from '../core/emoji';
+import { TASK_STATUSES, TaskFragment } from '../core/models';
+import { statusGlyph } from '../core/emoji';
+import {
+  BoardFilter,
+  EMPTY_FILTER,
+  distinctAssignees,
+  distinctCategories,
+  filterTasks,
+  groupByMilestone,
+} from '../core/board-filter';
+import { TicketCardComponent } from './ticket-card.component';
 
 interface Column {
   status: string;
@@ -11,6 +29,7 @@ interface Column {
 
 @Component({
   selector: 'app-board',
+  imports: [FormsModule, TicketCardComponent],
   template: `
     <div class="head">
       <h1>Board</h1>
@@ -19,51 +38,95 @@ interface Column {
         <button class="ghost" (click)="resetSamples()">Reset to samples</button>
       </div>
     </div>
-    <p class="hint">
-      Task fragments live in <code>tickets/*.md</code>. PMs &amp; BAs write tickets here; on
-      release, <code>done</code> shipping tickets flow into the changelog.
-    </p>
 
-    <div class="board">
-      @for (col of columns(); track col.status) {
-        <section class="col">
-          <h2>
-            {{ glyph(col.status) }} {{ col.status }} <span>{{ col.tasks.length }}</span>
-          </h2>
-          @for (t of col.tasks; track t.taskId) {
-            <article
-              class="card"
-              role="button"
-              tabindex="0"
-              (click)="open(t)"
-              (keydown.enter)="open(t)"
-              (keydown.space)="open(t); $event.preventDefault()"
-              [class.warn]="t.lint.length"
-            >
-              <div class="cat" [title]="catTitle(t.category)">
-                {{ catGlyph(t.category) }} {{ t.category }}
-                @if (!ships(t.category)) {
-                  <em class="badge">no-ship</em>
-                }
-              </div>
-              <div class="title">{{ t.title }}</div>
-              <div class="meta">
-                <span class="id">{{ t.taskId }}</span>
-                @for (a of t.assignees; track a) {
-                  <span class="who">{{ a }}</span>
-                }
-              </div>
-              @if (t.lint.length) {
-                <div class="lint">⚠ {{ t.lint.length }} lint</div>
-              }
-            </article>
-          }
-          @if (!col.tasks.length) {
-            <div class="empty">—</div>
-          }
-        </section>
-      }
+    <div class="toolbar">
+      <input
+        class="search"
+        [ngModel]="filter().search"
+        (ngModelChange)="patchFilter({ search: $event })"
+        placeholder="Search title, id, labels…"
+      />
+      <select
+        [ngModel]="filter().assignee"
+        (ngModelChange)="patchFilter({ assignee: $event })"
+        aria-label="Filter by assignee"
+      >
+        <option value="">All assignees</option>
+        @for (a of assignees(); track a) {
+          <option [value]="a">{{ a }}</option>
+        }
+      </select>
+      <select
+        [ngModel]="filter().category"
+        (ngModelChange)="patchFilter({ category: $event })"
+        aria-label="Filter by type"
+      >
+        <option value="">All types</option>
+        @for (c of categories(); track c) {
+          <option [value]="c">{{ c }}</option>
+        }
+      </select>
+      <span class="spacer"></span>
+      <div class="seg">
+        <button [class.on]="view() === 'status'" (click)="view.set('status')">By status</button>
+        <button [class.on]="view() === 'milestone'" (click)="view.set('milestone')">
+          By milestone
+        </button>
+      </div>
     </div>
+
+    @if (view() === 'status') {
+      <div class="board">
+        @for (col of columns(); track col.status) {
+          <section
+            class="col"
+            [class.over]="dragOver() === col.status"
+            (dragover)="onDragOver($event, col.status)"
+            (dragleave)="dragOver.set('')"
+            (drop)="onDrop(col.status)"
+          >
+            <h2>
+              {{ glyph(col.status) }} {{ col.status }} <span>{{ col.tasks.length }}</span>
+            </h2>
+            @for (t of col.tasks; track t.taskId) {
+              <app-ticket-card
+                [task]="t"
+                (openTask)="open($event)"
+                (dragStart)="dragging.set($event)"
+              />
+            }
+            @if (quickAddFor() === col.status) {
+              <input
+                class="quick"
+                [(ngModel)]="quickText"
+                (keydown.enter)="commitQuickAdd(col.status)"
+                (keydown.escape)="cancelQuickAdd()"
+                (blur)="cancelQuickAdd()"
+                placeholder="Title, then Enter"
+                #quickInput
+              />
+            } @else {
+              <button class="add" (click)="startQuickAdd(col.status)">+ Quick add</button>
+            }
+          </section>
+        }
+      </div>
+    } @else {
+      <div class="lanes">
+        @for (group of milestones(); track group.milestone) {
+          <section class="lane">
+            <h2>
+              {{ group.milestone }} <span>{{ group.tasks.length }}</span>
+            </h2>
+            <div class="lane-cards">
+              @for (t of group.tasks; track t.taskId) {
+                <app-ticket-card [task]="t" (openTask)="open($event)" />
+              }
+            </div>
+          </section>
+        }
+      </div>
+    }
   `,
   styles: [
     `
@@ -79,6 +142,27 @@ interface Column {
         display: flex;
         gap: 0.5rem;
       }
+      .toolbar {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        margin: 0.75rem 0 1rem;
+        flex-wrap: wrap;
+      }
+      .toolbar .search {
+        flex: 1;
+        min-width: 180px;
+      }
+      .spacer {
+        flex: 1;
+      }
+      input,
+      select {
+        padding: 0.4rem;
+        border: 1px solid #cbd2d9;
+        border-radius: 4px;
+        font: inherit;
+      }
       button {
         background: #4da8da;
         color: #fff;
@@ -92,9 +176,22 @@ interface Column {
         color: #4da8da;
         border: 1px solid #4da8da;
       }
-      .hint {
-        color: #7b8794;
+      .seg {
+        display: flex;
+        border: 1px solid #4da8da;
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .seg button {
+        background: #fff;
+        color: #4da8da;
+        border-radius: 0;
+        padding: 0.4rem 0.7rem;
         font-size: 0.85rem;
+      }
+      .seg button.on {
+        background: #4da8da;
+        color: #fff;
       }
       .board {
         display: grid;
@@ -107,6 +204,11 @@ interface Column {
         border-radius: 8px;
         padding: 0.5rem;
         min-height: 120px;
+        transition: background 0.1s;
+      }
+      .col.over {
+        background: #e0f0ff;
+        outline: 2px dashed #4da8da;
       }
       .col h2 {
         font-size: 0.8rem;
@@ -122,64 +224,50 @@ interface Column {
         padding: 0 0.5rem;
         font-size: 0.7rem;
       }
-      .card {
-        background: #fff;
-        border: 1px solid #e4e7eb;
-        border-radius: 6px;
-        padding: 0.6rem;
-        margin-bottom: 0.5rem;
-        cursor: pointer;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      .add {
+        background: transparent;
+        color: #7b8794;
+        border: 1px dashed #cbd2d9;
+        width: 100%;
+        padding: 0.35rem;
+        font-size: 0.8rem;
       }
-      .card:hover {
+      .add:hover {
+        color: #4da8da;
         border-color: #4da8da;
       }
-      .card.warn {
-        border-left: 3px solid #f0b429;
+      .quick {
+        width: 100%;
+        box-sizing: border-box;
       }
-      .cat {
-        font-size: 0.7rem;
-        color: #616e7c;
-        text-transform: capitalize;
-      }
-      .badge {
-        background: #f0b429;
-        color: #fff;
-        border-radius: 4px;
-        padding: 0 0.3rem;
-        font-style: normal;
-        font-size: 0.6rem;
-        margin-left: 0.3rem;
-      }
-      .title {
-        font-weight: 600;
-        font-size: 0.9rem;
-        margin: 0.25rem 0;
-      }
-      .meta {
+      .lanes {
         display: flex;
-        gap: 0.4rem;
-        flex-wrap: wrap;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .lane {
+        background: #f5f7fa;
+        border-radius: 8px;
+        padding: 0.75rem;
+      }
+      .lane h2 {
+        font-size: 0.9rem;
+        color: #3e4c59;
+        margin: 0 0 0.5rem;
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+      }
+      .lane h2 span {
+        background: #cbd2d9;
+        border-radius: 10px;
+        padding: 0 0.5rem;
         font-size: 0.7rem;
-        color: #7b8794;
       }
-      .id {
-        font-family: monospace;
-      }
-      .who {
-        background: #e4e7eb;
-        border-radius: 4px;
-        padding: 0 0.3rem;
-      }
-      .lint {
-        font-size: 0.7rem;
-        color: #cb6e17;
-        margin-top: 0.25rem;
-      }
-      .empty {
-        color: #cbd2d9;
-        text-align: center;
-        padding: 0.5rem;
+      .lane-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 0.5rem;
       }
       @media (max-width: 900px) {
         .board {
@@ -193,18 +281,41 @@ export class BoardComponent {
   private repo = inject(RepoService);
   private router = inject(Router);
 
+  glyph = statusGlyph;
+
+  readonly filter = signal<BoardFilter>({ ...EMPTY_FILTER });
+  readonly view = signal<'status' | 'milestone'>('status');
+  readonly dragging = signal<TaskFragment | null>(null);
+  readonly dragOver = signal<string>('');
+  readonly quickAddFor = signal<string>('');
+  quickText = '';
+
+  // Focus the quick-add input when it appears (replaces the a11y-flagged autofocus).
+  private quickInputs = viewChildren<ElementRef<HTMLInputElement>>('quickInput');
+
+  constructor() {
+    effect(() => {
+      if (this.quickAddFor()) this.quickInputs()[0]?.nativeElement.focus();
+    });
+  }
+
+  private visible = computed(() => filterTasks(this.repo.tasks(), this.filter()));
+  assignees = computed(() => distinctAssignees(this.repo.tasks()));
+  categories = computed(() => distinctCategories(this.repo.tasks()));
+
   columns = computed<Column[]>(() => {
-    const tasks = this.repo.tasks();
+    const tasks = this.visible();
     return TASK_STATUSES.map((status) => ({
       status,
       tasks: tasks.filter((t) => t.status === status),
     }));
   });
 
-  glyph = statusGlyph;
-  catGlyph = (key: string) => emojiGlyph(lookupCategory(key)?.emoji);
-  catTitle = (key: string) => lookupCategory(key)?.title ?? key;
-  ships = (key: string) => lookupCategory(key)?.shipsToChangelog ?? false;
+  milestones = computed(() => groupByMilestone(this.visible()));
+
+  patchFilter(partial: Partial<BoardFilter>): void {
+    this.filter.set({ ...this.filter(), ...partial });
+  }
 
   open(t: TaskFragment): void {
     this.router.navigate(['/ticket', t.taskId]);
@@ -212,6 +323,53 @@ export class BoardComponent {
 
   newTask(): void {
     this.router.navigate(['/ticket', 'new']);
+  }
+
+  // --- drag and drop ---
+
+  onDragOver(event: DragEvent, status: string): void {
+    event.preventDefault(); // allow drop
+    this.dragOver.set(status);
+  }
+
+  onDrop(status: string): void {
+    const card = this.dragging();
+    this.dragOver.set('');
+    this.dragging.set(null);
+    if (card) this.repo.setTaskStatus(card.taskId, status);
+  }
+
+  // --- quick add ---
+
+  startQuickAdd(status: string): void {
+    this.quickText = '';
+    this.quickAddFor.set(status);
+  }
+
+  cancelQuickAdd(): void {
+    this.quickAddFor.set('');
+  }
+
+  commitQuickAdd(status: string): void {
+    const title = this.quickText.trim();
+    if (!title) {
+      this.cancelQuickAdd();
+      return;
+    }
+    const taskId = this.repo.nextTaskId(title);
+    this.repo.saveTask({
+      taskId,
+      path: `tickets/${taskId}.md`,
+      title,
+      category: 'added',
+      status,
+      labels: [],
+      assignees: [],
+      custom: {},
+      body: '## Summary\n\n',
+      lint: [],
+    });
+    this.cancelQuickAdd();
   }
 
   resetSamples(): void {
