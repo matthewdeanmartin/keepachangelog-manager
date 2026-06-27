@@ -101,8 +101,8 @@ class ReleasesScreen(
             )
         )
 
-        # Optional [skip ci] tag for the release commit message (configurable;
-        # default on — matches the historical behaviour).
+        # Optional [skip ci] tag for the PR title (configurable; default on to
+        # conserve build minutes). Defaults from [defaults].skip_ci.
         from changelogmanager.config import get_skip_ci  # noqa: PLC0415
 
         self.skip_ci_var = tk.BooleanVar(value=get_skip_ci(self.app_state.config_path))
@@ -110,7 +110,7 @@ class ReleasesScreen(
         self.skip_ci_row.pack(fill=tk.X, padx=4, pady=2, anchor="w")
         skip_check = ttk.Checkbutton(
             self.skip_ci_row,
-            text="Append [skip ci] to release commit message",
+            text="Append [skip ci] to PR title",
             variable=self.skip_ci_var,
         )
         skip_check.pack(anchor="w")
@@ -118,9 +118,9 @@ class ReleasesScreen(
 
         add_tooltip(
             skip_check,
-            "When this tool's output drives a release commit, append [skip ci] "
-            "so the bump commit doesn't trigger another CI run. Uncheck to let "
-            "CI run on the release commit.",
+            "Append [skip ci] to the release PR title so merging it doesn't "
+            "trigger another CI run (conserves build minutes). Uncheck to let "
+            "CI run on the merge. Default follows [defaults].skip_ci in config.",
         )
 
         run_row = ttk.Frame(self.work_area)
@@ -179,11 +179,13 @@ class ReleasesScreen(
                     row.pack(fill=tk.X, padx=4, pady=2, anchor="w")
             else:
                 row.pack_forget()
-        # [skip ci] applies only to the release commands, not the PR command.
+        # [skip ci] applies to the PR title only; the release commands here don't
+        # create a commit, so the tag is meaningless for them.
         if command == "github-pr":
+            if not self.skip_ci_row.winfo_manager():
+                self.skip_ci_row.pack(fill=tk.X, padx=4, pady=2, anchor="w")
+        else:
             self.skip_ci_row.pack_forget()
-        elif not self.skip_ci_row.winfo_manager():
-            self.skip_ci_row.pack(fill=tk.X, padx=4, pady=2, anchor="w")
 
     def copy_sample(self) -> None:
         text = self.sample.get("1.0", tk.END).rstrip("\n")
@@ -214,6 +216,7 @@ class ReleasesScreen(
                 argv += ["--base", self.base_var.get().strip()]
             if self.token_var.get().strip():
                 argv += ["--github-token", self.token_var.get().strip()]
+            argv.append("--skip-ci" if self.skip_ci_var.get() else "--no-skip-ci")
         elif command == "gitlab-release":
             if self.project_var.get().strip():
                 argv += ["--project", self.project_var.get().strip()]

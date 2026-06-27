@@ -367,7 +367,12 @@ def test_releases_screen_hides_irrelevant_fields(gui_root, tmp_path, monkeypatch
 
     screen.select("github-pr")
     gui_root.update_idletasks()
-    # [skip ci] does not apply to the PR command.
+    # [skip ci] applies to the PR title, so the row is shown for github-pr.
+    assert screen.skip_ci_row.winfo_manager()
+
+    screen.select("gitlab-release")
+    gui_root.update_idletasks()
+    # ...but not for commands that don't create a PR/commit.
     assert not screen.skip_ci_row.winfo_manager()
 
 

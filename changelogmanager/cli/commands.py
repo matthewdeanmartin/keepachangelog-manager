@@ -34,6 +34,7 @@ from changelogmanager.config import (
     get_component_tasks_file,
     get_effective_configuration,
     get_fragments_options,
+    get_skip_ci,
     get_tasks_options,
     serialize_config_toml,
     write_configuration,
@@ -1004,6 +1005,16 @@ def command_github_pr(args: argparse.Namespace, ctx: CliContext) -> None:
     title = args.title or f"docs: update CHANGELOG.md for release on {args.head}"
     body = args.body or f"Update `CHANGELOG.md` on branch `{args.head}`."
 
+    # Append [skip ci] to the PR title so merging it doesn't trigger another CI
+    # run. Tri-state: --skip-ci / --no-skip-ci override; otherwise follow
+    # [defaults].skip_ci (default True, to conserve build minutes). Idempotent so
+    # re-running on an existing PR doesn't stack the tag.
+    skip_ci = args.skip_ci
+    if skip_ci is None:
+        skip_ci = get_skip_ci(resolved_config_path(args))
+    if skip_ci and "[skip ci]" not in title:
+        title = f"{title} [skip ci]"
+
     if not args.repository or not args.head or not args.base:
         raise logging.Error(
             message="Repository, head branch, and base branch are required for GitHub PR",
@@ -1012,10 +1023,16 @@ def command_github_pr(args: argparse.Namespace, ctx: CliContext) -> None:
     if args.dry_run:
         print_dry_run(
             ctx,
-            f"would open or update PR head={args.head} base={args.base} in {args.repository}",
+            f"would open or update PR head={args.head} base={args.base} "
+            f"in {args.repository} with title {title!r}",
         )
         ctx.json_payload.update(
-            {"repository": args.repository, "head": args.head, "base": args.base}
+            {
+                "repository": args.repository,
+                "head": args.head,
+                "base": args.base,
+                "title": title,
+            }
         )
         return
 

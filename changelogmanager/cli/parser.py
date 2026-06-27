@@ -787,6 +787,23 @@ examples:
     github_pr_parser.add_argument("--title", default=None, help="PR title")
     github_pr_parser.add_argument("--body", default=None, help="PR body")
     github_pr_parser.add_argument(
+        "--skip-ci",
+        dest="skip_ci",
+        default=None,
+        action="store_true",
+        help=(
+            "Append [skip ci] to the PR title so merging it does not trigger a "
+            "CI run (conserves build minutes). Defaults to [defaults].skip_ci "
+            "in config."
+        ),
+    )
+    github_pr_parser.add_argument(
+        "--no-skip-ci",
+        dest="skip_ci",
+        action="store_false",
+        help="Do not append [skip ci] to the PR title (overrides config).",
+    )
+    github_pr_parser.add_argument(
         "-t",
         "--github-token",
         default=None,

@@ -127,7 +127,13 @@ jobs:
             echo "::warning::No files changed after release --bump-versions; is the version already bumped?"
             exit 1
           fi
-          git commit -m "chore: release ${RELEASE_VERSION}"
+          # Follow [defaults].skip_ci (default true) so the bump commit doesn't
+          # trigger another CI run; conserves build minutes.
+          SKIP_CI_SUFFIX=""
+          if uv run python -c "import sys; from changelogmanager.config import get_skip_ci; sys.exit(0 if get_skip_ci(None) else 1)"; then
+            SKIP_CI_SUFFIX=" [skip ci]"
+          fi
+          git commit -m "chore: release ${RELEASE_VERSION}${SKIP_CI_SUFFIX}"
           git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git"
           REMOTE_SHA="$(git ls-remote --heads origin "${BRANCH}" | awk '{print $1}')"
           if [ -n "${REMOTE_SHA}" ]; then
@@ -149,6 +155,9 @@ jobs:
           REPO: ${{ github.repository }}
           BUMP_BRANCH: ${{ steps.push.outputs.branch }}
         run: |
+          # github-pr appends [skip ci] to the title per [defaults].skip_ci
+          # (default true) so merging the release PR doesn't trigger CI. Pass
+          # --no-skip-ci here to opt out for a single run.
           uv run changelogmanager github-pr \
             --repository "${REPO}" \
             --head "${BUMP_BRANCH}" \

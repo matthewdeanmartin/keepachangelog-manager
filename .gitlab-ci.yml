@@ -78,7 +78,14 @@ release:open-mr:
         echo "No changes after release --bump-versions; is the version already bumped?"
         exit 1
       fi
-      git commit -m "chore: release ${VERSION} [skip ci]"
+      # Follow [defaults].skip_ci (default true) so the bump commit and the MR
+      # title both suppress CI; conserves build minutes. Set skip_ci=false in
+      # config to let CI run on the release commit / merge.
+      SKIP_CI_SUFFIX=""
+      if uv run python -c "import sys; from changelogmanager.config import get_skip_ci; sys.exit(0 if get_skip_ci(None) else 1)"; then
+        SKIP_CI_SUFFIX=" [skip ci]"
+      fi
+      git commit -m "chore: release ${VERSION}${SKIP_CI_SUFFIX}"
 
       # Push using the PAT (CI_JOB_TOKEN cannot create branches).
       git remote set-url origin "https://oauth2:${GIT_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
@@ -89,13 +96,13 @@ release:open-mr:
         --request POST \
         --header "PRIVATE-TOKEN: ${GIT_TOKEN}" \
         --header "Content-Type: application/json" \
-        --data "$(python - "$BRANCH" "$VERSION" "$CI_DEFAULT_BRANCH" <<'PY'
+        --data "$(python - "$BRANCH" "$VERSION" "$CI_DEFAULT_BRANCH" "$SKIP_CI_SUFFIX" <<'PY'
       import json, sys
-      branch, version, target = sys.argv[1], sys.argv[2], sys.argv[3]
+      branch, version, target, skip_ci_suffix = sys.argv[1:5]
       print(json.dumps({
           "source_branch": branch,
           "target_branch": target,
-          "title": f"chore: release {version}",
+          "title": f"chore: release {version}{skip_ci_suffix}",
           "description": (
               f"Automated release MR for **{version}**.\n\n"
               "- `CHANGELOG.md`: promoted `[Unreleased]`\n"

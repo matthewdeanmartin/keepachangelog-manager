@@ -574,11 +574,12 @@ def get_initial_version(config: Optional[str]) -> Optional[str]:
 
 
 def get_skip_ci(config: Optional[str]) -> bool:
-    """Whether generated release commit messages should include ``[skip ci]``.
+    """Whether generated release artifacts should include ``[skip ci]``.
 
-    Read from ``[defaults].skip_ci``. Defaults to ``True`` (the historical
-    behaviour); set it to ``false`` so version-bump commit messages do not
-    suppress CI.
+    Applies to release bump commit messages and to the ``github-pr`` PR title
+    (so merging the release PR doesn't trigger another CI run). Read from
+    ``[defaults].skip_ci``. Defaults to ``True`` to conserve build minutes; set
+    it to ``false`` so version-bump commits and release PRs do not suppress CI.
     """
 
     defaults = get_defaults_options(config)
