@@ -8,7 +8,7 @@
 
 import { RawFile } from '../fixtures';
 
-export type BackendId = 'local-storage' | 'github' | 'filesystem';
+type BackendId = 'local-storage' | 'github' | 'filesystem';
 
 /** A single create/update/delete of one repo-relative file. */
 export interface FileChange {

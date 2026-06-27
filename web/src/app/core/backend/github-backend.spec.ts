@@ -2,18 +2,21 @@ import { describe, it, expect } from 'vitest';
 import {
   GitHubBackend,
   GitHubRepoConfig,
+  TreeEntry,
   branchName,
   buildCommitMessage,
 } from './github-backend';
 import { GitHubClient, FetchLike } from './github-client';
 import { FileChange } from './repo-backend';
 
+type Json = Record<string, unknown>;
+
 /** A scripted fake fetch that records requests and replies by route. */
-function fakeFetch(routes: Record<string, (body: any) => any>): {
+function fakeFetch(routes: Record<string, (body: Json | undefined) => Json>): {
   fetchImpl: FetchLike;
-  calls: { method: string; url: string; body: any }[];
+  calls: { method: string; url: string; body: Json | undefined }[];
 } {
-  const calls: { method: string; url: string; body: any }[] = [];
+  const calls: { method: string; url: string; body: Json | undefined }[] = [];
   const fetchImpl: FetchLike = async (url, init) => {
     const body = init.body ? JSON.parse(init.body) : undefined;
     calls.push({ method: init.method, url, body });
@@ -101,17 +104,22 @@ describe('GitHubBackend.save', () => {
     expect(result.message).toContain('#7');
 
     // The new tree references base_tree and includes a null-sha delete entry.
-    const treeCall = calls.find((c) => c.url.includes('/git/trees') && c.method === 'POST')!;
-    expect(treeCall.body.base_tree).toBe('basetree');
-    const del = treeCall.body.tree.find((e: any) => e.path === 'changelog.d/old.fixed.md');
-    expect(del.sha).toBeNull();
+    const treeBody = calls.find((c) => c.url.includes('/git/trees') && c.method === 'POST')!
+      .body as { base_tree: string; tree: TreeEntry[] };
+    expect(treeBody.base_tree).toBe('basetree');
+    const del = treeBody.tree.find((e) => e.path === 'changelog.d/old.fixed.md');
+    expect(del?.sha).toBeNull();
 
     // The commit parents the base sha; the PR targets main from a katl/ branch.
-    const commitCall = calls.find((c) => c.url.includes('/git/commits') && c.method === 'POST')!;
-    expect(commitCall.body.parents).toEqual(['basesha']);
-    const prCall = calls.find((c) => c.url.includes('/pulls'))!;
-    expect(prCall.body.base).toBe('main');
-    expect(prCall.body.head).toMatch(/^katl\/update-fragments-/);
+    const commitBody = calls.find((c) => c.url.includes('/git/commits') && c.method === 'POST')!
+      .body as { parents: string[] };
+    expect(commitBody.parents).toEqual(['basesha']);
+    const prBody = calls.find((c) => c.url.includes('/pulls'))!.body as {
+      base: string;
+      head: string;
+    };
+    expect(prBody.base).toBe('main');
+    expect(prBody.head).toMatch(/^katl\/update-fragments-/);
   });
 
   it('no-ops on an empty change set', async () => {

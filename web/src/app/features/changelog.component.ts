@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RepoService } from '../core/repo.service';
 import { SHIPPING_CATEGORIES, lookupCategory } from '../core/models';
@@ -11,8 +11,8 @@ import { emojiGlyph } from '../core/emoji';
     <h1>Changelog fragments</h1>
     <p class="hint">
       One file per future changelog bullet in <code>changelog.d/&lt;slug&gt;.&lt;type&gt;.md</code>.
-      Developers create these from their tickets; <code>fragments collect</code> assembles them
-      into <code>CHANGELOG.md</code> on release.
+      Developers create these from their tickets; <code>fragments collect</code> assembles them into
+      <code>CHANGELOG.md</code> on release.
     </p>
 
     <section class="add">
@@ -25,12 +25,23 @@ import { emojiGlyph } from '../core/emoji';
           }
         </select>
       </div>
-      <textarea [(ngModel)]="text" rows="3" placeholder="The changelog bullet text (no leading '- ')"></textarea>
+      <textarea
+        [(ngModel)]="text"
+        rows="3"
+        placeholder="The changelog bullet text (no leading '- ')"
+      ></textarea>
       <button (click)="add()" [disabled]="!slug.trim() || !text.trim()">Add fragment</button>
     </section>
 
     <table>
-      <thead><tr><th>Type</th><th>Slug</th><th>Text</th><th></th></tr></thead>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Slug</th>
+          <th>Text</th>
+          <th></th>
+        </tr>
+      </thead>
       <tbody>
         @for (f of repo.changelogFragments(); track f.path) {
           <tr [class.warn]="f.lint.length">
@@ -41,28 +52,91 @@ import { emojiGlyph } from '../core/emoji';
           </tr>
         }
         @if (!repo.changelogFragments().length) {
-          <tr><td colspan="4" class="empty">No changelog fragments yet.</td></tr>
+          <tr>
+            <td colspan="4" class="empty">No changelog fragments yet.</td>
+          </tr>
         }
       </tbody>
     </table>
   `,
   styles: [
     `
-      h1 { margin-bottom: 0.25rem; }
-      .hint { color: #7b8794; font-size: 0.85rem; }
-      .add { background: #f5f7fa; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; }
-      .add h2 { margin-top: 0; font-size: 0.9rem; }
-      .row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
-      input, select, textarea { padding: 0.4rem; border: 1px solid #cbd2d9; border-radius: 4px; font: inherit; }
-      input { flex: 1; } textarea { width: 100%; box-sizing: border-box; font-family: monospace; }
-      button { background: #4da8da; color: #fff; border: 0; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; margin-top: 0.5rem; }
-      button:disabled { opacity: 0.4; }
-      button.danger { background: #cf1124; padding: 0.2rem 0.5rem; margin: 0; }
-      table { width: 100%; border-collapse: collapse; }
-      th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #e4e7eb; font-size: 0.9rem; }
-      .mono { font-family: monospace; }
-      tr.warn { background: #fffbea; }
-      .empty { color: #cbd2d9; text-align: center; }
+      h1 {
+        margin-bottom: 0.25rem;
+      }
+      .hint {
+        color: #7b8794;
+        font-size: 0.85rem;
+      }
+      .add {
+        background: #f5f7fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      .add h2 {
+        margin-top: 0;
+        font-size: 0.9rem;
+      }
+      .row {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+      }
+      input,
+      select,
+      textarea {
+        padding: 0.4rem;
+        border: 1px solid #cbd2d9;
+        border-radius: 4px;
+        font: inherit;
+      }
+      input {
+        flex: 1;
+      }
+      textarea {
+        width: 100%;
+        box-sizing: border-box;
+        font-family: monospace;
+      }
+      button {
+        background: #4da8da;
+        color: #fff;
+        border: 0;
+        padding: 0.45rem 0.9rem;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-top: 0.5rem;
+      }
+      button:disabled {
+        opacity: 0.4;
+      }
+      button.danger {
+        background: #cf1124;
+        padding: 0.2rem 0.5rem;
+        margin: 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 0.5rem;
+        border-bottom: 1px solid #e4e7eb;
+        font-size: 0.9rem;
+      }
+      .mono {
+        font-family: monospace;
+      }
+      tr.warn {
+        background: #fffbea;
+      }
+      .empty {
+        color: #cbd2d9;
+        text-align: center;
+      }
     `,
   ],
 })

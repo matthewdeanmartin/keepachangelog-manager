@@ -2,15 +2,9 @@
 // and/or done shipping task fragments — mirrors `fragments collect` /
 // `tasks assemble --changelog` grouping.
 
-import {
-  ChangelogFragment,
-  SHIPPING_CATEGORIES,
-  TaskFragment,
-  lookupCategory,
-  shipsToChangelog,
-} from './models';
+import { ChangelogFragment, SHIPPING_CATEGORIES, TaskFragment, shipsToChangelog } from './models';
 
-export interface PreviewEntry {
+interface PreviewEntry {
   text: string;
   /** Where this bullet came from, for the "tasks without changelog text" report. */
   source: 'changelog-fragment' | 'task';
@@ -62,7 +56,7 @@ export function renderUnreleasedMarkdown(groups: PreviewGroup[]): string {
     return out.join('\n');
   }
   for (const g of groups) {
-    out.push(`### ${kacHeading(g.changeType, g.title)}`, '');
+    out.push(`### ${kacHeading(g.changeType)}`, '');
     for (const e of g.entries) {
       out.push(`- ${indentContinuation(e.text)}`);
     }
@@ -72,7 +66,7 @@ export function renderUnreleasedMarkdown(groups: PreviewGroup[]): string {
 }
 
 /** Keep a Changelog headings use the section name, not the project title. */
-function kacHeading(changeType: string, _title: string): string {
+function kacHeading(changeType: string): string {
   // The KAC section headings are the capitalized category keys.
   return changeType.charAt(0).toUpperCase() + changeType.slice(1);
 }
@@ -88,13 +82,6 @@ export function tasksMissingChangelog(
 ): TaskFragment[] {
   const fragSlugs = new Set(fragments.map((f) => f.slug));
   return tasks.filter(
-    (t) =>
-      t.status === 'done' &&
-      shipsToChangelog(t.category) &&
-      !fragSlugs.has(t.taskId),
+    (t) => t.status === 'done' && shipsToChangelog(t.category) && !fragSlugs.has(t.taskId),
   );
-}
-
-export function categoryTitle(key: string): string {
-  return lookupCategory(key)?.title ?? key;
 }

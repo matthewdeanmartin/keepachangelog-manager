@@ -10,13 +10,7 @@
 // see spec/web_gui.md (revised) for why.
 
 /** Keep a Changelog statuses for a task fragment head. */
-export type TaskStatus =
-  | 'proposed'
-  | 'accepted'
-  | 'in-progress'
-  | 'blocked'
-  | 'done'
-  | 'wontfix';
+export type TaskStatus = 'proposed' | 'accepted' | 'in-progress' | 'blocked' | 'done' | 'wontfix';
 
 export const TASK_STATUSES: TaskStatus[] = [
   'proposed',
@@ -43,26 +37,53 @@ export interface Category {
 /** The six shipping Keep a Changelog categories. */
 export const SHIPPING_CATEGORIES: Category[] = [
   { key: 'added', title: 'New Features', emoji: 'rocket', bump: 'minor', shipsToChangelog: true },
-  { key: 'changed', title: 'Updated Features', emoji: 'scissors', bump: 'patch', shipsToChangelog: true },
-  { key: 'deprecated', title: 'Deprecation', emoji: 'warning', bump: 'patch', shipsToChangelog: true },
-  { key: 'removed', title: 'Removed', emoji: 'no_entry_sign', bump: 'major', shipsToChangelog: true },
+  {
+    key: 'changed',
+    title: 'Updated Features',
+    emoji: 'scissors',
+    bump: 'patch',
+    shipsToChangelog: true,
+  },
+  {
+    key: 'deprecated',
+    title: 'Deprecation',
+    emoji: 'warning',
+    bump: 'patch',
+    shipsToChangelog: true,
+  },
+  {
+    key: 'removed',
+    title: 'Removed',
+    emoji: 'no_entry_sign',
+    bump: 'major',
+    shipsToChangelog: true,
+  },
   { key: 'fixed', title: 'Bug Fixes', emoji: 'bug', bump: 'patch', shipsToChangelog: true },
-  { key: 'security', title: 'Security Changes', emoji: 'closed_lock_with_key', bump: 'minor', shipsToChangelog: true },
+  {
+    key: 'security',
+    title: 'Security Changes',
+    emoji: 'closed_lock_with_key',
+    bump: 'minor',
+    shipsToChangelog: true,
+  },
 ];
 
 /** Non-shipping categories: real tracked work that must never reach CHANGELOG.md. */
-export const NON_SHIPPING_CATEGORIES: Category[] = [
-  { key: 'internal', title: 'Internal', emoji: 'hammer_and_wrench', bump: 'patch', shipsToChangelog: false },
+const NON_SHIPPING_CATEGORIES: Category[] = [
+  {
+    key: 'internal',
+    title: 'Internal',
+    emoji: 'hammer_and_wrench',
+    bump: 'patch',
+    shipsToChangelog: false,
+  },
   { key: 'chore', title: 'Chores', emoji: 'broom', bump: 'patch', shipsToChangelog: false },
   { key: 'docs', title: 'Docs', emoji: 'book', bump: 'patch', shipsToChangelog: false },
   { key: 'test', title: 'Tests', emoji: 'test_tube', bump: 'patch', shipsToChangelog: false },
   { key: 'spike', title: 'Spikes', emoji: 'microscope', bump: 'patch', shipsToChangelog: false },
 ];
 
-export const ALL_CATEGORIES: Category[] = [
-  ...SHIPPING_CATEGORIES,
-  ...NON_SHIPPING_CATEGORIES,
-];
+export const ALL_CATEGORIES: Category[] = [...SHIPPING_CATEGORIES, ...NON_SHIPPING_CATEGORIES];
 
 const CATEGORY_BY_KEY = new Map(ALL_CATEGORIES.map((c) => [c.key, c]));
 

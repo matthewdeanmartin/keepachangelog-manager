@@ -8,7 +8,7 @@
 export type FetchLike = (
   url: string,
   init: { method: string; headers: Record<string, string>; body?: string },
-) => Promise<{ ok: boolean; status: number; json(): Promise<any>; text(): Promise<string> }>;
+) => Promise<{ ok: boolean; status: number; json(): Promise<unknown>; text(): Promise<string> }>;
 
 export interface GitHubClientOptions {
   token: string;
@@ -19,7 +19,10 @@ export interface GitHubClientOptions {
 }
 
 export class GitHubError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
     super(message);
     this.name = 'GitHubError';
   }
@@ -36,7 +39,7 @@ export class GitHubClient {
     this.baseUrl = (opts.baseUrl ?? 'https://api.github.com').replace(/\/$/, '');
   }
 
-  async request<T = any>(method: string, path: string, body?: unknown): Promise<T> {
+  async request<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.token}`,
       Accept: 'application/vnd.github+json',
@@ -51,11 +54,14 @@ export class GitHubClient {
     if (!res.ok) {
       let detail = '';
       try {
-        detail = (await res.json())?.message ?? '';
+        detail = ((await res.json()) as { message?: string })?.message ?? '';
       } catch {
         detail = await res.text().catch(() => '');
       }
-      throw new GitHubError(res.status, detail || `GitHub ${method} ${path} failed (${res.status})`);
+      throw new GitHubError(
+        res.status,
+        detail || `GitHub ${method} ${path} failed (${res.status})`,
+      );
     }
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;

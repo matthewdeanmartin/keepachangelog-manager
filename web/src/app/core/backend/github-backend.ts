@@ -5,12 +5,7 @@
 // The app never writes the base branch directly. See spec/web_remaining_phases.md §4 (W1b).
 
 import { RawFile } from '../fixtures';
-import {
-  BackendCapabilities,
-  FileChange,
-  RepoBackend,
-  SaveResult,
-} from './repo-backend';
+import { BackendCapabilities, FileChange, RepoBackend, SaveResult } from './repo-backend';
 import { GitHubClient } from './github-client';
 
 export interface GitHubRepoConfig {
@@ -160,7 +155,14 @@ export class GitHubBackend implements RepoBackend {
 }
 
 function prBody(changes: FileChange[]): string {
-  const lines = ['## Summary', '', 'This PR updates KATL task/changelog fragments.', '', '## Changed fragments', ''];
+  const lines = [
+    '## Summary',
+    '',
+    'This PR updates KATL task/changelog fragments.',
+    '',
+    '## Changed fragments',
+    '',
+  ];
   for (const c of changes) {
     lines.push(`- ${c.op === 'delete' ? '🗑 ' : ''}\`${c.path}\``);
   }

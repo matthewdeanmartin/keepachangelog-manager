@@ -7,12 +7,7 @@
 //   * Lossless round-trip — render(parse(text)) preserves title, known fields,
 //     custom fields (casing + order), and body (modulo trailing newline).
 
-import {
-  ChangelogFragment,
-  TaskFragment,
-  TaskStatus,
-  canonicalCategory,
-} from './models';
+import { ChangelogFragment, TaskFragment, TaskStatus, canonicalCategory } from './models';
 
 const KNOWN_HEAD_KEYS = new Set([
   'category',
@@ -190,7 +185,7 @@ export function changelogFragmentFileName(slug: string, changeType: string): str
 
 // --- small path helpers (browser-safe, no node:path) ---
 
-export function fileName(path: string): string {
+function fileName(path: string): string {
   return path.split('/').pop() ?? path;
 }
 

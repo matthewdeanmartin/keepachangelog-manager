@@ -27,16 +27,43 @@ import { RepoService } from '../core/repo.service';
   styles: [
     `
       .bar {
-        position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
-        display: flex; align-items: center; gap: 1rem;
-        background: #1f2933; color: #fff; padding: 0.6rem 1rem;
-        border-radius: 999px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); z-index: 50;
+        position: fixed;
+        bottom: 1rem;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        background: #1f2933;
+        color: #fff;
+        padding: 0.6rem 1rem;
+        border-radius: 999px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+        z-index: 50;
       }
-      .count { font-size: 0.85rem; }
-      .link, .msg { font-size: 0.85rem; color: #9ad0f0; }
-      .link { text-decoration: none; }
-      button { background: #4da8da; color: #fff; border: 0; padding: 0.4rem 0.9rem; border-radius: 999px; cursor: pointer; }
-      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .count {
+        font-size: 0.85rem;
+      }
+      .link,
+      .msg {
+        font-size: 0.85rem;
+        color: #9ad0f0;
+      }
+      .link {
+        text-decoration: none;
+      }
+      button {
+        background: #4da8da;
+        color: #fff;
+        border: 0;
+        padding: 0.4rem 0.9rem;
+        border-radius: 999px;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
     `,
   ],
 })

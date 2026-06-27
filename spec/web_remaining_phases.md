@@ -64,12 +64,15 @@ on the Board (no git)             develop          changelog.d/   changelog     
 
 ## 4. Phase W1 — pluggable backends (the write path)
 
-> **Progress (2026-06-26):** W1a ✅ and W1b ✅ are implemented on branch
-> `feat/web-github-backend`. `RepoBackend` lives in
-> `web/src/app/core/backend/`; `RepoService` delegates IO to it; a **Workspace**
-> screen connects a GitHub repo (PAT in memory only) and a **commit bar** opens
-> the PR. The GitHub Git-Data-API sequence is unit-tested with a fake `fetch`
-> (no live token needed). **W1c (filesystem) is still TODO.**
+> **Progress (2026-06-27): W1 complete (W1a ✅ W1b ✅ W1c ✅).** `RepoBackend`
+> lives in `web/src/app/core/backend/`; `RepoService` delegates IO to it. The
+> **Workspace** screen offers all three backends — sample (localStorage),
+> **local folder** (File System Access API, feature-detected/Chromium-only), and
+> **GitHub** (PAT in memory only) — and a **commit bar** opens the PR for the
+> GitHub backend. All backends are unit-tested in Node with fakes (a fake
+> `fetch` for GitHub, in-memory handle fakes for the filesystem) — no live token,
+> no browser. Quality gates (`make check`: eslint + prettier + vitest + knip) and
+> the production build are green. **Next: W2 (form-first authoring).**
 
 `RepoService` no longer hard-wires storage: it owns parsing + dirty-tracking and
 delegates IO to a **`RepoBackend`** with three implementations, the UI unchanged.
@@ -126,6 +129,17 @@ knows about; the GitHub backend opens a real PR from edited fragments; the FS
 backend round-trips files on disk that the Python CLI then parses.
 
 ## 5. Phase W2 — form-first authoring for non-developers
+
+> **Progress (2026-06-27): W2 ✅.** The Ticket editor is form-first: Details
+> (title, type, status, assignees, labels) plus structured **Summary**,
+> **Acceptance Criteria** (add/remove checkbox rows), and **Notes** editors, an
+> **Advanced** toggle that reveals the raw markdown body + rendered-file preview,
+> and **templates** (feature / bug / chore) for new tickets. The body stays the
+> single source of truth: structured edits go through a tested
+> `body-sections` parse/serialize layer, so **unknown sections survive verbatim**
+> and editing is a proven fixed point (no cursor jumps / data loss). Lint shows as
+> friendly "Hints". `core/body-sections.ts` + `core/templates.ts`; 12 new tests.
+> **Next: W3 (board interactions).**
 
 The rigid head is already a form. This phase makes the **whole ticket** feel like
 a ticket tool, not a markdown editor:

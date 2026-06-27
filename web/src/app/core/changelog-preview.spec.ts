@@ -23,7 +23,14 @@ function task(partial: Partial<TaskFragment>): TaskFragment {
 }
 
 function frag(partial: Partial<ChangelogFragment>): ChangelogFragment {
-  return { path: 'changelog.d/x.added.md', slug: 'x', changeType: 'added', text: 't', lint: [], ...partial };
+  return {
+    path: 'changelog.d/x.added.md',
+    slug: 'x',
+    changeType: 'added',
+    text: 't',
+    lint: [],
+    ...partial,
+  };
 }
 
 describe('buildUnreleasedGroups', () => {
@@ -36,18 +43,12 @@ describe('buildUnreleasedGroups', () => {
   });
 
   it('excludes non-shipping categories', () => {
-    const groups = buildUnreleasedGroups(
-      [],
-      [task({ category: 'internal', status: 'done' })],
-    );
+    const groups = buildUnreleasedGroups([], [task({ category: 'internal', status: 'done' })]);
     expect(groups).toEqual([]);
   });
 
   it('excludes non-done tasks', () => {
-    const groups = buildUnreleasedGroups(
-      [],
-      [task({ category: 'added', status: 'in-progress' })],
-    );
+    const groups = buildUnreleasedGroups([], [task({ category: 'added', status: 'in-progress' })]);
     expect(groups).toEqual([]);
   });
 
@@ -59,9 +60,7 @@ describe('buildUnreleasedGroups', () => {
 
 describe('renderUnreleasedMarkdown', () => {
   it('renders KAC headings', () => {
-    const md = renderUnreleasedMarkdown(
-      buildUnreleasedGroups([frag({ text: 'Added thing' })], []),
-    );
+    const md = renderUnreleasedMarkdown(buildUnreleasedGroups([frag({ text: 'Added thing' })], []));
     expect(md).toContain('## [Unreleased]');
     expect(md).toContain('### Added');
     expect(md).toContain('- Added thing');
