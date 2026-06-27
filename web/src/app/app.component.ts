@@ -1,9 +1,10 @@
 import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { CommitBarComponent } from './features/commit-bar.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, CommitBarComponent],
   template: `
     <header class="topbar">
       <a class="brand" routerLink="/board">KATL <span>· Keep A Task Log</span></a>
@@ -11,9 +12,11 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
         <a routerLink="/board" routerLinkActive="active">Board</a>
         <a routerLink="/changelog" routerLinkActive="active">Changelog</a>
         <a routerLink="/preview" routerLinkActive="active">Release preview</a>
+        <a routerLink="/workspace" routerLinkActive="active">Workspace</a>
       </nav>
     </header>
     <main><router-outlet /></main>
+    <app-commit-bar />
     <footer>
       <span>Browser-only · fragments round-trip with the <code>keepachangelog-manager</code> CLI</span>
     </footer>

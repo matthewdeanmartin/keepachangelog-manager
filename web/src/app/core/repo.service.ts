@@ -1,8 +1,5 @@
 import { Injectable, computed, signal } from '@angular/core';
-import {
-  ChangelogFragment,
-  TaskFragment,
-} from './models';
+import { ChangelogFragment, TaskFragment } from './models';
 import {
   changelogFragmentFileName,
   fileStem,
@@ -12,82 +9,78 @@ import {
   renderTaskFragment,
   slugify,
 } from './fragment-parser';
-import {
-  FIXTURE_CHANGELOG_FRAGMENTS,
-  FIXTURE_TICKETS,
-  RawFile,
-} from './fixtures';
+import { RawFile } from './fixtures';
+import { FileChange, RepoBackend, SaveResult } from './backend/repo-backend';
+import { LocalStorageBackend } from './backend/local-storage-backend';
 
-const STORAGE_KEY = 'katl.workspace.v1';
-
-interface PersistedWorkspace {
-  tickets: RawFile[];
-  changelog: RawFile[];
-}
+const TICKET_RE = /^tickets\//;
+const FRAGMENT_RE = /^changelog\.d\//;
 
 /**
- * The in-browser workspace: holds raw tickets/*.md and changelog.d/*.md files,
- * parses them into the domain model, and persists edits to localStorage.
- *
- * This is the "local fixtures first" backend. A GitHub-backed implementation can
- * later populate the same raw-file set (scan) and consume `dirtyFiles()` to open
- * a branch + PR, without the UI changing.
+ * The in-browser workspace. Holds raw tickets/*.md and changelog.d/*.md files,
+ * parses them into the domain model, tracks dirty edits, and delegates IO to a
+ * pluggable {@link RepoBackend} (local-storage today; GitHub PR / filesystem
+ * next). The UI never knows which backend is active.
  */
 @Injectable({ providedIn: 'root' })
 export class RepoService {
-  private readonly ticketFiles = signal<RawFile[]>([]);
-  private readonly changelogFiles = signal<RawFile[]>([]);
-  /** Paths edited since the workspace was loaded/scanned (for the PR layer). */
-  private readonly dirty = signal<Set<string>>(new Set());
+  private readonly files = signal<RawFile[]>([]);
+  /** path -> change since last scan/commit; null content means delete. */
+  private readonly dirty = signal<Map<string, FileChange>>(new Map());
+  private backend: RepoBackend = new LocalStorageBackend();
+  readonly backendId = signal<string>(this.backend.id);
 
   readonly tasks = computed<TaskFragment[]>(() =>
-    this.ticketFiles()
+    this.files()
+      .filter((f) => TICKET_RE.test(f.path))
       .map((f) => parseTaskFragment(f.content, f.path))
       .sort((a, b) => a.taskId.localeCompare(b.taskId)),
   );
 
   readonly changelogFragments = computed<ChangelogFragment[]>(() =>
-    this.changelogFiles()
+    this.files()
+      .filter((f) => FRAGMENT_RE.test(f.path))
       .map((f) => parseChangelogFragment(f.content, f.path))
       .sort((a, b) => a.slug.localeCompare(b.slug)),
   );
 
-  readonly dirtyPaths = computed(() => Array.from(this.dirty()));
+  readonly dirtyPaths = computed(() => Array.from(this.dirty().keys()));
+  readonly canOpenPr = computed(() => this.backend.capabilities.pullRequest);
 
   constructor() {
-    this.load();
+    void this.scan();
   }
 
-  /** Reset to the bundled sample workspace. */
-  loadFixtures(): void {
-    this.ticketFiles.set([...FIXTURE_TICKETS.map((f) => ({ ...f }))]);
-    this.changelogFiles.set([...FIXTURE_CHANGELOG_FRAGMENTS.map((f) => ({ ...f }))]);
-    this.dirty.set(new Set());
-    this.persist();
+  /** Switch the active backend and reload from it. */
+  async useBackend(backend: RepoBackend): Promise<void> {
+    this.backend = backend;
+    this.backendId.set(backend.id);
+    await this.scan();
   }
 
-  private load(): void {
-    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
-    if (!raw) {
-      this.loadFixtures();
-      return;
+  /** Load the workspace from the active backend. Clears dirty state. */
+  async scan(): Promise<void> {
+    const loaded = await this.backend.scan();
+    this.files.set(loaded);
+    this.dirty.set(new Map());
+  }
+
+  /** Reset the local-storage demo workspace to bundled samples. */
+  async loadFixtures(): Promise<void> {
+    if (this.backend instanceof LocalStorageBackend) {
+      this.files.set(this.backend.reset());
+      this.dirty.set(new Map());
+    } else {
+      await this.scan();
     }
-    try {
-      const data = JSON.parse(raw) as PersistedWorkspace;
-      this.ticketFiles.set(data.tickets ?? []);
-      this.changelogFiles.set(data.changelog ?? []);
-    } catch {
-      this.loadFixtures();
-    }
   }
 
-  private persist(): void {
-    if (typeof localStorage === 'undefined') return;
-    const data: PersistedWorkspace = {
-      tickets: this.ticketFiles(),
-      changelog: this.changelogFiles(),
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  /** Push all dirty changes through the backend (commit / PR / write). */
+  async commit(): Promise<SaveResult> {
+    const changes = Array.from(this.dirty().values());
+    const result = await this.backend.save(changes);
+    this.dirty.set(new Map());
+    return result;
   }
 
   getTask(taskId: string): TaskFragment | undefined {
@@ -96,23 +89,13 @@ export class RepoService {
 
   /** Persist a task fragment, creating or replacing its tickets/*.md file. */
   saveTask(fragment: TaskFragment): void {
-    const content = renderTaskFragment(fragment);
     const path = fragment.path || `tickets/${fragment.taskId}.md`;
-    const files = [...this.ticketFiles()];
-    const idx = files.findIndex((f) => f.path === path);
-    if (idx >= 0) files[idx] = { path, content };
-    else files.push({ path, content });
-    this.ticketFiles.set(files);
-    this.markDirty(path);
-    this.persist();
+    this.upsert(path, renderTaskFragment(fragment));
   }
 
   deleteTask(taskId: string): void {
     const task = this.getTask(taskId);
-    if (!task) return;
-    this.ticketFiles.set(this.ticketFiles().filter((f) => f.path !== task.path));
-    this.markDirty(task.path);
-    this.persist();
+    if (task) this.remove(task.path);
   }
 
   /** Create the next sequential ticket id, e.g. "0006-my-slug". */
@@ -129,30 +112,53 @@ export class RepoService {
   saveChangelogFragment(slug: string, changeType: string, text: string): string {
     const name = changelogFragmentFileName(slug, changeType);
     const path = `changelog.d/${name}`;
-    const content = renderChangelogFragment({ path, slug: fileStem(name), changeType, text, lint: [] });
-    const files = [...this.changelogFiles()];
-    const idx = files.findIndex((f) => f.path === path);
-    if (idx >= 0) files[idx] = { path, content };
-    else files.push({ path, content });
-    this.changelogFiles.set(files);
-    this.markDirty(path);
-    this.persist();
+    const content = renderChangelogFragment({
+      path,
+      slug: fileStem(name),
+      changeType,
+      text,
+      lint: [],
+    });
+    this.upsert(path, content);
     return path;
   }
 
   deleteChangelogFragment(path: string): void {
-    this.changelogFiles.set(this.changelogFiles().filter((f) => f.path !== path));
-    this.markDirty(path);
-    this.persist();
+    this.remove(path);
   }
 
-  private markDirty(path: string): void {
-    const next = new Set(this.dirty());
-    next.add(path);
+  // --- internal mutation helpers ---
+
+  private upsert(path: string, content: string): void {
+    const files = [...this.files()];
+    const idx = files.findIndex((f) => f.path === path);
+    if (idx >= 0) files[idx] = { path, content };
+    else files.push({ path, content });
+    this.files.set(files);
+    this.markDirty({ path, content, op: 'upsert' });
+    void this.autosave();
+  }
+
+  private remove(path: string): void {
+    this.files.set(this.files().filter((f) => f.path !== path));
+    this.markDirty({ path, op: 'delete' });
+    void this.autosave();
+  }
+
+  private markDirty(change: FileChange): void {
+    const next = new Map(this.dirty());
+    next.set(change.path, change);
     this.dirty.set(next);
   }
 
-  clearDirty(): void {
-    this.dirty.set(new Set());
+  /**
+   * Direct-write backends (localStorage, filesystem) persist edits immediately
+   * so nothing is lost on refresh. PR backends defer to an explicit commit().
+   */
+  private async autosave(): Promise<void> {
+    if (this.backend.capabilities.directWrite) {
+      await this.backend.save(Array.from(this.dirty().values()));
+      this.dirty.set(new Map());
+    }
   }
 }
