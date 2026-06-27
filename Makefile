@@ -93,7 +93,7 @@ validate:
 gha-validate:
 	@echo Validating GitHub Actions workflows
 	$(UV) run python -c "import pathlib, yaml; [yaml.safe_load(path.read_text(encoding='utf-8')) for path in pathlib.Path('.github/workflows').glob('*.yml')]; print('YAML parse OK')"
-	$(UV) run python -c "from pathlib import Path; import yaml; checks=[('publish_to_pypi.yml','build','pypi-publish'),('release.yml','build','deploy')]; exec(\"for workflow_name, upload_job, download_job in checks:\\n data=yaml.safe_load(Path('.github/workflows', workflow_name).read_text(encoding='utf-8'))\\n upload_steps=data['jobs'][upload_job]['steps']\\n download_steps=data['jobs'][download_job]['steps']\\n upload=next(step for step in upload_steps if step.get('uses','').startswith('actions/upload-artifact@'))\\n download=next(step for step in download_steps if step.get('uses','').startswith('actions/download-artifact@'))\\n assert upload['with']['name']==download['with']['name']=='packages'\\n assert upload['with']['path']==download['with']['path']=='dist/'\\n print(f'Artifact handoff OK for {workflow_name}:', upload['uses'], '->', download['uses'])\")"
+	$(UV) run python scripts/check_artifact_handoff.py
 	$(UV) tool run --from zizmor zizmor --no-progress --no-exit-codes .
 
 gha-pin:

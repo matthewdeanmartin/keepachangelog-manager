@@ -33,7 +33,7 @@ jobs:
 #
 #    steps:
 #      - name: Commisery
-#        uses: tomtom-international/commisery-action@f88e8737a52bfbe4b20225399da697acdda5035d # v7.0.0
+#        uses: tomtom-international/commisery-action@699c46597f30a203a8465bfcdf7413c46cd100a5 # v7.1.0
 #        with:
 #          token: ${{ github.token }}
 
@@ -46,7 +46,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Python 3.14
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with: { python-version: '3.14' }
 
       - name: Set up uv
