@@ -1,10 +1,5 @@
 # Generic CI
 
-This page covers changelog validation and release-note quality checks that work
-in any CI system. GitHub-specific release automation lives in
-[GitHub automation](github.md), and GitLab release jobs live in
-[GitLab automation](gitlab.md).
-
 ## Minimal validation gate
 
 The simplest cross-platform gate is:

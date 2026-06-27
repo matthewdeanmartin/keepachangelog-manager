@@ -46,9 +46,3 @@ runtime dependency to install. Only three functions are vendored
 reimplemented to use only the standard library: upstream's `pathspec`-based
 `.gitignore` walk and `tomlkit`-based pyproject rewrite were dropped. See
 `changelogmanager/vendor/jiggle_version/UPSTREAM.md` for exactly what was cut.
-
-## Why this page exists
-
-Most users do not need these implementation details to use the tool. The main
-docs focus on workflows and behavior first, while this page keeps the internal
-split documented in one place for contributors.

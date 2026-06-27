@@ -34,6 +34,7 @@ On top of the base parser/serializer, this tool provides:
 - [Installation](installation.md)
 - [Key Workflows](workflows.md)
 - [Releasing](releases.md)
+- [Changelog fragments](fragments.md)
 - [Tasks and fragments](tasks.md)
 - [Scripting and CI integration](scripting.md)
 - [CLI reference](cli.md)
