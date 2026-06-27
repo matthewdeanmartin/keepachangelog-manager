@@ -1,0 +1,37 @@
+{
+  "name": "web",
+  "version": "0.0.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "private": true,
+  "dependencies": {
+    "@angular/common": "^19.2.0",
+    "@angular/compiler": "^19.2.0",
+    "@angular/core": "^19.2.0",
+    "@angular/forms": "^19.2.0",
+    "@angular/platform-browser": "^19.2.0",
+    "@angular/platform-browser-dynamic": "^19.2.0",
+    "@angular/router": "^19.2.0",
+    "dompurify": "^3.4.11",
+    "marked": "^18.0.5",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "yaml": "^2.9.0",
+    "zone.js": "~0.15.0"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^19.2.27",
+    "@angular/cli": "^19.2.27",
+    "@angular/compiler-cli": "^19.2.0",
+    "@types/node": "^26.0.1",
+    "@vitest/coverage-v8": "^4.1.9",
+    "typescript": "~5.7.2",
+    "vitest": "^4.1.9"
+  }
+}
