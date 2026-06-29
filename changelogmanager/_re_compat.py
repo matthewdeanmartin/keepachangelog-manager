@@ -17,13 +17,15 @@ Use :data:`USING_RE2` if you need to know which backend is active.
 
 import re as _stdlib_re
 
+_backend = _stdlib_re
+USING_RE2 = False
 try:
-    import re2 as _backend  # type: ignore[import-untyped]
+    import re2 as _re2_backend  # type: ignore[import-untyped]
 
+    _backend = _re2_backend
     USING_RE2 = True
 except ImportError:  # pragma: no cover - exercised on interpreters lacking re2 wheels
-    _backend = _stdlib_re
-    USING_RE2 = False
+    pass
 
 compile = _backend.compile  # noqa: A001 - mirror the stdlib/re2 module attribute name
 sub = _backend.sub

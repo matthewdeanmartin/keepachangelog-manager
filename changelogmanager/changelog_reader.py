@@ -9,7 +9,7 @@ import difflib
 from collections import OrderedDict
 from collections.abc import Generator, Mapping, Sequence
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, TypedDict
 
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager import _re_compat as re2
@@ -98,7 +98,14 @@ def derive_unreleased_url(
     return None
 
 
-ENTRY_RULES = [
+
+class _EntryRule(TypedDict):
+    pattern: Any
+    error: str
+    hint: str
+
+
+ENTRY_RULES: list[_EntryRule] = [
     {
         "pattern": re2.compile(r"^(#{1,6}) .*"),
         "error": "Block quotes are not permitted in changelog entries",
@@ -436,7 +443,7 @@ class ChangelogReader:
             return
 
         for rule in ENTRY_RULES:
-            pattern = cast(Any, rule["pattern"])
+            pattern = rule["pattern"]
             match = pattern.match(entry)
             if match:
                 yield logging.Error(
