@@ -1294,22 +1294,33 @@ name = "keepachangelog-manager-fork"
 version = "6.4.0"
 source = { editable = "." }
 dependencies = [
-    { name = "google-re2", version = "1.1.20250805", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "google-re2", version = "1.1.20251105", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "inquirer", version = "3.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9.2'" },
     { name = "inquirer", version = "3.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9.2'" },
     { name = "jsonschema", version = "4.25.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "jsonschema", version = "4.26.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "keyring" },
-    { name = "orjson", version = "3.11.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "orjson", version = "3.11.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "packaging" },
     { name = "semantic-version" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
-    { name = "urllib3" },
+    { name = "urllib3", version = "2.6.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "urllib3", version = "2.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
 
 [package.optional-dependencies]
+all = [
+    { name = "google-re2", version = "1.1.20250805", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "google-re2", version = "1.1.20251105", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "mdformat", version = "0.7.22", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "mdformat", version = "1.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "orjson", version = "3.11.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "orjson", version = "3.11.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+]
+fast = [
+    { name = "google-re2", version = "1.1.20250805", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "google-re2", version = "1.1.20251105", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "orjson", version = "3.11.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "orjson", version = "3.11.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+]
 format = [
     { name = "mdformat", version = "0.7.22", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "mdformat", version = "1.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
@@ -1327,11 +1338,14 @@ dev = [
     { name = "flake8-formatter-junit-xml" },
     { name = "flake8-pyproject" },
     { name = "freezegun" },
+    { name = "google-re2", version = "1.1.20251105", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "hypothesis" },
     { name = "mdformat", version = "0.7.22", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "mdformat", version = "1.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "mypy", version = "1.19.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "mypy", version = "1.20.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "orjson", version = "3.11.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "orjson", version = "3.11.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pylint", version = "3.3.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pylint", version = "4.0.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pyrefly" },
@@ -1388,19 +1402,24 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "google-re2", marker = "python_full_version < '3.10'", specifier = "==1.1.20250805" },
-    { name = "google-re2", marker = "python_full_version >= '3.10'", specifier = ">=1.1.20251105" },
-    { name = "inquirer", specifier = ">=3.4.0,<4" },
+    { name = "google-re2", marker = "python_full_version >= '3.10' and extra == 'all'", specifier = ">=1.1.20251105" },
+    { name = "google-re2", marker = "python_full_version >= '3.10' and extra == 'fast'", specifier = ">=1.1.20251105" },
+    { name = "google-re2", marker = "python_full_version < '3.10' and extra == 'all'", specifier = "==1.1.20250805" },
+    { name = "google-re2", marker = "python_full_version < '3.10' and extra == 'fast'", specifier = "==1.1.20250805" },
+    { name = "inquirer", specifier = ">=3.4.0" },
     { name = "jsonschema", specifier = ">=4.25.1,<5" },
     { name = "keyring", specifier = ">=25.0,<27" },
+    { name = "mdformat", marker = "extra == 'all'", specifier = ">=0.7" },
     { name = "mdformat", marker = "extra == 'format'", specifier = ">=0.7" },
-    { name = "orjson", specifier = ">=3.11.5" },
-    { name = "packaging", specifier = ">=24.0,<27" },
+    { name = "orjson", marker = "extra == 'all'", specifier = ">=3.11.5" },
+    { name = "orjson", marker = "extra == 'fast'", specifier = ">=3.11.5" },
+    { name = "packaging", specifier = ">=24.0" },
     { name = "semantic-version", specifier = ">=2.10.0,<3" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.4.1" },
-    { name = "urllib3", specifier = ">=2.6.3,<3" },
+    { name = "urllib3", marker = "python_full_version < '3.10'", specifier = ">=2.6.0" },
+    { name = "urllib3", marker = "python_full_version >= '3.10'", specifier = ">=2.7.0" },
 ]
-provides-extras = ["format"]
+provides-extras = ["format", "fast", "all"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1412,9 +1431,11 @@ dev = [
     { name = "flake8-formatter-junit-xml", specifier = ">=0.0.6" },
     { name = "flake8-pyproject", specifier = ">1.0.0" },
     { name = "freezegun" },
+    { name = "google-re2", marker = "python_full_version >= '3.10'", specifier = ">=1.1.20251105" },
     { name = "hypothesis" },
     { name = "mdformat", specifier = ">=0.7" },
     { name = "mypy", specifier = ">=1.0.0" },
+    { name = "orjson", specifier = ">=3.11.5" },
     { name = "pylint", specifier = ">1.0.0" },
     { name = "pyrefly" },
     { name = "pytest", specifier = ">7.0.0" },
@@ -3132,9 +3153,29 @@ wheels = [
 name = "urllib3"
 version = "2.6.3"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.9.2' and python_full_version < '3.10'",
+    "python_full_version > '3.9' and python_full_version < '3.9.2'",
+    "python_full_version <= '3.9'",
+]
 sdist = { url = "https://files.pythonhosted.org/packages/c7/24/5f1b3bdffd70275f6661c76461e25f024d5a38a46f04aaca912426a2b1d3/urllib3-2.6.3.tar.gz", hash = "sha256:1b62b6884944a57dbe321509ab94fd4d3b307075e0c2eae991ac71ee15ad38ed", size = 435556, upload-time = "2026-01-07T16:24:43.925Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/39/08/aaaad47bc4e9dc8c725e68f9d04865dbcb2052843ff09c97b08904852d84/urllib3-2.6.3-py3-none-any.whl", hash = "sha256:bf272323e553dfb2e87d9bfd225ca7b0f467b919d7bbd355436d3fd37cb0acd4", size = 131584, upload-time = "2026-01-07T16:24:42.685Z" },
+]
+
+[[package]]
+name = "urllib3"
+version = "2.7.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.15'",
+    "python_full_version >= '3.12' and python_full_version < '3.15'",
+    "python_full_version == '3.11.*'",
+    "python_full_version == '3.10.*'",
+]
+sdist = { url = "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz", hash = "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c", size = 433602, upload-time = "2026-05-07T16:13:18.596Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897", size = 131087, upload-time = "2026-05-07T16:13:17.151Z" },
 ]
 
 [[package]]

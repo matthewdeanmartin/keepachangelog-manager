@@ -8,19 +8,17 @@ license = "Apache-2.0"
 license-files = ["LICENSE.md"]
 dependencies = [
     "jsonschema>=4.25.1,<5",
-    "packaging>=24.0,<27",
+    "packaging>=24.0",
     "semantic_version>=2.10.0,<3",
-    "urllib3>=2.6.3,<3",
-    "inquirer>=3.4.0,<4",
+    "urllib3>=2.7.0; python_version >= '3.10'",
+    "urllib3>=2.6.0; python_version < '3.10'",
+    "inquirer>=3.4.0",
     "tomli>=2.4.1; python_version < '3.11'",
-    "google-re2>=1.1.20251105; python_version >= '3.10'",
-    "google-re2==1.1.20250805; python_version < '3.10'",
-    "orjson>=3.11.5",
     "keyring>=25.0,<27",
 ]
 authors = [
-    { name = "KevinDeJong-TomTom" },
     { name = "Matthew Martin", email = "matthewdeanmartin@gmail.com" },
+    { name = "KevinDeJong-TomTom" },
 ]
 
 [project.urls]
@@ -38,6 +36,20 @@ changelogmanager-lint-message = "changelogmanager.lint_message_cli:main"
 [project.optional-dependencies]
 format = [
     "mdformat>=0.7",
+]
+# Fast, C-backed drop-in replacements for the stdlib. Optional because their
+# native wheels are not available on every interpreter (e.g. brand-new CPython
+# releases); the code falls back to stdlib re/json when they are absent.
+fast = [
+    "google-re2>=1.1.20251105; python_version >= '3.10'",
+    "google-re2==1.1.20250805; python_version < '3.10'",
+    "orjson>=3.11.5",
+]
+all = [
+    "mdformat>=0.7",
+    "google-re2>=1.1.20251105; python_version >= '3.10'",
+    "google-re2==1.1.20250805; python_version < '3.10'",
+    "orjson>=3.11.5",
 ]
 
 [dependency-groups]
@@ -71,6 +83,10 @@ dev = [
     { include-group = "test" },
     { include-group = "lint" },
     { include-group = "security" },
+    # Install the fast backends in the dev env so day-to-day work exercises the
+    # orjson/re2 code paths (CI on new interpreters tests the stdlib fallback).
+    "google-re2>=1.1.20251105; python_version >= '3.10'",
+    "orjson>=3.11.5",
     "dead>=2.1.0",
     "dont-be-lazy>=0.1.0; python_version >= '3.10'",
     "vulture>=2.16",

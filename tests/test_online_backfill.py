@@ -329,7 +329,7 @@ def test_get_pypi_releases_parses_response(mocker: pytest.MonkeyPatch) -> None:
             "0.9.0": [],  # no files — should be skipped
         }
     }
-    import orjson
+    from changelogmanager import _json_compat as orjson
 
     mock_resp = mocker.MagicMock()
     mock_resp.read.return_value = orjson.dumps(payload)

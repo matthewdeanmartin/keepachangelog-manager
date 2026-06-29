@@ -116,9 +116,13 @@ def load_changelog_for_validate_fix(
     """
 
     file_path = resolve_changelog_file(config, args.component, args.input_file)
-    enforce_preamble = bool(
-        get_validation_options(config).get("enforce_preamble", False)
+    validation_options = get_validation_options(config)
+    strict = bool(getattr(args, "strict", False)) or bool(
+        validation_options.get("strict", False)
     )
+    # Strict mode requires the canonical preamble, so force its backfill in the
+    # raw-text pass even when the enforce_preamble config knob is off.
+    enforce_preamble = strict or bool(validation_options.get("enforce_preamble", False))
     preamble_keywords = get_preamble_keywords(config)
     versioning_scheme = resolve_versioning_scheme(config, file_path)
 

@@ -9,9 +9,8 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
-import orjson
-
 import changelogmanager.llvm_diagnostics as logging
+from changelogmanager import _json_compat as orjson
 from changelogmanager.runtime_logging import get_logger
 
 PYPI_API = "https://pypi.org/pypi/{package}/json"

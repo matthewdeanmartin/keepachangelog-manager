@@ -11,9 +11,8 @@ from collections.abc import Generator, Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
-import re2  # type: ignore[import-untyped]
-
 import changelogmanager.llvm_diagnostics as logging
+from changelogmanager import _re_compat as re2
 from changelogmanager.change_types import (
     DEFAULT_CHANGELOG_FILE,
     TYPES_OF_CHANGE,
@@ -47,6 +46,57 @@ VERSION_PATTERN_STR = r"v?[0-9A-Za-z]+(?:[._!+-]?[0-9A-Za-z]+)*"
 BARE_VERSION_RE = re2.compile(rf"^({VERSION_PATTERN_STR})(.*)$")
 BRACKETED_VERSION_RE = re2.compile(rf"^\[({VERSION_PATTERN_STR})\](.*)$")
 NORMALIZED_DATE_RE = re2.compile(r"^- (\d{4})[/.](\d{2})[/.](\d{2})$")
+
+# Matches a "compare" style version link, e.g.
+#   https://github.com/acme/proj/compare/v0.1.0...v0.2.0
+#   https://gitlab.com/acme/proj/-/compare/0.1.0...0.2.0
+# Capturing: (base)(prefix)(from-version)(...)(prefix)(to-version)
+COMPARE_LINK_RE = re2.compile(
+    r"^(?P<base>.*?/(?:-/)?compare/)"
+    r"(?P<from_prefix>v)?(?P<from_ver>.+?)"
+    r"(?P<sep>\.\.\.?|%5[Bb]?\.\.\.)"
+    r"(?P<to_prefix>v)?(?P<to_ver>.+?)$"
+)
+# Matches a GitHub "releases/tag" style link, e.g.
+#   https://github.com/acme/proj/releases/tag/v0.1.0
+TAG_LINK_RE = re2.compile(r"^(?P<base>.*?/releases/tag/)(?P<prefix>v)?(?P<ver>.+?)$")
+
+
+def derive_unreleased_url(
+    released_links: Sequence[tuple[str, str]], latest_version: str
+) -> str | None:
+    """Derive an ``[Unreleased]:`` compare URL from existing released link refs.
+
+    ``released_links`` is an ordered (newest-first) sequence of
+    ``(version, url)`` pairs taken from the released versions' ``metadata['url']``.
+    ``latest_version`` is the most-recent *released* version string (no ``v`` prefix).
+
+    The host/repo base, the compare-URL shape, and the tag prefix (e.g. ``v``) are
+    all detected from the existing links instead of using a hardcoded template, so
+    a hand-curated ``v``-prefixed convention is preserved. The unreleased target is
+    always ``HEAD`` (branch-agnostic). Returns ``None`` when no usable link shape is
+    found (e.g. a brand-new changelog with no released link refs).
+    """
+
+    for _version, url in released_links:
+        compare = COMPARE_LINK_RE.match(url)
+        if compare:
+            base = compare.group("base")
+            prefix = compare.group("to_prefix") or compare.group("from_prefix") or ""
+            return f"{base}{prefix}{latest_version}...HEAD"
+
+    # No compare link available; fall back to a tag link's base + prefix to
+    # synthesise a compare URL on the same host/repo.
+    for _version, url in released_links:
+        tag = TAG_LINK_RE.match(url)
+        if tag:
+            prefix = tag.group("prefix") or ""
+            # …/releases/tag/<x>  ->  …/compare/<vlatest>...HEAD
+            base = tag.group("base").rsplit("/releases/tag/", 1)[0]
+            return f"{base}/compare/{prefix}{latest_version}...HEAD"
+
+    return None
+
 
 ENTRY_RULES = [
     {
@@ -697,6 +747,152 @@ class ChangelogReader:
 
             is_first_entry = False
 
+        self.advise_missing_unreleased_url(changelog)
+
+    def advise_missing_unreleased_url(self, changelog: Mapping[str, Any]) -> None:
+        """Emit an actionable (non-error) advisory when ``[Unreleased]`` has entries
+        and released versions carry link refs but no ``[Unreleased]:`` ref exists.
+
+        Keep a Changelog treats version links as optional, so this never raises or
+        changes the exit code — but strict consumers (upstream ``kacl-cli verify``)
+        require the ref. The advisory names the exact line ``validate --fix`` would
+        add so the user can satisfy those consumers.
+        """
+
+        backfill = self.unreleased_url_backfill(changelog)
+        if backfill is None:
+            return
+        _version, url = backfill
+        logging.Warning(
+            file_path=self.file_path,
+            message=(
+                "[Unreleased] has entries and released versions are linked, but no "
+                "[Unreleased] link reference was found. Strict consumers (e.g. "
+                "'kacl-cli verify') require it. Run 'changelogmanager validate --fix' "
+                f"to add: [Unreleased]: {url}"
+            ),
+        ).report()
+
+    def strict_violations(
+        self, changelog: Mapping[str, Any], text: str | None = None
+    ) -> list[str]:
+        """Returns strict-mode violations as human-readable messages.
+
+        Strict mode promotes the strictest community-standard requirements to hard
+        errors (the caller decides the exit code). Covered families:
+
+          * **Version link references** — every released version, and a non-empty
+            ``[Unreleased]``, must have a matching bottom-of-file link ref *when the
+            changelog already links its versions* (i.e. ≥1 released version has a
+            ``url``). A changelog that links no versions at all is left alone.
+          * **Ordering / empty / duplicate** — the same conditions our default
+            checks only *warn* about (versions out of order, ``[Unreleased]`` not on
+            top, empty version/section, duplicate entries within a section).
+          * **Canonical preamble** — the Keep a Changelog + SemVer preamble must be
+            present (independent of the ``enforce_preamble`` config knob).
+        """
+
+        violations: list[str] = []
+
+        # "Linked" if *any* version (released or Unreleased) carries a link ref:
+        # a changelog that links some versions but not others is the gap strict
+        # mode targets. A changelog that links nothing at all is left alone.
+        versions_are_linked = any(
+            isinstance(release, Mapping) and release.get("metadata", {}).get("url")
+            for release in changelog.values()
+        )
+
+        # --- Version link references -------------------------------------
+        if versions_are_linked:
+            for version, release in changelog.items():
+                if not isinstance(release, Mapping):
+                    continue
+                metadata = release.get("metadata", {})
+                if metadata.get("url"):
+                    continue
+                has_entries = any(
+                    change_type != "metadata" and isinstance(entries, list) and entries
+                    for change_type, entries in release.items()
+                )
+                if version == UNRELEASED_ENTRY and not has_entries:
+                    # An empty [Unreleased] needs no link.
+                    continue
+                label = version.capitalize() if version == UNRELEASED_ENTRY else version
+                violations.append(
+                    f"Version '{label}' is missing a link reference "
+                    f"('[{label}]: ...'); strict mode requires every linked "
+                    "version to have one"
+                )
+
+        # --- Ordering / empty / duplicate --------------------------------
+        is_first_entry = True
+        prev_version: Any | None = None
+        for version, release in changelog.items():
+            if version == UNRELEASED_ENTRY:
+                if not is_first_entry:
+                    violations.append(
+                        "Unreleased version should be on top of the CHANGELOG.md file"
+                    )
+            else:
+                new_version = parse_version(version, self.versioning_scheme)
+                if prev_version and prev_version <= new_version:
+                    violations.append(
+                        f"Versions are incorrectly ordered: {prev_version} -> "
+                        f"{new_version}"
+                    )
+                prev_version = new_version
+
+            if isinstance(release, Mapping):
+                violations.extend(self._release_content_violations(version, release))
+            is_first_entry = False
+
+        # --- Canonical preamble ------------------------------------------
+        if text is None:
+            try:
+                text = Path(self.file_path).read_text(encoding="UTF-8")
+            except OSError:
+                text = ""
+        head = text.lower()[:1024]
+        if any(keyword not in head for keyword in PREAMBLE_KEYWORDS):
+            violations.append(
+                "Missing canonical Keep a Changelog preamble (references to "
+                "Keep a Changelog and Semantic Versioning)"
+            )
+
+        return violations
+
+    def _release_content_violations(
+        self, version: str, release: Mapping[str, Any]
+    ) -> list[str]:
+        """Strict-mode mirror of ``validate_release_contents`` returning messages."""
+
+        out: list[str] = []
+        change_sections = [
+            (change_type, entries)
+            for change_type, entries in release.items()
+            if change_type != "metadata"
+        ]
+        if not change_sections:
+            if version != UNRELEASED_ENTRY:
+                out.append(f"Version '{version}' has no change entries")
+            return out
+
+        for change_type, entries in change_sections:
+            if not isinstance(entries, list) or len(entries) == 0:
+                out.append(f"Version '{version}' has empty '{change_type}' section")
+                continue
+            seen: dict[str, int] = {}
+            for entry in entries:
+                key = str(entry).strip().lower()
+                seen[key] = seen.get(key, 0) + 1
+            for key, count in seen.items():
+                if count > 1:
+                    out.append(
+                        f"Duplicate entry under '{change_type}' in version "
+                        f"'{version}' ({count}x): '{key}'"
+                    )
+        return out
+
     def validate_release_contents(
         self, version: str, release: Mapping[str, Any]
     ) -> None:
@@ -856,9 +1052,71 @@ class ChangelogReader:
         for key, value in sorted_releases:
             result[key] = value
 
+        self._backfill_unreleased_url(result, applied)
+
         logger.info(
             "Autofix for %s produced %d change(s)",
             self.file_path,
             len(applied),
         )
         return dict(result), applied
+
+    def unreleased_url_backfill(
+        self, changelog: Mapping[str, Any]
+    ) -> tuple[str, str] | None:
+        """Returns ``(unreleased_version, url)`` if a missing ``[Unreleased]:`` ref
+        can and should be backfilled, else ``None``.
+
+        Backfill is offered only when: an ``[Unreleased]`` section exists with
+        entries, it has no ``url`` of its own, at least one *released* version
+        carries a link ref, and a URL can be derived from those refs. This is the
+        shared gate used by both the ``--fix`` backfill and the advisory warning.
+        """
+
+        unreleased = changelog.get(UNRELEASED_ENTRY)
+        if not isinstance(unreleased, Mapping):
+            return None
+        if unreleased.get("metadata", {}).get("url"):
+            return None
+        # Require actual pending entries; don't decorate an empty Unreleased section.
+        has_entries = any(
+            change_type != "metadata" and isinstance(entries, list) and entries
+            for change_type, entries in unreleased.items()
+        )
+        if not has_entries:
+            return None
+
+        released_links: list[tuple[str, str]] = []
+        for version, release in changelog.items():
+            if version == UNRELEASED_ENTRY or not isinstance(release, Mapping):
+                continue
+            url = release.get("metadata", {}).get("url")
+            if url:
+                released_links.append((version, url))
+        if not released_links:
+            return None
+
+        # released_links is already newest-first (autofix sorts descending; the
+        # advisory path passes the parsed dict which is authored newest-first).
+        latest_version = released_links[0][0]
+        url = derive_unreleased_url(released_links, latest_version)
+        if url is None:
+            return None
+        return UNRELEASED_ENTRY, url
+
+    def _backfill_unreleased_url(
+        self,
+        result: OrderedDict[str, Any],
+        applied: list[str],
+    ) -> None:
+        """Adds a derived ``[Unreleased]:`` link ref to ``result`` in place."""
+
+        backfill = self.unreleased_url_backfill(result)
+        if backfill is None:
+            return
+        _version, url = backfill
+        unreleased = result.get(UNRELEASED_ENTRY)
+        if not isinstance(unreleased, dict):
+            return
+        unreleased.setdefault("metadata", {})["url"] = url
+        applied.append(f"Added missing [Unreleased] link reference: {url}")

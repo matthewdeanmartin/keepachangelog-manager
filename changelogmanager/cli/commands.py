@@ -219,16 +219,6 @@ def command_version(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
     """Command to validate the CHANGELOG.md for inconsistencies."""
 
-    logger.info(
-        "Running validate command for %s (fix=%s)",
-        ctx.changelog.get_file_path(),
-        getattr(args, "fix", False),
-    )
-    if not getattr(args, "fix", False):
-        # Reading already validated; nothing further to do.
-        return
-
-    # --fix mode: re-read with autofix, normalise, and write back.
     from changelogmanager.changelog_reader import ChangelogReader  # noqa: PLC0415
     from changelogmanager.cli.loaders import resolve_versioning_scheme  # noqa: PLC0415
     from changelogmanager.config import (  # noqa: PLC0415
@@ -237,9 +227,28 @@ def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
     )
 
     config = resolved_config_path(args)
-    enforce_preamble = bool(
-        get_validation_options(config).get("enforce_preamble", False)
+    validation_options = get_validation_options(config)
+    # Strict mode: CLI flag wins, else the project.validation.strict config key.
+    strict = bool(getattr(args, "strict", False)) or bool(
+        validation_options.get("strict", False)
     )
+
+    logger.info(
+        "Running validate command for %s (fix=%s, strict=%s)",
+        ctx.changelog.get_file_path(),
+        getattr(args, "fix", False),
+        strict,
+    )
+    if not getattr(args, "fix", False):
+        if strict:
+            _enforce_strict(ctx, config)
+        # Reading already validated; nothing further to do.
+        return
+
+    # --fix mode: re-read with autofix, normalise, and write back.
+    # Under strict, force the preamble backfill so a missing canonical preamble
+    # is repaired rather than only flagged.
+    enforce_preamble = strict or bool(validation_options.get("enforce_preamble", False))
     preamble_keywords = get_preamble_keywords(config)
     reader = ChangelogReader(
         file_path=ctx.changelog.get_file_path(),
@@ -275,6 +284,9 @@ def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
         logger.info("No autofixes were required for %s", ctx.changelog.get_file_path())
         emit(ctx, text="No fixes required", json_key="fixed", json_value=[])
         ctx.json_payload["formatted"] = False
+        if strict:
+            # Nothing to fix, but strict may still find violations we won't repair.
+            _raise_on_strict_violations(reader.strict_violations(fixed_data))
         return
 
     if args.dry_run:
@@ -285,6 +297,10 @@ def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
             ctx,
             f"would write {len(all_applied)} fix(es) to {ctx.changelog.get_file_path()}",
         )
+        if strict:
+            # In strict dry-run, fail if violations would remain after the fix so
+            # CI does not pass on a file that --fix alone cannot bring to standard.
+            _raise_on_strict_violations(reader.strict_violations(fixed_data))
         return
 
     pre_errors: int = getattr(args, "pre_fix_error_count", 0) or 0
@@ -316,6 +332,47 @@ def command_validate(args: argparse.Namespace, ctx: CliContext) -> None:
                 ctx,
                 text=f"Validation: resolved all {pre_errors} problem(s).",
             )
+
+    if strict:
+        # Re-check against what was actually written; error on anything --fix
+        # could not safely repair (e.g. a released version genuinely missing a
+        # link reference we will not fabricate).
+        _enforce_strict(ctx, config)
+
+
+def _enforce_strict(ctx: CliContext, config: str | None) -> None:
+    """Raise a hard error listing strict-mode violations in the (current) file."""
+
+    from changelogmanager.changelog_reader import ChangelogReader  # noqa: PLC0415
+    from changelogmanager.cli.loaders import resolve_versioning_scheme  # noqa: PLC0415
+    from changelogmanager.vendor import keepachangelog  # noqa: PLC0415
+
+    file_path = ctx.changelog.get_file_path()
+    reader = ChangelogReader(
+        file_path=file_path,
+        versioning_scheme=resolve_versioning_scheme(config, file_path),
+    )
+    text = (
+        Path(file_path).read_text(encoding="UTF-8") if Path(file_path).is_file() else ""
+    )
+    changelog = keepachangelog.to_dict(
+        text.splitlines(keepends=True), show_unreleased=True
+    )
+    _raise_on_strict_violations(reader.strict_violations(changelog, text=text))
+
+
+def _raise_on_strict_violations(violations: list[str]) -> None:
+    if not violations:
+        return
+    bullets = "\n".join(f"  - {v}" for v in violations)
+    raise logging.Error(
+        message=(
+            f"Strict validation failed with {len(violations)} violation(s):\n"
+            f"{bullets}\n"
+            "Run 'changelogmanager validate --fix --strict' to repair what is "
+            "mechanically fixable."
+        ),
+    )
 
 
 def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
@@ -1293,7 +1350,7 @@ def command_lint_commits(args: argparse.Namespace, ctx: CliContext) -> None:
     if getattr(args, "strict", False) and report.unclassified:
         if args.json:
             # The error path skips the entry-point JSON print, so emit here.
-            import orjson  # noqa: PLC0415
+            from changelogmanager import _json_compat as orjson  # noqa: PLC0415
 
             print(orjson.dumps(ctx.json_payload, option=orjson.OPT_INDENT_2).decode())
         raise logging.Error(

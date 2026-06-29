@@ -7,10 +7,11 @@ Python tool to
 - CLI and GUI to edit and update entries
 - Validate
 - Create a Github or Gitlab release page with CHANGLOG.md as note.
+- manage tasks with the same schema as KACL
 
 It supports these standards
 
-- [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+- [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), also known as KACL
 - Semantic Version, PEP 440, Calver
 - Conventional Commits, Gitmoji (for backfill from commit messages)
 
@@ -92,7 +93,8 @@ changelogmanager backfill --source local --dry-run
 changelogmanager backfill --source local
 ```
 
-This is the "adopt the tool in an existing repo" path. It uses local tags and commit intervals, and falls back to an honest placeholder when old release notes are not recoverable.
+This is the "adopt the tool in an existing repo" path. It uses local tags and commit intervals, and falls back to an
+honest placeholder when old release notes are not recoverable.
 
 ### 3. Backfill `[Unreleased]` from commits since the last tag
 
@@ -114,7 +116,8 @@ changelogmanager remove --list
 changelogmanager edit --change-type added --index 0 --message "Support draft GitHub release previews"
 ```
 
-The day-to-day model is simple: add entries as work lands, list them when you need context, and edit them before release.
+The day-to-day model is simple: add entries as work lands, list them when you need context, and edit them before
+release.
 
 ### 5. Validate and update commit messages
 
@@ -137,7 +140,8 @@ Then get a rewrite plan for unpushed commits that need cleanup:
 changelogmanager rewrite-messages --plan-out rewrite-plan.tsv
 ```
 
-The rewrite command is intentionally plan-only today, which is perfect for reviewing the suggested subjects before you amend or rebase.
+The rewrite command is intentionally plan-only today, which is perfect for reviewing the suggested subjects before you
+amend or rebase.
 
 ### 6. Validate and autofix the changelog
 
@@ -148,7 +152,8 @@ changelogmanager validate
 changelogmanager validate --fix
 ```
 
-`--fix` handles the safe cleanup work: heading normalization, version ordering, duplicate removal, and other common Keep a Changelog paper cuts.
+`--fix` handles the safe cleanup work: heading normalization, version ordering, duplicate removal, and other common Keep
+a Changelog paper cuts.
 
 ### 7. Preview the semantic version bump and release
 
@@ -164,7 +169,8 @@ Then promote `[Unreleased]` into a real release:
 changelogmanager release --yes
 ```
 
-If your version also lives in `pyproject.toml` or Python `__version__` strings, do it in one step (built in, no extra to install):
+If your version also lives in `pyproject.toml` or Python `__version__` strings, do it in one step (built in, no extra to
+install):
 
 ```sh
 changelogmanager release --bump-versions --yes
@@ -172,7 +178,8 @@ changelogmanager release --bump-versions --yes
 
 ### 8. Start the next round of tasks
 
-After a release, it is usually time to collect the next set of user-facing changes that will eventually land in `[Unreleased]`:
+After a release, it is usually time to collect the next set of user-facing changes that will eventually land in
+`[Unreleased]`:
 
 ```sh
 changelogmanager tasks add added "Support release task docs"
@@ -180,7 +187,8 @@ changelogmanager tasks add fixed "Keep promoted task text out of TASKS.md"
 changelogmanager tasks list
 ```
 
-When tasks are complete, mark them checked and promote them into the changelog. If your team prefers fragment files instead of a shared task list, the tool also supports changelog fragments; see [`./docs/tasks.md`](docs/tasks.md).
+When tasks are complete, mark them checked and promote them into the changelog. If your team prefers fragment files
+instead of a shared task list, the tool also supports changelog fragments; see [`./docs/tasks.md`](docs/tasks.md).
 
 ## CLI Visuals
 
@@ -190,8 +198,10 @@ When tasks are complete, mark them checked and promote them into the changelog. 
 
 ### Vendored
 
-- [`Colin-b/keepachangelog`](https://github.com/Colin-b/keepachangelog)
-- [llvm_diagnostics](https://pypi.org/project/llvm-diagnostics/)
+- Forked from [keepachangelog-manager](https://github.com/tomtom-international/keepachangelog-manager) Apache 2.0
+- Vendored [`Colin-b/keepachangelog`](https://github.com/Colin-b/keepachangelog) MIT 
+- Vendored [llvm_diagnostics](https://pypi.org/project/llvm-diagnostics/) Apache 2.0
+- Vendored [jiggle_version](https://github.com/matthewdeanmartin/jiggle_version) MIT
 
 ## Documentation
 

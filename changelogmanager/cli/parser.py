@@ -238,6 +238,12 @@ examples:
   # autofix and write
   changelogmanager validate --fix
 
+  # enforce the strictest community standard (hard errors)
+  changelogmanager validate --strict
+
+  # bring a changelog up to the strict standard in one pass
+  changelogmanager validate --fix --strict --no-format
+
   # validate all components declared in config
   changelogmanager --config changelogmanager.toml validate --all
 
@@ -250,6 +256,17 @@ examples:
         action="store_true",
         default=False,
         help="Apply autofixes for safe layout and structural changelog issues",
+    )
+    validate_parser.add_argument(
+        "--strict",
+        action="store_true",
+        default=False,
+        help=(
+            "Enforce the strictest community standard: treat missing version link "
+            "references, ordering/empty/duplicate warnings, and a missing canonical "
+            "preamble as hard errors (non-zero exit). Combine with --fix to bring a "
+            "changelog up to standard in one pass."
+        ),
     )
     validate_parser.add_argument(
         "--all",

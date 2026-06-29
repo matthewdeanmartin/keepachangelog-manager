@@ -7,9 +7,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-import orjson
-
 import changelogmanager.llvm_diagnostics as logging
+from changelogmanager import _json_compat as orjson
 from changelogmanager.changelog import Changelog
 from changelogmanager.cli.commands import run_validate_all
 from changelogmanager.cli.config_resolve import (

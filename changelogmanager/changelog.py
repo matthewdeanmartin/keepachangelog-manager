@@ -9,10 +9,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional, cast
 
-import orjson
-import re2  # type: ignore[import-untyped]
-
 import changelogmanager.llvm_diagnostics as logging
+from changelogmanager import _json_compat as orjson
+from changelogmanager import _re_compat as re2
 from changelogmanager.change_types import (
     CATEGORIES,
     DEFAULT_CHANGELOG_FILE,

@@ -13,9 +13,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-import orjson
-
 import changelogmanager.llvm_diagnostics as logging
+from changelogmanager import _json_compat as orjson
 from changelogmanager.change_types import CATEGORIES, UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
 from changelogmanager.runtime_logging import VERBOSE, get_logger
