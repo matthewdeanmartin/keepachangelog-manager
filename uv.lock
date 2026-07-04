@@ -12,8 +12,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
-exclude-newer-span = "P7D"
+exclude-newer = "2026-07-02T13:06:30Z"
 
 [[package]]
 name = "ansicon"
@@ -1291,7 +1290,7 @@ wheels = [
 
 [[package]]
 name = "keepachangelog-manager-fork"
-version = "6.4.0"
+version = "6.5.0"
 source = { editable = "." }
 dependencies = [
     { name = "inquirer", version = "3.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9.2'" },
