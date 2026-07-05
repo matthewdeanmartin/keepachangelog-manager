@@ -1,5 +1,5 @@
 [project]
-name = "keepachangelog-manager-fork"
+name = "keepachangelog-manager-fork>=6.6.0,<7"
 description = "Python package allowing you to manage your CHANGELOG.md files"
 readme = "README.md"
 version = "6.6.0"
