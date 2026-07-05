@@ -284,7 +284,7 @@ class GitHub:
     def delete_release(self, release: Mapping[str, Any]) -> None:
         """Deletes a release"""
         logger.warning(
-            "Deleting draft release %s from %s",
+            "Deleting release %s from %s",
             release.get("id"),
             self.repository,
         )
@@ -292,6 +292,18 @@ class GitHub:
         self.github_request(
             method=HttpMethods.DELETE, api=f"releases/{release.get('id')}"
         )
+
+    def find_release_by_tag(self, tag: str) -> Mapping[str, Any] | None:
+        """Returns the release whose ``tag_name`` matches ``tag`` (draft or not).
+
+        Matches with and without a leading ``v`` so ``v1.2.0`` finds a release
+        tagged ``1.2.0`` and vice versa. Returns ``None`` when no release exists.
+        """
+        wanted = {tag, tag.lstrip("v"), f"v{tag.lstrip('v')}"}
+        for rel in self.get_releases():
+            if str(rel.get("tag_name", "")) in wanted:
+                return rel
+        return None
 
     def get_pull_requests(self, head: str, base: str) -> Sequence[dict[str, Any]]:
         """Returns open PRs matching head branch and base branch."""

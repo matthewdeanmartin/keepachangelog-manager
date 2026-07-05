@@ -113,7 +113,9 @@ jobs:
           # decision follows [defaults].skip_ci (default true).
           git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git"
           VERSION="${RELEASE_VERSION#v}"
-          uv run kaclm release-bump \
+          # --json is a global flag, so it must precede the `release-bump`
+          # subcommand (argparse rejects it if placed after).
+          uv run kaclm --json release-bump \
             --version "$VERSION" \
             --base "$BASE_BRANCH" \
             --release-id "$RELEASE_ID" \
@@ -121,8 +123,7 @@ jobs:
             --open-pr \
             --title "chore: release ${VERSION}" \
             --body "Automated release PR for ${VERSION}. Merge once the PyPI publish succeeds." \
-            --yes \
-            --json > release-bump.json
+            --yes > release-bump.json
           echo "version=$(python -c "import json;print(json.load(open('release-bump.json'))['version'])")" >> "$GITHUB_OUTPUT"
           echo "branch=$(python -c "import json;print(json.load(open('release-bump.json'))['branch'])")" >> "$GITHUB_OUTPUT"
 

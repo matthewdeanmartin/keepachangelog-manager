@@ -1041,6 +1041,95 @@ def release_bump(
 
 
 @dataclass
+class ReleaseRollbackResult:
+    """Outcome of a ``release-rollback`` run.
+
+    Records which pieces actually existed and were removed so the caller can
+    report a partial rollback (e.g. the git tag was gone but the GitHub release
+    was still present).
+    """
+
+    tag: str
+    release_deleted: bool = False
+    release_missing: bool = False
+    local_tag_deleted: bool = False
+    remote_tag_deleted: bool = False
+    dry_run: bool = False
+
+
+def release_rollback(
+    *,
+    tag: str,
+    repository: str,
+    token: str | None,
+    delete_release: bool = True,
+    delete_local_tag: bool = True,
+    delete_remote_tag: bool = True,
+    remote: str = "origin",
+    dry_run: bool = False,
+) -> ReleaseRollbackResult:
+    """Rolls back a failed release: deletes the GitHub release and the git tag.
+
+    The presentation-free equivalent of the manual::
+
+        gh release delete <tag> -y --repo <repo>
+        git tag -d <tag>
+        git push --delete <remote> <tag>
+
+    Each step is independently guarded so a missing release or tag is reported
+    rather than aborting the whole rollback.
+    """
+    result = ReleaseRollbackResult(tag=tag, dry_run=dry_run)
+
+    # 1. GitHub release. In dry-run we make no network calls at all (so no token
+    # is required) and simply report the intent to delete.
+    if delete_release and dry_run:
+        logger.info("Would delete GitHub release %s from %s", tag, repository)
+        result.release_deleted = True
+    elif delete_release:
+        from changelogmanager.github import GitHub  # noqa: PLC0415
+
+        if not token:
+            raise logging.Error(
+                message="Deleting the GitHub release requires a token (pass --github-token or set GITHUB_TOKEN)",
+            )
+        github = GitHub(repository=repository, token=token)
+        release = github.find_release_by_tag(tag)
+        if release is None:
+            result.release_missing = True
+            logger.warning("No GitHub release found for tag %s in %s", tag, repository)
+        else:
+            github.delete_release(release)
+            result.release_deleted = True
+
+    # 2. Local git tag (ignore "not found" so rollback is idempotent).
+    if delete_local_tag:
+        if dry_run:
+            logger.info("Would delete local git tag %s", tag)
+            result.local_tag_deleted = True
+        else:
+            deleted = _run_git(["tag", "-d", tag], check=False)
+            result.local_tag_deleted = deleted.returncode == 0
+            if not result.local_tag_deleted:
+                logger.warning("Local git tag %s not found (already deleted?)", tag)
+
+    # 3. Remote git tag.
+    if delete_remote_tag:
+        if dry_run:
+            logger.info("Would delete remote git tag %s from %s", tag, remote)
+            result.remote_tag_deleted = True
+        else:
+            deleted = _run_git(["push", "--delete", remote, tag], check=False)
+            result.remote_tag_deleted = deleted.returncode == 0
+            if not result.remote_tag_deleted:
+                logger.warning(
+                    "Remote git tag %s not found on %s (already deleted?)", tag, remote
+                )
+
+    return result
+
+
+@dataclass
 class GitLabReleaseResult:
     """Outcome of a gitlab-release run."""
 

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `kaclm` console script: short canonical CLI name that keeps the keep-a-changelog-manager mnemonic without clashing with the unrelated `kacl` PyPI project or python-kacl's `kacl-cli` command.
 - `release-bump` subcommand: bumps the changelog and version files, creates the release branch, commits with `[skip ci]` (per `[defaults].skip_ci`), force-with-lease pushes, and opens the release PR — replacing ~80 lines of inline shell in `release.yml` with one testable command.
 - `lint-message` subcommand: the commit-message linter is now reachable as `kaclm lint-message` in addition to the fast-start `changelogmanager-lint-message` hook script.
+- `release-rollback` subcommand: undoes a failed release by deleting the GitHub release and its git tag (local + remote) in one command, replacing the manual `gh release delete` / `git tag -d` / `git push --delete` dance. Each step is independently guarded (missing release/tag is reported, not fatal), supports `--dry-run`, requires `--yes` to confirm the deletion non-interactively, and has `--no-github` / `--no-local-tag` / `--no-remote-tag` opt-outs.
 
 ### Changed
 

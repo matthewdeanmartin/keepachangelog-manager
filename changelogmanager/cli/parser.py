@@ -917,6 +917,75 @@ examples:
     add_dry_run_argument(release_bump_parser)
     release_bump_parser.set_defaults(handler=commands.command_release_bump)
 
+    release_rollback_parser = subparsers.add_parser(
+        "release-rollback",
+        help="Delete a failed GitHub release and its git tag (local + remote)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # undo a botched release: delete the GH release + local & remote tag
+  kaclm release-rollback --tag v5.2.0 --repository owner/repo --yes
+
+  # preview what would be deleted
+  kaclm release-rollback --tag v5.2.0 --repository owner/repo --dry-run
+
+  # only drop the tags, leave the GitHub release alone
+  kaclm release-rollback --tag v5.2.0 --no-github --yes
+
+equivalent manual steps:
+  gh release delete v5.2.0 -y --repo owner/repo
+  git tag -d v5.2.0
+  git push --delete origin v5.2.0
+""",
+    )
+    release_rollback_parser.add_argument(
+        "--tag",
+        default=None,
+        help="Release tag to roll back, e.g. v5.2.0 (prompted if omitted)",
+    )
+    release_rollback_parser.add_argument(
+        "-r",
+        "--repository",
+        default=None,
+        help="Repository (owner/repo); falls back to GITHUB_REPOSITORY env var",
+    )
+    release_rollback_parser.add_argument(
+        "-t",
+        "--github-token",
+        default=None,
+        help="GitHub token (falls back to GITHUB_TOKEN env var)",
+    )
+    release_rollback_parser.add_argument(
+        "--remote",
+        default="origin",
+        help="Git remote holding the tag (default: origin)",
+    )
+    release_rollback_parser.add_argument(
+        "--no-github",
+        dest="no_github",
+        action="store_true",
+        help="Do not delete the GitHub release (only remove git tags)",
+    )
+    release_rollback_parser.add_argument(
+        "--no-local-tag",
+        dest="no_local_tag",
+        action="store_true",
+        help="Do not delete the local git tag",
+    )
+    release_rollback_parser.add_argument(
+        "--no-remote-tag",
+        dest="no_remote_tag",
+        action="store_true",
+        help="Do not delete the remote git tag",
+    )
+    release_rollback_parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Confirm the deletion non-interactively (required in CI).",
+    )
+    add_dry_run_argument(release_rollback_parser)
+    release_rollback_parser.set_defaults(handler=commands.command_release_rollback)
+
     backfill_parser = subparsers.add_parser(
         "backfill",
         help="Backfill missing changelog versions from existing release history",

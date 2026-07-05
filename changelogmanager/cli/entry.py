@@ -114,7 +114,8 @@ def main(  # pylint: disable=too-many-return-statements
         # These commands operate on git history or sidecar files, not the
         # changelog: placeholder context, never reads the changelog from disk.
         if (
-            args.command in {"lint-commits", "rewrite-messages", "lint-message"}
+            args.command
+            in {"lint-commits", "rewrite-messages", "lint-message", "release-rollback"}
             or fragment_only_add
             or task_without_changelog
             or fragment_without_changelog

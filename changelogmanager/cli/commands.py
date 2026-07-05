@@ -1209,6 +1209,93 @@ def command_release_bump(args: argparse.Namespace, ctx: CliContext) -> None:
     )
 
 
+def command_release_rollback(args: argparse.Namespace, ctx: CliContext) -> None:
+    """Rolls back a failed release: deletes the GitHub release and the git tag."""
+
+    tag = prompts.resolve_required_value(
+        args.tag, env_var=None, message="Release tag to roll back (e.g. v1.2.0)"
+    )
+    if not tag:
+        raise logging.Error(message="release-rollback requires a tag (e.g. v1.2.0)")
+
+    delete_release = not args.no_github
+    if delete_release and not args.dry_run:
+        args.repository = prompts.resolve_required_value(
+            args.repository,
+            env_var="GITHUB_REPOSITORY",
+            message="GitHub repository (owner/repo)",
+        )
+    else:
+        args.repository = args.repository or os.environ.get("GITHUB_REPOSITORY")
+
+    token = None
+    if delete_release and not args.dry_run:
+        token = prompts.resolve_required_value(
+            args.github_token, env_var="GITHUB_TOKEN", message="GitHub token"
+        )
+
+    # Guard an irreversible, outward-facing action unless the user opted in.
+    if not args.dry_run and not args.yes:
+        if ctx.json_output or ctx.quiet or not prompts.interactive_enabled():
+            raise logging.Error(
+                message=(
+                    "Refusing to roll back without --yes (non-interactive). "
+                    "Pass --yes to confirm or --dry-run to preview."
+                ),
+            )
+        answer = (
+            input(f"Delete release and tag {tag} from {args.repository}? [y/N] ")
+            .strip()
+            .lower()
+        )
+        if answer not in {"y", "yes"}:
+            raise logging.Info(message="Rollback cancelled by user")
+
+    logger.info(
+        "Running release-rollback tag=%s repository=%s dry_run=%s",
+        tag,
+        args.repository,
+        bool(args.dry_run),
+    )
+
+    result = services.release_rollback(
+        tag=tag,
+        repository=args.repository or "",
+        token=token,
+        delete_release=delete_release,
+        delete_local_tag=not args.no_local_tag,
+        delete_remote_tag=not args.no_remote_tag,
+        remote=args.remote,
+        dry_run=bool(args.dry_run),
+    )
+
+    parts = []
+    if delete_release:
+        parts.append(
+            "release missing (nothing to delete)"
+            if result.release_missing
+            else "release deleted"
+        )
+    if not args.no_local_tag:
+        parts.append("local tag deleted" if result.local_tag_deleted else "local tag not found")
+    if not args.no_remote_tag:
+        parts.append(
+            "remote tag deleted" if result.remote_tag_deleted else "remote tag not found"
+        )
+    verb = "Would roll back" if result.dry_run else "Rolled back"
+    emit(ctx, text=f"{verb} {tag}: {', '.join(parts)}")
+
+    ctx.json_payload.update(
+        {
+            "tag": result.tag,
+            "release_deleted": result.release_deleted,
+            "release_missing": result.release_missing,
+            "local_tag_deleted": result.local_tag_deleted,
+            "remote_tag_deleted": result.remote_tag_deleted,
+        }
+    )
+
+
 def command_gitlab_release(args: argparse.Namespace, ctx: CliContext) -> None:
     """Creates or updates a GitLab release from the changelog."""
 
