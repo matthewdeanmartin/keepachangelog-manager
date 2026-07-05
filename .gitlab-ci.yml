@@ -48,7 +48,7 @@ workflow:
 validate:changelog:
   stage: validate
   script:
-    - uv run changelogmanager --error-format github validate
+    - uv run kaclm --error-format github validate
 
 # ── 2. Release: bump, commit, push branch, open MR ──────────────────────────
 release:open-mr:
@@ -62,11 +62,11 @@ release:open-mr:
       set -euo pipefail
 
       # Resolve the version the changelog will be released as.
-      VERSION="$(uv run changelogmanager --json version --reference future | python -c 'import sys,json;print(json.load(sys.stdin)["version"])')"
+      VERSION="$(uv run kaclm --json version --reference future | python -c 'import sys,json;print(json.load(sys.stdin)["version"])')"
       echo "Releasing version ${VERSION}"
 
       # Promote [Unreleased] and sync pyproject.toml / __version__ strings.
-      uv run changelogmanager release --bump-versions --yes
+      uv run kaclm release --bump-versions --yes
 
       BRANCH="release/bump-${CI_PIPELINE_ID}"
       git config user.name "gitlab-ci"
@@ -123,7 +123,7 @@ release:open-mr:
 gitlab:release:
   stage: gl-release
   script:
-    - uv run changelogmanager --error-format github gitlab-release
+    - uv run kaclm --error-format github gitlab-release
         --project "$CI_PROJECT_ID"
         --ref "$CI_COMMIT_SHA"
   rules:

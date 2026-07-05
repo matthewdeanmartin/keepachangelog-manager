@@ -88,7 +88,7 @@ build: docs-sync
 	$(UV) build --no-sources
 
 validate:
-	$(UV) run changelogmanager --error-format github validate
+	$(UV) run kaclm --error-format github validate
 
 gha-validate:
 	@echo Validating GitHub Actions workflows
@@ -140,5 +140,5 @@ pydoc-docs:
 
 .PHONY: gui
 gui:
-	@$(UV) run changelogmanager gui
+	@$(UV) run kaclm gui
 

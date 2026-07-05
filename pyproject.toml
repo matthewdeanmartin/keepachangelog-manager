@@ -1,5 +1,5 @@
 [project]
-name = "keepachangelog-manager-fork>=6.6.0,<7"
+name = "keepachangelog-manager-fork"
 description = "Python package allowing you to manage your CHANGELOG.md files"
 readme = "README.md"
 version = "6.6.0"
@@ -143,6 +143,7 @@ enforce_preamble = true
 format = "auto"
 
 [tool.changelogmanager.defaults]
+skip_ci = true
 error_format = "github"
 commit_schema = "keepachangelog"
 schema_version = "current"
