@@ -109,7 +109,22 @@ BULLET_PATTERN = re.compile(r"^[*+-]\s")
 
 
 def add_information(category: list[str], line: str) -> None:
-    category.append(line.lstrip(" *-").rstrip(" -"))
+    # Strip exactly one leading bullet marker: a bare lstrip(" *-") would also
+    # eat Markdown emphasis markers on entries starting with **bold**/*italic*.
+    category.append(BULLET_PATTERN.sub("", line, count=1).strip(" ").rstrip(" -"))
+
+
+def add_nested_information(category: list[str], line: str, indent: int) -> None:
+    """Folds an indented sub-list bullet into its parent entry.
+
+    Nested bullets are preserved *inside* the parent entry string, one
+    ``\\n  - child`` line per bullet (two spaces per nesting level). The model
+    therefore stays a flat ``list[str]`` per category, and ``from_dict`` emits
+    the embedded newlines verbatim, so nested bullets round-trip.
+    """
+    level = max(1, indent // 2)
+    text = BULLET_PATTERN.sub("", line, count=1).strip()
+    category[-1] = f"{category[-1]}\n{'  ' * level}- {text}"
 
 
 def append_continuation(category: list[str], line: str) -> None:
@@ -141,7 +156,15 @@ def parse_to_dict(
         elif match := LINK_PATTERN.fullmatch(line):
             urls[match.group(1).lower()] = match.group(2)
         elif line:
-            if BULLET_PATTERN.match(line) or not category:
+            if BULLET_PATTERN.match(line):
+                indent = len(raw_line) - len(raw_line.lstrip(" "))
+                if indent >= 2 and category:
+                    # An indented bullet is a nested sub-list item belonging
+                    # to the previous entry, not a sibling entry.
+                    add_nested_information(category, line, indent)
+                else:
+                    add_information(category, line)
+            elif not category:
                 add_information(category, line)
             else:
                 # A non-bullet, non-blank line following an entry is a

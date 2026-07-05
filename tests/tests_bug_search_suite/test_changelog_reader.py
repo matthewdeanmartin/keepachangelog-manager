@@ -156,11 +156,11 @@ class TestValidateChangeTypeHeading:
 
 
 class TestValidateEntryContent:
-    def test_sublist_bullet_is_error(self, tmp_path):
+    def test_sublist_bullet_is_valid(self, tmp_path):
         content = "- outer\n  - inner item\n"
         p = write(tmp_path, content)
         reader = ChangelogReader(file_path=p)
-        assert reader.validate_layout() > 0
+        assert reader.validate_layout() == 0
 
     def test_numbered_list_in_entry_is_error(self, tmp_path):
         content = "- 1. This is a numbered sub-item\n"

@@ -24,8 +24,12 @@ archived.
 uv tool install keepachangelog-manager-fork
 ```
 
-The package name on PyPI is `keepachangelog-manager-fork`. The installed command is `changelogmanager` with legacy
-alias of `keepachangelog-manager`.
+The package name on PyPI is `keepachangelog-manager-fork`. The installed command is `kaclm` (short, canonical) or the
+longer `changelogmanager`; both are equivalent. The examples below use `changelogmanager`, but `kaclm` works
+everywhere in its place.
+
+> **Deprecated aliases:** `keepachangelog-manager` and `kacl-gui` still work but print a deprecation warning — use
+> `kaclm`/`changelogmanager` and `kaclm gui` instead. (`kacl` and `kacl-cli` are separate, unrelated tools on PyPI.)
 
 Supports pre-commit, CLI, and GitHub Actions workflows.
 

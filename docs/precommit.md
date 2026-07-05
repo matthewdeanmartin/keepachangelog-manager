@@ -1,5 +1,10 @@
 # Pre-commit
 
+> The CLI is invoked as `kaclm` (the canonical console script) or the longer
+> `changelogmanager` alias — the examples below use whichever reads best in
+> context. The older `keepachangelog-manager` and `kacl-gui` scripts are
+> deprecated aliases.
+
 `keepachangelog-manager` works well with `pre-commit` in two different ways:
 
 - validate the changelog file itself
@@ -56,10 +61,16 @@ Then install the `commit-msg` stage:
 pre-commit install --hook-type commit-msg
 ```
 
+The hook `entry:` deliberately uses the standalone `changelogmanager-lint-message`
+script rather than `kaclm lint-message`: the standalone script skips the full
+CLI import graph (GUI / GitHub / GitLab / PyPI) so it starts fast on every
+commit. The two are otherwise equivalent.
+
 ## What the commit-message hook checks
 
-`changelogmanager-lint-message` reads the commit message file passed by git or
-pre-commit and classifies the subject line against the configured schema.
+`changelogmanager-lint-message` (equivalently `kaclm lint-message`) reads the
+commit message file passed by git or pre-commit and classifies the subject line
+against the configured schema.
 
 Supported schemas:
 
@@ -77,8 +88,13 @@ It exits:
 ## Example direct usage
 
 ```sh
+# fast-start standalone script (used by the pre-commit hook)
 changelogmanager-lint-message .git/COMMIT_EDITMSG
 changelogmanager-lint-message --schema keepachangelog .git/COMMIT_EDITMSG
+
+# equivalent full-CLI subcommand
+kaclm lint-message .git/COMMIT_EDITMSG
+kaclm lint-message --schema keepachangelog .git/COMMIT_EDITMSG
 ```
 
 ## Why use this instead of CI autofix

@@ -139,6 +139,32 @@ def test_appstate_missing_changelog_sets_load_error(tmp_path, monkeypatch):
     assert state.changelog is not None
 
 
+def test_appstate_invalid_changelog_yields_no_model(tmp_path, monkeypatch):
+    """A file that exists but fails to parse must NOT produce a live model.
+
+    Regression test: an empty Changelog bound to the real path let GUI
+    save/validate/release overwrite the user's changelog with a bare header.
+    """
+
+    from changelogmanager.gui.state import AppState
+
+    monkeypatch.chdir(tmp_path)
+    original = (
+        "# Changelog\n\n## [Unreleased]\n\n### Added\n\n"
+        "- Top-level entry\n- 1. a numbered list entry (invalid)\n"
+    )
+    (tmp_path / "CHANGELOG.md").write_text(original, encoding="UTF-8")
+    with patch("changelogmanager.gui.state.auto_detect_config", return_value=None):
+        state = AppState()
+
+    assert state.changelog is None
+    assert state.load_error is not None
+    # The error must include the individual diagnostics, not just a count.
+    assert "Numbered lists are not permitted" in state.load_error
+    # And nothing may have touched the file.
+    assert (tmp_path / "CHANGELOG.md").read_text(encoding="UTF-8") == original
+
+
 def test_appstate_reload_called_again(tmp_path, monkeypatch):
     from changelogmanager.gui.state import AppState
 

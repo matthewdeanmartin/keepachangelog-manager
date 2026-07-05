@@ -91,15 +91,24 @@ class EditScreen(
         self.set_text(self.links, self.derived_links(), editable=False)
 
         self.sections.clear()
-        if changelog is None:
-            ttk.Label(self.sections.body, text="(no changelog loaded)").pack(anchor="w")
-            return
         if self.app_state.load_error:
             ttk.Label(
                 self.sections.body,
                 text=f"Load issue: {self.app_state.load_error}",
                 foreground="red",
+                justify=tk.LEFT,
             ).pack(anchor="w", padx=4, pady=4)
+        if changelog is None:
+            ttk.Label(
+                self.sections.body,
+                text=(
+                    "The changelog could not be parsed, so editing and saving are "
+                    "disabled to protect the file. Fix it on disk (or run "
+                    "'validate --fix') and Reload."
+                ),
+                wraplength=700,
+            ).pack(anchor="w", padx=4, pady=4)
+            return
 
         entries = changelog.list_unreleased()
         by_type: dict[str, list[tuple[int, str]]] = {}
@@ -265,6 +274,16 @@ class EditScreen(
         changelog = self.require_changelog()
         if changelog is None:
             return
+        # Never overwrite a file that exists on disk but failed to parse: the
+        # in-memory model would not reflect its contents.
+        if self.app_state.load_error and Path(changelog.get_file_path()).is_file():
+            messagebox.showerror(
+                "Save blocked",
+                "The changelog on disk could not be loaded, so saving would "
+                f"destroy its contents:\n\n{self.app_state.load_error}",
+            )
+            self.status("Save blocked: changelog failed to load.")
+            return
         try:
             text = changelog.render()
             text = self.apply_prologue(text)
@@ -279,7 +298,10 @@ class EditScreen(
     def validate(self) -> None:
         """Re-reads the file through the reader and reports diagnostics."""
 
-        self.save()
+        # Persist in-editor edits only when there is a cleanly loaded model;
+        # when the on-disk file failed to parse, validate it as-is.
+        if self.app_state.changelog is not None and not self.app_state.load_error:
+            self.save()
         from changelogmanager.gui.cli_runner import (
             run_cli,
         )  # pylint: disable=import-outside-toplevel

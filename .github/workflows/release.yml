@@ -69,7 +69,7 @@ jobs:
       pull-requests: write
 
     outputs:
-      branch: ${{ steps.push.outputs.branch }}
+      branch: ${{ steps.release.outputs.branch }}
       version: ${{ steps.release.outputs.version }}
 
     steps:
@@ -93,92 +93,38 @@ jobs:
       - name: Sync dependencies
         run: uv sync --frozen
 
-      - name: Bump changelog and version files
+      - name: Configure git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump, commit, push branch and open PR
         id: release
         env:
-          RELEASE_VERSION: ${{ github.event.release.tag_name }}
-        run: |
-          # Strip leading 'v' so changelogmanager and pyproject.toml both get
-          # a bare semver string like "1.3.0".
-          VERSION="${RELEASE_VERSION#v}"
-          uv run changelogmanager release \
-            --override-version "$VERSION" \
-            --bump-versions \
-            --yes
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-
-      - name: Commit and push bump branch
-        id: push
-        env:
           GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ github.event.release.tag_name }}
           RELEASE_ID: ${{ github.event.release.id }}
           BASE_BRANCH: ${{ github.event.release.target_commitish }}
           REPO: ${{ github.repository }}
-          RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
-          BRANCH="release/bump-${RELEASE_ID}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b "${BRANCH}"
-          git add CHANGELOG.md pyproject.toml
-          # Surface any other files the version bump touched (e.g. __about__.py)
-          git add -u
-          if git diff --cached --quiet; then
-            echo "::warning::No files changed after release --bump-versions; is the version already bumped?"
-            exit 1
-          fi
-          # Follow [defaults].skip_ci (default true) so the bump commit doesn't
-          # trigger another CI run; conserves build minutes.
-          SKIP_CI_SUFFIX=""
-          if uv run python -c "import sys; from changelogmanager.config import get_skip_ci; sys.exit(0 if get_skip_ci(None) else 1)"; then
-            SKIP_CI_SUFFIX=" [skip ci]"
-          fi
-          git commit -m "chore: release ${RELEASE_VERSION}${SKIP_CI_SUFFIX}"
+          # One command does everything the bump job used to do in shell:
+          # bump changelog + version files, branch, [skip ci] commit,
+          # --force-with-lease push, and open the release PR. The [skip ci]
+          # decision follows [defaults].skip_ci (default true).
           git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git"
-          REMOTE_SHA="$(git ls-remote --heads origin "${BRANCH}" | awk '{print $1}')"
-          if [ -n "${REMOTE_SHA}" ]; then
-            echo "Updating existing release bump branch ${BRANCH}"
-            git push \
-              --force-with-lease="refs/heads/${BRANCH}:${REMOTE_SHA}" \
-              origin \
-              "HEAD:refs/heads/${BRANCH}"
-          else
-            git push origin "HEAD:refs/heads/${BRANCH}"
-          fi
-          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
-
-      - name: Open pull request
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          RELEASE_VERSION: ${{ steps.release.outputs.version }}
-          BASE_BRANCH: ${{ github.event.release.target_commitish }}
-          REPO: ${{ github.repository }}
-          BUMP_BRANCH: ${{ steps.push.outputs.branch }}
-        run: |
-          # github-pr appends [skip ci] to the title per [defaults].skip_ci
-          # (default true) so merging the release PR doesn't trigger CI. Pass
-          # --no-skip-ci here to opt out for a single run.
-          uv run changelogmanager github-pr \
-            --repository "${REPO}" \
-            --head "${BUMP_BRANCH}" \
-            --base "${BASE_BRANCH}" \
-            --title "chore: release ${RELEASE_VERSION}" \
-            --body "$(cat <<EOF
-          Automated release PR for **${RELEASE_VERSION}**.
-
-          Changes:
-          - \`CHANGELOG.md\`: promoted \`[Unreleased]\` to \`${RELEASE_VERSION}\`
-          - \`pyproject.toml\`: version bumped to \`${RELEASE_VERSION}\`
-          - Any \`__version__\` strings in the source tree updated to \`${RELEASE_VERSION}\`
-
-          This PR was opened automatically by the Release workflow.
-          Merge it once the PyPI publish below succeeds.
-
-          **Recovery:** if the build or publish jobs fail, close this PR,
-          delete the GitHub Release, fix the issue, then re-publish the
-          release to start over.
-          EOF
-          )"
+          VERSION="${RELEASE_VERSION#v}"
+          uv run kaclm release-bump \
+            --version "$VERSION" \
+            --base "$BASE_BRANCH" \
+            --release-id "$RELEASE_ID" \
+            --repository "$REPO" \
+            --open-pr \
+            --title "chore: release ${VERSION}" \
+            --body "Automated release PR for ${VERSION}. Merge once the PyPI publish succeeds." \
+            --yes \
+            --json > release-bump.json
+          echo "version=$(python -c "import json;print(json.load(open('release-bump.json'))['version'])")" >> "$GITHUB_OUTPUT"
+          echo "branch=$(python -c "import json;print(json.load(open('release-bump.json'))['branch'])")" >> "$GITHUB_OUTPUT"
 
   # ── 2. Build the distribution from the bump branch ──────────────────────
   build:

@@ -82,8 +82,10 @@ class AppState:  # pylint: disable=too-many-instance-attributes
     def reload(self) -> None:
         """(Re)loads the changelog from disk into the shared model.
 
-        On any failure ``changelog`` is set to an empty model and ``load_error``
-        carries a human-readable reason; screens render that instead of crashing.
+        When the file is missing, ``changelog`` is an empty model (saving it
+        creates the file — safe). When the file exists but fails to parse,
+        ``changelog`` is set to ``None`` so no screen can render an empty model
+        over the real file; ``load_error`` carries a human-readable reason.
         """
 
         path = self.input_file
@@ -117,7 +119,11 @@ class AppState:  # pylint: disable=too-many-instance-attributes
             # The reader raises diagnostic exceptions on malformed files; keep the
             # GUI alive and surface the message.
             self.load_error = str(getattr(exc, "message", exc)) or repr(exc)
-            self.changelog = Changelog(file_path=path)
+            # CRITICAL: do NOT substitute an empty model here. The file exists
+            # but could not be parsed; an empty Changelog bound to this path
+            # would let any save/validate/release action overwrite the user's
+            # real changelog with a bare header.
+            self.changelog = None
             logger.warning("Failed to load changelog %s: %s", path, self.load_error)
         self.notify()
 

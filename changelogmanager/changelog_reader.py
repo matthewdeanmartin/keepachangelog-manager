@@ -98,7 +98,6 @@ def derive_unreleased_url(
     return None
 
 
-
 class _EntryRule(TypedDict):
     pattern: Any
     error: str
@@ -118,8 +117,11 @@ ENTRY_RULES: list[_EntryRule] = [
     },
     {
         "pattern": re2.compile(r"^([+*-]) .*"),
-        "error": "Sub-lists are not permitted in changelog entries",
-        "hint": "Use a single '- ' bullet per entry; no nested bullets",
+        "error": "Doubled list markers are not permitted in changelog entries",
+        "hint": (
+            "Use a single '- ' marker per line; a nested bullet belongs on "
+            "its own indented line"
+        ),
     },
     {
         "pattern": re2.compile(r"^([>]+) .*"),
@@ -134,7 +136,10 @@ AUTOFIX_PATTERNS = [
         re2.compile(r"^[0-9]+\.\s+(.*)$"),
         "Removed numbered-list marker from changelog entry",
     ),
-    (re2.compile(r"^[-+*]\s+(.*)$"), "Removed nested-list marker from changelog entry"),
+    (
+        re2.compile(r"^[-+*]\s+(.*)$"),
+        "Removed doubled list marker from changelog entry",
+    ),
     (re2.compile(r"^>+\s+(.*)$"), "Removed block-quote marker from changelog entry"),
 ]
 
@@ -184,15 +189,28 @@ class ChangelogReader:
         elif not text and not Path(self.file_path).is_file():
             return {}
 
-        errors = self.validate_layout(text=text)
+        layout_errors = self.collect_layout_errors(text=text)
+        for error in layout_errors:
+            error.report()
 
-        if errors:
+        if layout_errors:
             logger.error(
-                "Detected %d layout errors while reading %s", errors, self.file_path
+                "Detected %d layout errors while reading %s",
+                len(layout_errors),
+                self.file_path,
+            )
+            # Carry the individual diagnostics in the exception message so
+            # callers that only surface the exception (e.g. the GUI) still
+            # show the user *what* is wrong, not just how many things are.
+            details = "\n".join(
+                f"line {error.line_number.start}: {error.message}"
+                for error in layout_errors
             )
             raise logging.Error(
                 file_path=self.file_path,
-                message=f"{errors} errors detected in the layout",
+                message=(
+                    f"{len(layout_errors)} errors detected in the layout\n{details}"
+                ),
             )
 
         changelog: dict[str, Any] = keepachangelog.to_dict(
@@ -425,22 +443,10 @@ class ChangelogReader:
             # Not an entry, no validation required.
             return
 
-        indent = match.group(1)
+        # Indented bullets are nested sub-list items (valid Markdown and valid
+        # Keep a Changelog); the parser folds them into their parent entry, so
+        # only the entry *content* needs validating here.
         entry = match.group(2)
-
-        if indent:
-            yield logging.Error(
-                file_path=self.file_path,
-                line=line,
-                line_number=logging.Range(start=line_number),
-                column_number=logging.Range(start=1, range=len(indent)),
-                message="Sub-lists are not permitted in changelog entries",
-                expectations=(
-                    "Remove the leading indentation so the entry is a "
-                    "top-level '- ' bullet"
-                ),
-            )
-            return
 
         for rule in ENTRY_RULES:
             pattern = rule["pattern"]
@@ -491,8 +497,8 @@ class ChangelogReader:
             )
         ]
 
-    def validate_layout(self, text: str | None = None) -> int:
-        """Validates the changelog file according to KeepAChangelog conventions.
+    def collect_layout_errors(self, text: str | None = None) -> list[logging.Error]:
+        """Collects layout diagnostics without reporting them.
 
         Pass ``text`` to skip the disk read when the caller already holds the
         file contents.
@@ -522,14 +528,19 @@ class ChangelogReader:
 
         errors.extend(self.validate_preamble(text=text))
 
-        for error in errors:
-            error.report()
-
         logger.info(
             "Finished layout validation for %s with %d error(s)",
             self.file_path,
             len(errors),
         )
+        return errors
+
+    def validate_layout(self, text: str | None = None) -> int:
+        """Validates the changelog layout, reporting each diagnostic to stderr."""
+
+        errors = self.collect_layout_errors(text=text)
+        for error in errors:
+            error.report()
         return len(errors)
 
     def count_layout_errors(self, text: str | None = None) -> int:
@@ -632,10 +643,10 @@ class ChangelogReader:
         if not entry:
             return line, []
 
+        # Leading indentation marks a nested sub-list bullet, which is valid;
+        # preserve it and only fix the entry content.
         indent = entry.group(1)
         entry_text = entry.group(2)
-        if indent:
-            applied.append("Removed leading indentation from changelog entry")
 
         fixed_entry = entry_text
         for pattern_re, message in AUTOFIX_PATTERNS:
@@ -647,7 +658,7 @@ class ChangelogReader:
 
         if not applied:
             return line, []
-        return f"- {fixed_entry}{newline}", applied
+        return f"{indent}- {fixed_entry}{newline}", applied
 
     def autofix_version_content(self, content: str) -> tuple[str, list[str]]:
         fixed = content.strip()

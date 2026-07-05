@@ -18,10 +18,17 @@ def test_read_raises_when_layout_validation_fails(tmp_path, monkeypatch):
     changelog_file.write_text("# placeholder\n", encoding="utf-8")
     reader = ChangelogReader(file_path=str(changelog_file))
 
-    monkeypatch.setattr(reader, "validate_layout", lambda text=None: 2)
+    fake_errors = [
+        logging.Error(message="first problem"),
+        logging.Error(message="second problem"),
+    ]
+    monkeypatch.setattr(reader, "collect_layout_errors", lambda text=None: fake_errors)
 
-    with pytest.raises(logging.Error, match="2 errors detected in the layout"):
+    with pytest.raises(logging.Error, match="2 errors detected in the layout") as exc:
         reader.read()
+    # The exception carries the individual diagnostics for GUI consumers.
+    assert "first problem" in exc.value.message
+    assert "second problem" in exc.value.message
 
 
 def test_read_returns_parsed_changelog_after_validation(tmp_path, monkeypatch):
@@ -38,7 +45,7 @@ def test_read_returns_parsed_changelog_after_validation(tmp_path, monkeypatch):
     )
     seen = {}
 
-    monkeypatch.setattr(reader, "validate_layout", lambda text=None: 0)
+    monkeypatch.setattr(reader, "collect_layout_errors", lambda text=None: [])
     monkeypatch.setattr(
         "changelogmanager.changelog_reader.keepachangelog.to_dict",
         lambda path_or_lines, show_unreleased: parsed,

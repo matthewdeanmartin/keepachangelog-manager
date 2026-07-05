@@ -34,7 +34,9 @@ try:
         """Deserialize JSON ``str``/``bytes`` to a Python object (orjson backend)."""
         return _orjson.loads(data)
 
-except ImportError:  # pragma: no cover - exercised on interpreters lacking orjson wheels
+except (
+    ImportError
+):  # pragma: no cover - exercised on interpreters lacking orjson wheels
     import json as _json
 
     USING_ORJSON = False

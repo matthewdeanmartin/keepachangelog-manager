@@ -829,6 +829,94 @@ examples:
     add_dry_run_argument(github_pr_parser)
     github_pr_parser.set_defaults(handler=commands.command_github_pr)
 
+    release_bump_parser = subparsers.add_parser(
+        "release-bump",
+        help="Bump versions, commit, push a release branch and open a PR (CI helper)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # the whole release.yml `bump` job in one command
+  kaclm release-bump \\
+    --version "$RELEASE_VERSION" \\
+    --base "$BASE_BRANCH" \\
+    --release-id "$RELEASE_ID" \\
+    --repository "$GITHUB_REPOSITORY" \\
+    --open-pr --yes
+
+  # preview locally without touching git or GitHub
+  kaclm release-bump --version 1.2.0 --base main --dry-run
+""",
+    )
+    release_bump_parser.add_argument(
+        "--version",
+        default=None,
+        help="Release version (falls back to RELEASE_VERSION env var); leading 'v' is stripped",
+    )
+    release_bump_parser.add_argument(
+        "--base",
+        default="main",
+        help="Base branch the release targets and the PR merges into (default: main)",
+    )
+    release_bump_parser.add_argument(
+        "--branch",
+        default=None,
+        help="Bump branch name (default: release/bump-<release-id or version>)",
+    )
+    release_bump_parser.add_argument(
+        "--release-id",
+        default=None,
+        help="GitHub release id, used to name the bump branch when --branch is omitted",
+    )
+    release_bump_parser.add_argument(
+        "-r",
+        "--repository",
+        default=None,
+        help="Repository (owner/repo); falls back to GITHUB_REPOSITORY env var",
+    )
+    release_bump_parser.add_argument(
+        "--open-pr",
+        dest="open_pr",
+        action="store_true",
+        help="Open (or update) a GitHub PR from the bump branch to --base",
+    )
+    release_bump_parser.add_argument("--title", default=None, help="PR title")
+    release_bump_parser.add_argument("--body", default=None, help="PR body")
+    release_bump_parser.add_argument(
+        "--pyproject-only",
+        dest="pyproject_only",
+        action="store_true",
+        help="Only bump pyproject.toml, not Python source __version__ strings",
+    )
+    release_bump_parser.add_argument(
+        "--skip-ci",
+        dest="skip_ci",
+        default=None,
+        action="store_true",
+        help=(
+            "Append [skip ci] to the commit message and PR title. Defaults to "
+            "[defaults].skip_ci in config."
+        ),
+    )
+    release_bump_parser.add_argument(
+        "--no-skip-ci",
+        dest="skip_ci",
+        action="store_false",
+        help="Do not append [skip ci] (overrides config).",
+    )
+    release_bump_parser.add_argument(
+        "-t",
+        "--github-token",
+        default=None,
+        help="GitHub token for --open-pr (falls back to GITHUB_TOKEN env var)",
+    )
+    release_bump_parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Confirm non-interactively (required in CI).",
+    )
+    add_dry_run_argument(release_bump_parser)
+    release_bump_parser.set_defaults(handler=commands.command_release_bump)
+
     backfill_parser = subparsers.add_parser(
         "backfill",
         help="Backfill missing changelog versions from existing release history",
@@ -1288,5 +1376,27 @@ examples:
 """,
     )
     gui_parser.set_defaults(handler=commands.command_gui)
+
+    lint_message_parser = subparsers.add_parser(
+        "lint-message",
+        help="Lint a commit-message file against the commit schema",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  kaclm lint-message .git/COMMIT_EDITMSG
+  kaclm lint-message -f github --schema conventional msg.txt
+""",
+    )
+    lint_message_parser.add_argument(
+        "message_file",
+        help="Path to the commit message file passed by git/pre-commit",
+    )
+    lint_message_parser.add_argument(
+        "--schema",
+        choices=["auto", "conventional", "gitmoji", "keepachangelog"],
+        default=None,
+        help="Override the commit-message schema (defaults to config or auto)",
+    )
+    lint_message_parser.set_defaults(handler=commands.command_lint_message)
 
     return parser

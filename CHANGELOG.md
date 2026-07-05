@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `kaclm` console script: short canonical CLI name that keeps the keep-a-changelog-manager mnemonic without clashing with the unrelated `kacl` PyPI project or python-kacl's `kacl-cli` command.
+- `release-bump` subcommand: bumps the changelog and version files, creates the release branch, commits with `[skip ci]` (per `[defaults].skip_ci`), force-with-lease pushes, and opens the release PR — replacing ~80 lines of inline shell in `release.yml` with one testable command.
+- `lint-message` subcommand: the commit-message linter is now reachable as `kaclm lint-message` in addition to the fast-start `changelogmanager-lint-message` hook script.
+
+### Changed
+
+- `keepachangelog-manager` and `kacl-gui` console scripts are deprecated (they print a warning then delegate); use `kaclm` and `kaclm gui`. Removal planned a release after 6.6.0.
+
+### Fixed
+
+- Bug where GUI would blank out entire change log if it had validation errors
+- Bug where valid Markdown (nested bulleted list) failed to validate. "Spec" is unclear how much markdown is supported in change entries.
+
 ## [6.5.0] - 2026-06-29
 ### Added
 - validate --fix now backfills a missing `[Unreleased]:` link reference, deriving the compare URL (host, repo, and tag prefix like `v`) from the existing released-version links instead of a hardcoded template, and leaving all other link lines unchanged. Plain validate stays lenient (exit 0) but prints an advisory naming the exact line to add, so output can be made to satisfy strict consumers like upstream `kacl-cli verify`

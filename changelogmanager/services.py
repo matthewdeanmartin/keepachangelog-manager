@@ -885,6 +885,161 @@ def github_pull_request(
     )
 
 
+def _run_git(
+    args: list[str], *, check: bool = True
+) -> subprocess.CompletedProcess[str]:
+    """Runs a git command, raising a diagnostic ``logging.Error`` on failure."""
+
+    cmd = [git_executable(), *args]
+    logger.info("Running git %s", " ".join(args))
+    try:
+        return subprocess.run(  # nosec B603
+            cmd, check=check, capture_output=True, text=True
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        stderr = getattr(exc, "stderr", "") or ""
+        raise logging.Error(
+            message=f"git {args[0]} failed: {exc}\n{stderr}".rstrip(),
+        ) from exc
+
+
+@dataclass
+class ReleaseBumpResult:
+    """Outcome of a ``release-bump`` run.
+
+    Captures everything the CI step needs to emit as job outputs: the resolved
+    ``version``, the ``branch`` that was pushed, whether a commit was actually
+    created (``committed``), and the opened PR (``pr_number`` / ``html_url``)
+    when ``open_pr`` was requested.
+    """
+
+    version: str
+    branch: str
+    committed: bool = False
+    skip_ci: bool = False
+    pushed: bool = False
+    pr_number: Any = None
+    html_url: str | None = None
+    dry_run: bool = False
+
+
+def release_bump(
+    *,
+    changelog: Changelog,
+    version: str,
+    base: str,
+    branch: str,
+    repository: str,
+    token: str | None = None,
+    skip_ci: bool = True,
+    open_pr: bool = False,
+    pr_title: str | None = None,
+    pr_body: str | None = None,
+    pyproject_only: bool = False,
+    dry_run: bool = False,
+) -> ReleaseBumpResult:
+    """Bumps the changelog + version files, commits, pushes a branch, opens a PR.
+
+    This is the presentation-free equivalent of the ~80 lines of shell that used
+    to live in the ``bump`` job of ``release.yml``: it centralizes the branch,
+    ``[skip ci]`` decision, ``--force-with-lease`` push and PR creation so the
+    workflow shrinks to a single command and the behaviour is unit-testable.
+    """
+
+    normalized = version.lstrip("v")
+
+    if dry_run:
+        release_changelog(
+            changelog,
+            normalized,
+            bump_versions=True,
+            pyproject_only=pyproject_only,
+            dry_run=True,
+        )
+        return ReleaseBumpResult(
+            version=normalized,
+            branch=branch,
+            skip_ci=skip_ci,
+            dry_run=True,
+        )
+
+    # 1. Bump changelog + version files on disk (the only place versions are
+    #    written into the repo).
+    release_changelog(
+        changelog,
+        normalized,
+        bump_versions=True,
+        pyproject_only=pyproject_only,
+    )
+
+    # 2. Create the bump branch off HEAD (the caller checked out `base`).
+    _run_git(["checkout", "-B", branch])
+
+    # 3. Stage the changelog + version files and anything else the bump touched.
+    _run_git(["add", str(changelog.get_file_path()), "pyproject.toml"])
+    _run_git(["add", "-u"])
+
+    # 4. Nothing to commit means the version was already bumped; surface it.
+    staged = _run_git(["diff", "--cached", "--quiet"], check=False)
+    if staged.returncode == 0:
+        raise logging.Error(
+            message=(
+                "No files changed after release --bump-versions; is the version "
+                f"{normalized} already released?"
+            ),
+        )
+
+    suffix = " [skip ci]" if skip_ci else ""
+    _run_git(["commit", "-m", f"chore: release {normalized}{suffix}"])
+
+    result = ReleaseBumpResult(
+        version=normalized,
+        branch=branch,
+        committed=True,
+        skip_ci=skip_ci,
+    )
+
+    # 5. Push with --force-with-lease when the branch already exists remotely so
+    #    a re-run updates it instead of failing.
+    remote = _run_git(["ls-remote", "--heads", "origin", branch], check=False)
+    remote_sha = remote.stdout.split()[0] if remote.stdout.strip() else ""
+    if remote_sha:
+        _run_git(
+            [
+                "push",
+                f"--force-with-lease=refs/heads/{branch}:{remote_sha}",
+                "origin",
+                f"HEAD:refs/heads/{branch}",
+            ]
+        )
+    else:
+        _run_git(["push", "origin", f"HEAD:refs/heads/{branch}"])
+    result.pushed = True
+
+    # 6. Optionally open the release PR, reusing the github-pr code path.
+    if open_pr:
+        if not token:
+            raise logging.Error(
+                message="--open-pr requires a GitHub token (pass --github-token or set GITHUB_TOKEN)",
+            )
+        title = pr_title or f"chore: release {normalized}"
+        if skip_ci and "[skip ci]" not in title:
+            title = f"{title} [skip ci]"
+        body = pr_body or f"Automated release PR for **{normalized}**."
+        pr = github_pull_request(
+            repository=repository,
+            token=token,
+            head=branch,
+            base=base,
+            title=title,
+            body=body,
+        )
+        result.pr_number = pr.pr_number
+        result.html_url = pr.html_url
+
+    return result
+
+
 @dataclass
 class GitLabReleaseResult:
     """Outcome of a gitlab-release run."""

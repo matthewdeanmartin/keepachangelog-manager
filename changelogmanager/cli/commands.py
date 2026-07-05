@@ -1116,6 +1116,99 @@ def command_github_pr(args: argparse.Namespace, ctx: CliContext) -> None:
     )
 
 
+def command_release_bump(args: argparse.Namespace, ctx: CliContext) -> None:
+    """Bumps versions, commits, pushes a branch and (optionally) opens a PR.
+
+    This is the one-command replacement for the ``bump`` job's inline shell in
+    ``release.yml``.
+    """
+
+    version = prompts.resolve_required_value(
+        args.version, env_var="RELEASE_VERSION", message="Release version"
+    )
+    if not version:
+        raise logging.Error(
+            message="release-bump requires --version (or RELEASE_VERSION)"
+        )
+
+    # Repository is only needed to open a PR; don't prompt for it otherwise.
+    if args.open_pr and not args.dry_run:
+        args.repository = prompts.resolve_required_value(
+            args.repository,
+            env_var="GITHUB_REPOSITORY",
+            message="GitHub repository (owner/repo)",
+        )
+    else:
+        args.repository = args.repository or os.environ.get("GITHUB_REPOSITORY")
+
+    normalized = version.lstrip("v")
+    branch = args.branch or (
+        f"release/bump-{args.release_id}"
+        if args.release_id
+        else f"release/bump-{normalized}"
+    )
+
+    skip_ci = args.skip_ci
+    if skip_ci is None:
+        skip_ci = get_skip_ci(resolved_config_path(args))
+
+    token = None
+    if args.open_pr and not args.dry_run:
+        token = prompts.resolve_required_value(
+            args.github_token, env_var="GITHUB_TOKEN", message="GitHub token"
+        )
+
+    logger.info(
+        "Running release-bump version=%s branch=%s base=%s open_pr=%s dry_run=%s",
+        normalized,
+        branch,
+        args.base,
+        bool(args.open_pr),
+        bool(args.dry_run),
+    )
+
+    result = services.release_bump(
+        changelog=ctx.changelog,
+        version=normalized,
+        base=args.base,
+        branch=branch,
+        repository=args.repository or "",
+        token=token,
+        skip_ci=bool(skip_ci),
+        open_pr=bool(args.open_pr),
+        pr_title=args.title,
+        pr_body=args.body,
+        pyproject_only=bool(getattr(args, "pyproject_only", False)),
+        dry_run=bool(args.dry_run),
+    )
+
+    if result.dry_run:
+        print_dry_run(
+            ctx,
+            f"would bump to {result.version}, commit on {result.branch}"
+            + (" and open a PR" if args.open_pr else ""),
+        )
+    else:
+        message = f"Bumped {result.version} on {result.branch}"
+        if result.pr_number:
+            message += f" (PR #{result.pr_number})"
+            if result.html_url:
+                message += f": {result.html_url}"
+        emit(ctx, text=message)
+
+    ctx.json_payload.update(
+        {
+            "version": result.version,
+            "branch": result.branch,
+            "committed": result.committed,
+            "pushed": result.pushed,
+            "skip_ci": result.skip_ci,
+            "pr_number": result.pr_number,
+            "html_url": result.html_url,
+        }
+    )
+
+
 def command_gitlab_release(args: argparse.Namespace, ctx: CliContext) -> None:
     """Creates or updates a GitLab release from the changelog."""
 
@@ -1768,6 +1861,23 @@ def command_credentials(args: argparse.Namespace, ctx: CliContext) -> None:
 # ----------------------------------------------------------------------
 # gui
 # ----------------------------------------------------------------------
+
+
+def command_lint_message(args: argparse.Namespace, _ctx: CliContext) -> None:
+    """Lint a commit-message file (delegates to the fast-start lint entry point).
+
+    Shares the implementation with the ``changelogmanager-lint-message`` console
+    script so ``kaclm lint-message`` and the pre-commit hook behave identically.
+    """
+
+    from changelogmanager.lint_message_cli import main as lint_main  # noqa: PLC0415
+
+    argv = [args.message_file, "-f", args.error_format]
+    if getattr(args, "config", None):
+        argv += ["--config", args.config]
+    if getattr(args, "schema", None):
+        argv += ["--schema", args.schema]
+    raise SystemExit(lint_main(argv))
 
 
 def command_gui(_args: argparse.Namespace, _ctx: CliContext) -> None:

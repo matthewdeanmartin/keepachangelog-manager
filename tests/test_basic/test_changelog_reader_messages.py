@@ -205,12 +205,19 @@ def test_numbered_list_entry_suggests_bullet(tmp_path, monkeypatch):
     )
 
 
-def test_indented_sublist_entry_suggests_top_level_bullet(tmp_path, monkeypatch):
+def test_indented_sublist_entry_is_valid(tmp_path, monkeypatch):
     reported, count = capture_output(tmp_path, monkeypatch, "  - indented entry\n")
 
+    assert count == 0
+    assert reported == []
+
+
+def test_doubled_marker_entry_suggests_single_marker(tmp_path, monkeypatch):
+    reported, count = capture_output(tmp_path, monkeypatch, "- - doubled marker\n")
+
     assert count == 1
-    assert "Sub-lists are not permitted" in get_messages(reported)[0]
-    assert "top-level '- ' bullet" in get_expectations(reported)[0]
+    assert "Doubled list markers are not permitted" in get_messages(reported)[0]
+    assert "single '- ' marker" in get_expectations(reported)[0]
 
 
 def test_block_quote_entry_suggests_plain_text(tmp_path, monkeypatch):

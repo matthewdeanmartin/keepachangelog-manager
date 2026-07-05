@@ -27,10 +27,20 @@ Issues = "https://github.com/matthewdeanmartin/keepachangelog-manager/issues"
 Source = "https://github.com/matthewdeanmartin/keepachangelog-manager"
 
 [project.scripts]
+# Canonical entry point. `kaclm` is short, keeps the keep-a-changelog-manager
+# mnemonic, and avoids clashing with the unrelated `kacl` PyPI project and
+# python-kacl's `kacl-cli` command.
+kaclm = "changelogmanager.__main__:main"
+# Kept indefinitely for back-compat (the long-standing canonical name).
 changelogmanager = "changelogmanager.__main__:main"
-kacl-gui = "changelogmanager.__main__:gui_main"
-keepachangelog-manager = "changelogmanager.__main__:main"
+# Fast-start commit-msg linter, kept non-deprecated: it is the documented
+# pre-commit hook entry and deliberately avoids the full argparse import graph
+# on every commit. `kaclm lint-message` is the equivalent full-CLI subcommand.
 changelogmanager-lint-message = "changelogmanager.lint_message_cli:main"
+# Deprecated aliases: emit a stderr warning then delegate. Slated for removal a
+# release after 6.6.0. `gui` is now a subcommand of kaclm.
+keepachangelog-manager = "changelogmanager.__main__:main_deprecated"
+kacl-gui = "changelogmanager.__main__:gui_main_deprecated"
 
 
 [project.optional-dependencies]

@@ -26,5 +26,29 @@ def gui_main() -> None:
     sys.exit(run_gui())
 
 
+def _deprecated(old: str, new: str) -> None:
+    """Prints a one-line deprecation notice to stderr for a renamed console script."""
+
+    print(
+        f"warning: '{old}' is deprecated and will be removed in a future release; "
+        f"use '{new}' instead.",
+        file=sys.stderr,
+    )
+
+
+def main_deprecated() -> None:
+    """Deprecated alias for the ``keepachangelog-manager`` console script."""
+
+    _deprecated("keepachangelog-manager", "kaclm")
+    main()
+
+
+def gui_main_deprecated() -> None:
+    """Deprecated alias for the ``kacl-gui`` console script."""
+
+    _deprecated("kacl-gui", "kaclm gui")
+    gui_main()
+
+
 if __name__ == "__main__":
     main()
