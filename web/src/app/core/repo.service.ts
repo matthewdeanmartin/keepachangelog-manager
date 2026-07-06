@@ -51,6 +51,11 @@ export class RepoService {
     void this.scan();
   }
 
+  /** The active backend, for backend-specific features (e.g. server conflicts). */
+  get activeBackend(): RepoBackend {
+    return this.backend;
+  }
+
   /** Switch the active backend and reload from it. */
   async useBackend(backend: RepoBackend): Promise<void> {
     this.backend = backend;

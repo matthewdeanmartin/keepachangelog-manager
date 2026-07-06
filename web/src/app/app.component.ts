@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { CommitBarComponent } from './features/commit-bar.component';
 import { KATL_VERSION } from './core/version';
+import { ConflictCountService } from './features/conflict-count.service';
 
 @Component({
   selector: 'app-root',
@@ -15,6 +16,12 @@ import { KATL_VERSION } from './core/version';
         <a routerLink="/changelog" routerLinkActive="active">Changelog</a>
         <a routerLink="/preview" routerLinkActive="active">Release preview</a>
         <a routerLink="/workspace" routerLinkActive="active">Workspace</a>
+        <a routerLink="/conflicts" routerLinkActive="active"
+          >Conflicts
+          @if (conflictCount()) {
+            &nbsp;({{ conflictCount() }})
+          }
+        </a>
         <a routerLink="/help" routerLinkActive="active">Help</a>
       </nav>
     </header>
@@ -102,4 +109,5 @@ import { KATL_VERSION } from './core/version';
 })
 export class AppComponent {
   version = KATL_VERSION;
+  conflictCount = inject(ConflictCountService).count;
 }

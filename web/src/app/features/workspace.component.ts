@@ -9,8 +9,10 @@ import {
   FilesystemBackend,
   isFileSystemBackendSupported,
 } from '../core/backend/filesystem-backend';
+import { KatlServerBackend, KatlServerError } from '../core/backend/katl-server-backend';
 
 const PREF_KEY = 'katl.workspace.pref.v1';
+const KATL_PREF_KEY = 'katl.workspace.katl-server.pref.v1';
 
 @Component({
   selector: 'app-workspace',
@@ -71,6 +73,36 @@ const PREF_KEY = 'katl.workspace.pref.v1';
         <p [class.err]="isError()" class="status">{{ status() }}</p>
       }
     </section>
+
+    <section class="card">
+      <h2>KATL Co server</h2>
+      <p class="warn">
+        Connect to a KATL Co server. The token is kept <strong>in memory only</strong> and sent only
+        to the server URL below. Refresh clears it. The server stores tickets only —
+        <code>changelog.d/</code> fragments stay local.
+      </p>
+      <label
+        >Token
+        <input
+          type="password"
+          [(ngModel)]="katlToken"
+          placeholder="server token"
+          autocomplete="off"
+        />
+      </label>
+      <div class="row two">
+        <label
+          >Server URL <input [(ngModel)]="katlUrl" placeholder="https://katl.example.com" />
+        </label>
+        <label>Project key <input [(ngModel)]="katlProject" placeholder="my-project" /></label>
+      </div>
+      <button (click)="connectKatl()" [disabled]="busy() || !katlToken || !katlUrl || !katlProject">
+        {{ busy() ? 'Connecting…' : 'Connect & scan' }}
+      </button>
+      @if (katlStatus()) {
+        <p [class.err]="isError()" class="status">{{ katlStatus() }}</p>
+      }
+    </section>
   `,
   styles: [
     `
@@ -115,6 +147,9 @@ const PREF_KEY = 'katl.workspace.pref.v1';
         grid-template-columns: 1fr 1fr 1fr;
         gap: 0.6rem;
       }
+      .row.two {
+        grid-template-columns: 2fr 1fr;
+      }
       button {
         background: #4da8da;
         color: #fff;
@@ -151,8 +186,13 @@ export class WorkspaceComponent {
   repoName = '';
   baseBranch = 'main';
 
+  katlToken = '';
+  katlUrl = '';
+  katlProject = '';
+
   busy = signal(false);
   status = signal('');
+  katlStatus = signal('');
   isError = signal(false);
   fsSupported = isFileSystemBackendSupported();
 
@@ -162,6 +202,11 @@ export class WorkspaceComponent {
       this.owner = pref.owner;
       this.repoName = pref.repo;
       this.baseBranch = pref.baseBranch;
+    }
+    const katlPref = this.readKatlPref();
+    if (katlPref) {
+      this.katlUrl = katlPref.baseUrl;
+      this.katlProject = katlPref.project;
     }
   }
 
@@ -219,6 +264,47 @@ export class WorkspaceComponent {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  async connectKatl(): Promise<void> {
+    this.busy.set(true);
+    this.isError.set(false);
+    this.katlStatus.set('');
+    try {
+      const backend = new KatlServerBackend({
+        baseUrl: this.katlUrl.trim(),
+        token: this.katlToken,
+        project: this.katlProject.trim(),
+      });
+      await this.repo.useBackend(backend);
+      // Persist only the non-secret server choice, never the token.
+      this.writeKatlPref({ baseUrl: this.katlUrl.trim(), project: this.katlProject.trim() });
+      this.katlStatus.set(`Connected. Loaded ${this.repo.tasks().length} tickets.`);
+      this.router.navigate(['/board']);
+    } catch (e) {
+      this.isError.set(true);
+      this.katlStatus.set(
+        e instanceof KatlServerError
+          ? `KATL server error (${e.status}): ${e.message}`
+          : `Failed: ${(e as Error).message}`,
+      );
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  private readKatlPref(): { baseUrl: string; project: string } | null {
+    if (typeof localStorage === 'undefined') return null;
+    try {
+      return JSON.parse(localStorage.getItem(KATL_PREF_KEY) ?? 'null');
+    } catch {
+      return null;
+    }
+  }
+
+  private writeKatlPref(pref: { baseUrl: string; project: string }): void {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(KATL_PREF_KEY, JSON.stringify(pref));
   }
 
   private readPref(): { owner: string; repo: string; baseBranch: string } | null {

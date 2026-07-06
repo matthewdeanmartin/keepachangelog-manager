@@ -5,6 +5,7 @@ import { ChangelogComponent } from './features/changelog.component';
 import { PreviewComponent } from './features/preview.component';
 import { WorkspaceComponent } from './features/workspace.component';
 import { HelpComponent } from './features/help.component';
+import { ConflictsComponent } from './features/conflicts.component';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'board' },
@@ -13,6 +14,7 @@ export const routes: Routes = [
   { path: 'changelog', component: ChangelogComponent },
   { path: 'preview', component: PreviewComponent },
   { path: 'workspace', component: WorkspaceComponent },
+  { path: 'conflicts', component: ConflictsComponent },
   { path: 'help', component: HelpComponent },
   { path: '**', redirectTo: 'board' },
 ];
