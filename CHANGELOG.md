@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Preserve pending edits during web saves, report filesystem failures, and check GitHub files for conflicting edits.
 - Prevent completed tickets from being promoted again after a release and align browser and Python ticket parsing.
 
+### Changed
+- orjson and re2 less mandatory so people can upgrade to the latest python without waiting for wheels
 
 ## [6.6.0] - 2026-07-05
 ### Added
