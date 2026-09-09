@@ -8,7 +8,7 @@ import os
 from collections.abc import Mapping, Sequence
 from enum import Enum
 from textwrap import dedent
-from typing import Any
+from typing import Any, cast
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -116,7 +116,7 @@ class GitHub:
                 url,
                 len(response),
             )
-            return orjson.loads(response)
+            return cast("Any | None", orjson.loads(response))
         except HTTPError as http_error:
             response_body = http_error.read().decode(errors="replace").strip()
             logger.error(
@@ -158,7 +158,7 @@ class GitHub:
                 body = resp.read()
             if not body:
                 return None
-            return orjson.loads(body)
+            return cast("Any | None", orjson.loads(body))
         except HTTPError as http_error:
             response_body = http_error.read().decode(errors="replace").strip()
             _check_rate_limit(dict(http_error.headers), "GitHub")

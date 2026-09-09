@@ -172,6 +172,15 @@ jobs:
           fi
           echo "Verified: ${WHEEL} matches version ${EXPECTED}"
 
+      # Fail here, in the build job, rather than in `publish` where a metadata
+      # problem is invisible until after the release is already tagged.
+      # 6.7.0 was built, tagged and green, yet never reached PyPI: the publish
+      # action's bundled twine rejected Metadata-Version 2.5 (which hatchling
+      # emits for PEP 639 license metadata). This runs the same validation the
+      # upload does, one job earlier and with a readable error.
+      - name: Validate distribution metadata
+        run: uv run --with 'twine>=7' twine check --strict dist/*
+
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Fixed
 - Release workflow now publishes successfully: pinned `pypa/gh-action-pypi-publish` to v1.14.2, whose bundled Twine v7 accepts Metadata-Version 2.5. Hatchling emits 2.5 for PEP 639 license metadata (`license` + `license-files`), and the previously pinned v1.14.0 rejected it with `InvalidDistribution: Invalid distribution metadata: '2.5' is not a valid metadata version`, so 6.7.0 built and tagged but never reached PyPI.
+- Restored `pyrefly` clean-check under newer pyrefly releases, which flag returning a bare `Any` from the JSON-decoding helpers in `github.py`/`gitlab.py` (`no-any-return-explicit`). The decoded payloads are genuinely dynamic, so the return types are unchanged and the values are now widened with an explicit `cast`, which both pyrefly and mypy accept.
+
+### Added
+- Release pipeline now validates distribution metadata with `twine check --strict` in the build job (and via `make build` / `make check-dist`), so a package the PyPI upload would reject fails at build time instead of after the release is tagged.
 
 ## [6.7.0] - 2026-09-09
 ### Added

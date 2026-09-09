@@ -5,7 +5,7 @@
 from collections.abc import Mapping
 from enum import Enum
 from textwrap import dedent
-from typing import Any, Optional
+from typing import Any, Optional, cast
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -99,7 +99,7 @@ class GitLab:
                 url,
                 len(response),
             )
-            return orjson.loads(response)
+            return cast("Optional[Any]", orjson.loads(response))
         except HTTPError as http_error:
             # 404 on a release lookup simply means "does not exist yet".
             if http_error.code == 404 and method is HttpMethods.GET:

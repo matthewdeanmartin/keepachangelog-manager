@@ -3,7 +3,7 @@ PACKAGE = changelogmanager
 BUILD_DIR = build
 PYLINT_TEMPLATE = {path}:{line}: [{msg_id}({symbol}),{obj}] {msg}
 
-.PHONY: help sync clean format format-check test flake8 pylint mypy bandit lint quality check build validate ruff docs-sync gha-validate gha-pin gha-upgrade prerelease prerelease-check version-check dev-status snapshot-update snapshot-check
+.PHONY: help sync clean format format-check test flake8 pylint mypy bandit lint quality check build check-dist validate ruff docs-sync gha-validate gha-pin gha-upgrade prerelease prerelease-check version-check dev-status snapshot-update snapshot-check
 
 help:
 	@echo Available targets:
@@ -86,6 +86,13 @@ docs-sync:
 
 build: docs-sync
 	$(UV) build --no-sources
+	$(UV) run --with 'twine>=7' twine check --strict dist/*
+
+# Same validation the PyPI upload performs, run locally and in CI's build job.
+# Catches metadata the publish action would reject (e.g. Metadata-Version 2.5
+# vs an older bundled twine) before a release is tagged.
+check-dist:
+	$(UV) run --with 'twine>=7' twine check --strict dist/*
 
 validate:
 	$(UV) run kaclm --error-format github validate
