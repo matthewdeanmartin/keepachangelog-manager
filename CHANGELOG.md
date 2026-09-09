@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Fixed
+- Release workflow now publishes successfully: pinned `pypa/gh-action-pypi-publish` to v1.14.2, whose bundled Twine v7 accepts Metadata-Version 2.5. Hatchling emits 2.5 for PEP 639 license metadata (`license` + `license-files`), and the previously pinned v1.14.0 rejected it with `InvalidDistribution: Invalid distribution metadata: '2.5' is not a valid metadata version`, so 6.7.0 built and tagged but never reached PyPI.
+
 ## [6.7.0] - 2026-09-09
 ### Added
 - `release-rollback` now auto-detects the latest git tag and the repository slug from the git remote URL so no flags are required when running from the project root; the `gh` CLI is preferred over the REST API when available, removing the need for an explicit GitHub token in interactive workflows.
