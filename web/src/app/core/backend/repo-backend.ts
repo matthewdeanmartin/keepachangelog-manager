@@ -32,11 +32,25 @@ export interface BackendCapabilities {
   pullRequest: boolean;
   /** save() writes files where they live (local FS / localStorage). */
   directWrite: boolean;
+  /** The workspace cannot be edited (e.g. the merged all-projects view,
+   * where path-keyed edits could misroute across projects). */
+  readOnly?: boolean;
+}
+
+/** Who/what the workspace is, for humans. Shown on every screen. */
+export interface WorkspaceIdentity {
+  /** Short name: project key, owner/repo, folder name, "Sample workspace". */
+  label: string;
+  /** One clause of context: server host, branch, "demo tickets in browser storage". */
+  detail: string;
 }
 
 export interface RepoBackend {
   readonly id: BackendId;
   readonly capabilities: BackendCapabilities;
+
+  /** Human-readable identity of this workspace, for the UI to display. */
+  describe(): WorkspaceIdentity;
 
   /** Load every tracked tickets/* and changelog.d/* file. */
   scan(): Promise<RawFile[]>;

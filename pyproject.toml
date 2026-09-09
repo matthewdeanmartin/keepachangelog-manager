@@ -44,6 +44,12 @@ kacl-gui = "changelogmanager.__main__:gui_main_deprecated"
 
 
 [project.optional-dependencies]
+# Pure-stdlib install — no native extension wheels required.
+# Useful for embedded Python, Alpine Linux, PyPy, brand-new CPython releases,
+# or any environment where native extension wheels are unavailable.
+# The base install already behaves identically; this group exists as an
+# explicit, greppable signal of intent in requirements files and lock files.
+stdlib = []
 format = [
     "mdformat>=0.7",
 ]

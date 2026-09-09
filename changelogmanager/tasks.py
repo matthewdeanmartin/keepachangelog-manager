@@ -16,6 +16,8 @@ TASK_FILE_CANDIDATES = ("TASKS.md", ".changelogmanager/TASKS.md")
 DONE_RE = re.compile(r"\s*<!--\s*done:\s*(\d{4}-\d{2}-\d{2})\s*-->\s*$")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 TASK_RE = re.compile(r"^(\s*)-\s+\[([ xX])\]\s+(.*?)\s*$")
+FRAGMENT_RE = re.compile(r"\s*<!-- task-fragment: ([0-9a-f]+) -->")
+PROMOTED_RE = re.compile(r"^<!-- task-promoted: ([0-9a-f]+) -->$", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -27,6 +29,7 @@ class TaskItem:
     source_file: Path
     line: int
     raw_line: str
+    fragment_key: str | None = None
 
 
 def canonical_change_type(value: str) -> str | None:
@@ -80,7 +83,9 @@ def parse_task_file(path: Path) -> list[TaskItem]:
         task_match = TASK_RE.match(raw_line)
         if not task_match:
             continue
-        text, done_date = strip_done_metadata(task_match.group(3))
+        value = task_match.group(3)
+        fragment = FRAGMENT_RE.search(value)
+        text, done_date = strip_done_metadata(FRAGMENT_RE.sub("", value))
         tasks.append(
             TaskItem(
                 change_type=current_type,
@@ -90,6 +95,7 @@ def parse_task_file(path: Path) -> list[TaskItem]:
                 source_file=path,
                 line=line_number,
                 raw_line=raw_line,
+                fragment_key=fragment.group(1) if fragment else None,
             )
         )
     return tasks
@@ -161,11 +167,13 @@ def set_task_checked(
             file_path=str(path), message=f"Line {task.line} is not a task"
         )
 
-    text, _done = strip_done_metadata(task_match.group(3))
+    text = task.text
     marker = "x" if checked else " "
     suffix = ""
     if checked and done_date_source == "today":
         suffix = f" <!-- done: {date.today().isoformat()} -->"
+    if task.fragment_key:
+        suffix += f" <!-- task-fragment: {task.fragment_key} -->"
     lines[line_index] = f"{task_match.group(1)}- [{marker}] {text}{suffix}"
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="UTF-8")
     return parse_task_file(path)[
@@ -193,11 +201,44 @@ def validate_tasks(tasks: list[TaskItem], path: Path) -> list[str]:
 
 
 def completed_entries(tasks: list[TaskItem]) -> list[tuple[str, str, int]]:
+    consumed = {
+        path: promoted_fragment_keys(path.read_text(encoding="UTF-8"))
+        for path in {task.source_file for task in tasks if task.fragment_key}
+    }
     return [
         (task.change_type, task.text, task.line)
         for task in tasks
-        if task.checked and task.change_type is not None and task.text
+        if task.checked
+        and task.change_type is not None
+        and task.text
+        and task.fragment_key not in consumed.get(task.source_file, set())
     ]
+
+
+def promoted_fragment_keys(text: str) -> set[str]:
+    """Stable ticket identities already handed to the changelog."""
+    return set(PROMOTED_RE.findall(text))
+
+
+def record_promoted_fragments(
+    path: Path, tasks: list[TaskItem], lines: set[int]
+) -> None:
+    """Persist consumption even with --keep; assembly preserves these comments."""
+    keys = {
+        task.fragment_key for task in tasks if task.line in lines and task.fragment_key
+    }
+    if not keys:
+        return
+    text = path.read_text(encoding="UTF-8")
+    new_keys = keys - promoted_fragment_keys(text)
+    if new_keys:
+        text = (
+            text.rstrip()
+            + "\n\n"
+            + "\n".join(f"<!-- task-promoted: {key} -->" for key in sorted(new_keys))
+            + "\n"
+        )
+        path.write_text(text, encoding="UTF-8")
 
 
 def remove_completed_tasks(path: Path, promoted_lines: set[int]) -> None:

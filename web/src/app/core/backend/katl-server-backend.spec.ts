@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  KatlMergedBackend,
   KatlServerBackend,
   KatlServerConfig,
   KatlServerError,
@@ -137,5 +138,113 @@ describe('KatlServerBackend.save', () => {
     const backend = makeBackend(fetchImpl);
     await expect(backend.scan()).rejects.toThrowError('bad token');
     await expect(backend.scan()).rejects.toBeInstanceOf(KatlServerError);
+  });
+});
+
+describe('listProjects', () => {
+  it('GETs /projects with the connection token', async () => {
+    const { fetchImpl, calls } = fakeFetch({
+      'GET /projects': () => ({
+        payload: [
+          { key: 'alpha', name: 'Alpha' },
+          { key: 'beta', name: 'Beta' },
+        ] as unknown as Json,
+      }),
+    });
+    const projects = await makeBackend(fetchImpl).listProjects();
+    expect(projects.map((p) => p.key)).toEqual(['alpha', 'beta']);
+    expect(calls[0].url).toBe('https://katl.example.com/projects');
+    expect(calls[0].headers['X-Katl-Token']).toBe('sekret');
+  });
+});
+
+describe('multi-repo (sprint 8)', () => {
+  it("scan carries each file's repo so cards can badge", async () => {
+    const { fetchImpl } = fakeFetch({
+      'GET /projects/proj/export': () => ({
+        payload: {
+          files: [
+            { path: 'tickets/0001-a.md', content: '# a', repo: 'acme/widgets' },
+            { path: 'tickets/0002-b.md', content: '# b', repo: null },
+          ],
+        } as unknown as Json,
+      }),
+    });
+    const files = await makeBackend(fetchImpl).scan();
+    expect(files.map((f) => f.repo)).toEqual(['acme/widgets', null]);
+  });
+
+  it('listRepoLinks GETs the project repo-links', async () => {
+    const { fetchImpl, calls } = fakeFetch({
+      'GET /projects/proj/repo-links': () => ({
+        payload: [
+          {
+            full_name: 'acme/widgets',
+            branch: 'main',
+            tickets_dir: 'tickets',
+            push_policy: 'direct-commit',
+          },
+        ] as unknown as Json,
+      }),
+    });
+    const links = await makeBackend(fetchImpl).listRepoLinks();
+    expect(links[0].full_name).toBe('acme/widgets');
+    expect(calls[0].url).toBe('https://katl.example.com/projects/proj/repo-links');
+  });
+});
+
+describe('KatlMergedBackend', () => {
+  function makeMerged(fetchImpl: FetchLike) {
+    return new KatlMergedBackend({
+      baseUrl: 'https://katl.example.com/',
+      token: 'sekret',
+      fetchImpl,
+    });
+  }
+
+  it('scans every project and stamps each file with its project key', async () => {
+    const { fetchImpl, calls } = fakeFetch({
+      'GET /projects/alpha/export': () => ({
+        payload: { files: [{ path: 'tickets/0001-a.md', content: 'a', repo: 'acme/widgets' }] },
+      }),
+      'GET /projects/beta/export': () => ({
+        payload: { files: [{ path: 'tickets/0001-b.md', content: 'b' }] },
+      }),
+      'GET /projects': () => ({
+        payload: [
+          { key: 'alpha', name: 'Alpha' },
+          { key: 'beta', name: 'Beta' },
+        ] as unknown as Json,
+      }),
+    });
+    const files = await makeMerged(fetchImpl).scan();
+    expect(files).toEqual([
+      { path: 'tickets/0001-a.md', content: 'a', repo: 'acme/widgets', project: 'alpha' },
+      { path: 'tickets/0001-b.md', content: 'b', repo: undefined, project: 'beta' },
+    ]);
+    expect(calls.every((c) => c.headers['X-Katl-Token'] === 'sekret')).toBe(true);
+  });
+
+  it('is read-only: capability set, save() throws', async () => {
+    const { fetchImpl } = fakeFetch({});
+    const backend = makeMerged(fetchImpl);
+    expect(backend.capabilities.readOnly).toBe(true);
+    await expect(backend.save()).rejects.toThrow(/read-only/);
+  });
+
+  it('describes itself as all projects on the server host', () => {
+    const { fetchImpl } = fakeFetch({});
+    expect(makeMerged(fetchImpl).describe()).toEqual({
+      label: 'All projects',
+      detail: 'KATL server at katl.example.com',
+    });
+  });
+
+  it('withProject returns an editable single-project connection', () => {
+    const { fetchImpl } = fakeFetch({});
+    const single = makeMerged(fetchImpl).withProject('alpha');
+    expect(single).toBeInstanceOf(KatlServerBackend);
+    expect(single.serverConfig.project).toBe('alpha');
+    expect(single.capabilities.readOnly).toBeUndefined();
   });
 });

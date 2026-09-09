@@ -5,7 +5,13 @@
 // The app never writes the base branch directly. See spec/web_remaining_phases.md §4 (W1b).
 
 import { RawFile } from '../fixtures';
-import { BackendCapabilities, FileChange, RepoBackend, SaveResult } from './repo-backend';
+import {
+  BackendCapabilities,
+  FileChange,
+  RepoBackend,
+  SaveResult,
+  WorkspaceIdentity,
+} from './repo-backend';
 import { GitHubClient } from './github-client';
 
 export interface GitHubRepoConfig {
@@ -51,6 +57,7 @@ export function buildCommitMessage(changes: FileChange[]): { title: string; body
 }
 
 export class GitHubBackend implements RepoBackend {
+  private scannedHashes: Map<string, string> | null = null;
   readonly id = 'github' as const;
   readonly capabilities: BackendCapabilities = { pullRequest: true, directWrite: false };
 
@@ -58,6 +65,11 @@ export class GitHubBackend implements RepoBackend {
     private readonly client: GitHubClient,
     private readonly config: GitHubRepoConfig,
   ) {}
+
+  describe(): WorkspaceIdentity {
+    const { owner, repo, baseBranch } = this.config;
+    return { label: `${owner}/${repo}`, detail: `branch ${baseBranch}, via GitHub API` };
+  }
 
   private get ticketsDir() {
     return (this.config.ticketsDir ?? 'tickets').replace(/\/$/, '');
@@ -69,10 +81,12 @@ export class GitHubBackend implements RepoBackend {
   /** Read every tracked tickets/* and changelog.d/* file in the base branch. */
   async scan(): Promise<RawFile[]> {
     const { owner, repo, baseBranch } = this.config;
-    const tree = await this.client.request<{ tree: { path: string; type: string }[] }>(
+    const ref = await this.client.request<{ object: { sha: string } }>(
       'GET',
-      `/repos/${owner}/${repo}/git/trees/${encodeURIComponent(baseBranch)}?recursive=1`,
+      `/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(baseBranch)}`,
     );
+    const revision = ref.object.sha;
+    const tree = await this.readTree(revision);
     const wanted = tree.tree.filter(
       (e) =>
         e.type === 'blob' &&
@@ -83,11 +97,25 @@ export class GitHubBackend implements RepoBackend {
     for (const entry of wanted) {
       const blob = await this.client.request<{ content: string; encoding: string }>(
         'GET',
-        `/repos/${owner}/${repo}/contents/${entry.path.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(baseBranch)}`,
+        `/repos/${owner}/${repo}/contents/${entry.path.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(revision)}`,
       );
       files.push({ path: entry.path, content: decodeContent(blob.content, blob.encoding) });
     }
+    this.scannedHashes = new Map(
+      tree.tree.filter((e) => e.type === 'blob').map((e) => [e.path, e.sha]),
+    );
     return files;
+  }
+
+  private async readTree(revision: string) {
+    const { owner, repo } = this.config;
+    const tree = await this.client.request<{
+      tree: { path: string; type: string; sha: string }[];
+      truncated?: boolean;
+    }>('GET', `/repos/${owner}/${repo}/git/trees/${encodeURIComponent(revision)}?recursive=1`);
+    if (tree.truncated)
+      throw new Error('Repository tree is incomplete; cannot safely scan or save.');
+    return tree;
   }
 
   /** Commit all changes on a new branch and open a PR against the base. */
@@ -95,6 +123,7 @@ export class GitHubBackend implements RepoBackend {
     if (!changes.length) {
       return { kind: 'pull-request', message: 'Nothing to commit.' };
     }
+    if (!this.scannedHashes) throw new Error('Load the repository before saving changes.');
     const { owner, repo, baseBranch } = this.config;
     const repoPath = `/repos/${owner}/${repo}`;
 
@@ -104,6 +133,18 @@ export class GitHubBackend implements RepoBackend {
       `${repoPath}/git/ref/heads/${encodeURIComponent(baseBranch)}`,
     );
     const baseSha = baseRef.object.sha;
+    const currentTree = await this.readTree(baseSha);
+    const currentHashes = new Map(
+      currentTree.tree.filter((e) => e.type === 'blob').map((e) => [e.path, e.sha]),
+    );
+    const conflicts = changes.filter(
+      (change) => currentHashes.get(change.path) !== this.scannedHashes!.get(change.path),
+    );
+    if (conflicts.length) {
+      throw new Error(
+        `Files changed on GitHub since loading: ${conflicts.map((c) => c.path).join(', ')}. Your local edits are still pending.`,
+      );
+    }
     const baseCommit = await this.client.request<{ tree: { sha: string } }>(
       'GET',
       `${repoPath}/git/commits/${baseSha}`,

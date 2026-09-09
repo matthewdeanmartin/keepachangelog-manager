@@ -24,7 +24,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from changelogmanager.change_types import ALL_CATEGORIES
-from changelogmanager.tasks import TaskItem, canonical_change_type
+from changelogmanager.tasks import (
+    PROMOTED_RE,
+    TaskItem,
+    canonical_change_type,
+    promoted_fragment_keys,
+)
 
 # A metadata bullet in the head: ``- **Key:** value``. The colon may live inside
 # the bold markers (``**Key:**``) or just after them (``**Key**:``); both parse.
@@ -118,10 +123,14 @@ def split_head_body(text: str) -> tuple[str, str]:
     for index, line in enumerate(lines):
         fence_match = FENCE_RE.match(line)
         if fence_match:
-            token = fence_match.group(2)[0]
+            token = fence_match.group(2)
             if fence is None:
                 fence = token
-            elif token == fence:
+            elif (
+                token[0] == fence[0]
+                and len(token) >= len(fence)
+                and not line[fence_match.end() :].strip()
+            ):
                 fence = None
             continue
         if fence is None and DIVIDER_RE.match(line):
@@ -174,14 +183,22 @@ def parse_fragment_text(
     )
     fragment.lint.extend(lint)
 
-    in_fence = False
+    fence = None
     saw_category = False
     for line in head_lines:
         fence_match = FENCE_RE.match(line)
         if fence_match:
-            in_fence = not in_fence
+            token = fence_match.group(2)
+            if fence is None:
+                fence = token
+            elif (
+                token[0] == fence[0]
+                and len(token) >= len(fence)
+                and not line[fence_match.end() :].strip()
+            ):
+                fence = None
             continue
-        if in_fence:
+        if fence is not None:
             continue
         meta = META_RE.match(line)
         if not meta:
@@ -414,6 +431,12 @@ def render_tasks_md(
     ``rich=True`` adds a Status grouping plus the depth-shifted free body.
     """
 
+    promoted = promoted_fragment_keys(existing or "")
+    fragments = [
+        fragment
+        for fragment in fragments
+        if fragment.task_id.encode("utf-8").hex() not in promoted
+    ]
     grouped = _grouped(fragments)
     lines: list[str] = [ASSEMBLED_HEADER.rstrip("\n"), ""]
 
@@ -444,10 +467,16 @@ def render_tasks_md(
 
     body = "\n".join(lines).rstrip() + "\n"
 
-    epilogue = _extract_epilogue(existing)
+    epilogue = PROMOTED_RE.sub("", _extract_epilogue(existing)).strip("\n")
     body += f"\n{EPILOGUE_SENTINEL}\n"
     if epilogue:
         body += "\n" + epilogue + "\n"
+    if promoted:
+        body += (
+            "\n"
+            + "\n".join(f"<!-- task-promoted: {key} -->" for key in sorted(promoted))
+            + "\n"
+        )
     return body
 
 
@@ -455,7 +484,8 @@ def _render_flat_item(fragment: TaskFragment) -> str:
     marker = "x" if fragment.checked else " "
     done = fragment.custom.get("Done") or fragment.custom.get("Done Date")
     suffix = f" <!-- done: {done} -->" if (fragment.checked and done) else ""
-    return f"- [{marker}] {fragment.title}{suffix}"
+    identity = fragment.task_id.encode("utf-8").hex()
+    return f"- [{marker}] {fragment.title}{suffix} <!-- task-fragment: {identity} -->"
 
 
 def _render_rich_item(fragment: TaskFragment) -> list[str]:

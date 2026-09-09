@@ -170,6 +170,40 @@ def git_executable() -> str:
     return git
 
 
+def gh_executable() -> str | None:
+    """Returns the path to the ``gh`` CLI, or *None* if it is not on PATH."""
+    return shutil.which("gh")
+
+
+def git_repo_from_remote(remote: str = "origin") -> str | None:
+    """Infers ``owner/repo`` from the git remote URL (SSH or HTTPS).
+
+    Returns *None* when git is unavailable or the remote URL cannot be parsed.
+    """
+    import re  # noqa: PLC0415
+
+    try:
+        result = subprocess.run(  # nosec B603
+            [git_executable(), "remote", "get-url", remote],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
+    url = result.stdout.strip()
+    # SSH: git@github.com:owner/repo.git
+    m = re.match(r"git@[^:]+:([^/]+/[^/.]+)(?:\.git)?$", url)
+    if m:
+        return m.group(1)
+    # HTTPS: https://github.com/owner/repo.git  or  https://github.com/owner/repo
+    m = re.match(r"https?://[^/]+/([^/]+/[^/.]+?)(?:\.git)?$", url)
+    if m:
+        return m.group(1)
+    return None
+
+
 def git_log_since(since: str | None) -> list[str]:
     """Returns commit subjects since a ref (or all if since is None)."""
 
@@ -1070,6 +1104,9 @@ def release_rollback(
 ) -> ReleaseRollbackResult:
     """Rolls back a failed release: deletes the GitHub release and the git tag.
 
+    Prefers the ``gh`` CLI when it is available (no token needed in that case).
+    Falls back to the GitHub REST API when ``gh`` is absent and *token* is set.
+
     The presentation-free equivalent of the manual::
 
         gh release delete <tag> -y --repo <repo>
@@ -1087,20 +1124,49 @@ def release_rollback(
         logger.info("Would delete GitHub release %s from %s", tag, repository)
         result.release_deleted = True
     elif delete_release:
-        from changelogmanager.github import GitHub  # noqa: PLC0415
-
-        if not token:
-            raise logging.Error(
-                message="Deleting the GitHub release requires a token (pass --github-token or set GITHUB_TOKEN)",
+        gh = gh_executable()
+        if gh:
+            # Prefer the gh CLI — no explicit token required (gh uses its own auth).
+            cmd = [gh, "release", "delete", tag, "--yes"]
+            if repository:
+                cmd += ["--repo", repository]
+            logger.info("Running gh release delete %s", tag)
+            proc = subprocess.run(  # nosec B603
+                cmd, capture_output=True, text=True
             )
-        github = GitHub(repository=repository, token=token)
-        release = github.find_release_by_tag(tag)
-        if release is None:
-            result.release_missing = True
-            logger.warning("No GitHub release found for tag %s in %s", tag, repository)
+            if proc.returncode == 0:
+                result.release_deleted = True
+            else:
+                stderr = proc.stderr.strip()
+                # gh exits non-zero with "not found" wording when the release is absent
+                if "not found" in stderr.lower() or "could not find" in stderr.lower():
+                    result.release_missing = True
+                    logger.warning(
+                        "No GitHub release found for tag %s in %s", tag, repository
+                    )
+                else:
+                    raise logging.Error(
+                        message=f"gh release delete failed: {stderr or proc.stdout.strip()}",
+                    )
         else:
-            github.delete_release(release)
-            result.release_deleted = True
+            # Fall back to the REST API.
+            from changelogmanager.github import GitHub  # noqa: PLC0415
+
+            if not token:
+                raise logging.Error(
+                    message=(
+                        "Deleting the GitHub release requires either the gh CLI on PATH "
+                        "or a token (pass --github-token or set GITHUB_TOKEN)"
+                    ),
+                )
+            github = GitHub(repository=repository, token=token)
+            release = github.find_release_by_tag(tag)
+            if release is None:
+                result.release_missing = True
+                logger.warning("No GitHub release found for tag %s in %s", tag, repository)
+            else:
+                github.delete_release(release)
+                result.release_deleted = True
 
     # 2. Local git tag (ignore "not found" so rollback is idempotent).
     if delete_local_tag:

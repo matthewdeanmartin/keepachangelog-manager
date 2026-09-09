@@ -5,6 +5,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+- `release-rollback` now auto-detects the latest git tag and the repository slug from the git remote URL so no flags are required when running from the project root; the `gh` CLI is preferred over the REST API when available, removing the need for an explicit GitHub token in interactive workflows.
+
+### Fixed
+- Pluralization
+- Preserve pending edits during web saves, report filesystem failures, and check GitHub files for conflicting edits.
+- Prevent completed tickets from being promoted again after a release and align browser and Python ticket parsing.
+
+
+## [6.6.0] - 2026-07-05
+### Added
+- `kaclm` console script: short canonical CLI name that keeps the keep-a-changelog-manager mnemonic without clashing with the unrelated `kacl` PyPI project or python-kacl's `kacl-cli` command.
+- `release-bump` subcommand: bumps the changelog and version files, creates the release branch, commits with `[skip ci]` (per `[defaults].skip_ci`), force-with-lease pushes, and opens the release PR — replacing ~80 lines of inline shell in `release.yml` with one testable command.
+- `lint-message` subcommand: the commit-message linter is now reachable as `kaclm lint-message` in addition to the fast-start `changelogmanager-lint-message` hook script.
+- `release-rollback` subcommand: undoes a failed release by deleting the GitHub release and its git tag (local + remote) in one command, replacing the manual `gh release delete` / `git tag -d` / `git push --delete` dance. Each step is independently guarded (missing release/tag is reported, not fatal), supports `--dry-run`, requires `--yes` to confirm the deletion non-interactively, and has `--no-github` / `--no-local-tag` / `--no-remote-tag` opt-outs.
+
+### Changed
+- `keepachangelog-manager` and `kacl-gui` console scripts are deprecated (they print a warning then delegate); use `kaclm` and `kaclm gui`. Removal planned a release after 6.6.0.
+
+### Fixed
+- Bug where GUI would blank out entire change log if it had validation errors
+- Bug where valid Markdown (nested bulleted list) failed to validate. "Spec" is unclear how much markdown is supported in change entries.
+
+## [6.5.0] - 2026-06-29
+### Added
+- validate --fix now backfills a missing `[Unreleased]:` link reference, deriving the compare URL (host, repo, and tag prefix like `v`) from the existing released-version links instead of a hardcoded template, and leaving all other link lines unchanged. Plain validate stays lenient (exit 0) but prints an advisory naming the exact line to add, so output can be made to satisfy strict consumers like upstream `kacl-cli verify`
+- validate --strict (and a `project.validation.strict` config key) enforces the strictest community standard as hard errors: missing version link references, version ordering/empty-section/duplicate-entry issues, and a missing canonical preamble. Combine with --fix to bring a changelog up to standard in one pass ( `validate --fix --strict --no-format` round-trips clean); strict exits non-zero only for problems --fix cannot mechanically repair
+
+## [6.4.0] - 2026-06-26
 ### Added
 - GUI Workspace: Component field is now a dropdown of configured components with a 'New…' button to add a component to the config file
 - CLI autodetects GitHub Actions and defaults --error-format to github (inline annotations); explicit -f and config still take precedence
@@ -14,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - kacl-gui console script now launches the GUI directly instead of requiring the 'gui' subcommand
 - GUI Tasks screen: the tasks file is now a prefilled primary Tasks-file picker in the Workspace panel (mirrors the Changelog picker) instead of a 'blank = auto' box with a hint label
-- Version bumping (release --bump-versions) is now built in: a minimal subset of jiggle-version is vendored (changelogmanager/vendor/jiggle_version, stdlib-only — no pathspec/tomlkit). The optional [jiggle] extra and jiggle-version dependency are removed
+- Version bumping (release --bump-versions) is now built in: a minimal subset of jiggle-version is vendored ( changelogmanager/vendor/jiggle_version, stdlib-only — no pathspec/tomlkit). The optional [jiggle] extra and jiggle-version dependency are removed
 
 ## [6.3.0] - 2026-06-15
 ### Fixed

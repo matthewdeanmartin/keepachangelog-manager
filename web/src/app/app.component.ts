@@ -1,35 +1,52 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { CommitBarComponent } from './features/commit-bar.component';
+import { WorkspaceChipComponent } from './features/workspace-chip.component';
 import { KATL_VERSION } from './core/version';
+import { SiteModeService } from './core/site-mode';
 import { ConflictCountService } from './features/conflict-count.service';
+import { RepoService } from './core/repo.service';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, CommitBarComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, CommitBarComponent, WorkspaceChipComponent],
   template: `
     <a class="skip" href="#main">Skip to content</a>
     <header class="topbar">
       <a class="brand" routerLink="/board">KATL <span>· Keep A Task Log</span></a>
+      <app-workspace-chip />
       <nav aria-label="Primary">
         <a routerLink="/board" routerLinkActive="active">Board</a>
         <a routerLink="/changelog" routerLinkActive="active">Changelog</a>
         <a routerLink="/preview" routerLinkActive="active">Release preview</a>
         <a routerLink="/workspace" routerLinkActive="active">Workspace</a>
-        <a routerLink="/conflicts" routerLinkActive="active"
-          >Conflicts
-          @if (conflictCount()) {
-            &nbsp;({{ conflictCount() }})
-          }
-        </a>
+        @if (!isLite()) {
+          <a routerLink="/conflicts" routerLinkActive="active"
+            >Conflicts
+            @if (conflictCount()) {
+              &nbsp;({{ conflictCount() }})
+            }
+          </a>
+        }
         <a routerLink="/help" routerLinkActive="active">Help</a>
       </nav>
     </header>
-    <main id="main"><router-outlet /></main>
+    <main id="main">
+      @if (repo.saveError(); as error) {
+        <div role="alert">
+          Changes could not be saved: {{ error }}
+          <button type="button" (click)="retrySave()">Retry save</button>
+        </div>
+      }
+      <router-outlet />
+    </main>
     <app-commit-bar />
     <footer>
-      <span
-        >Browser-only · fragments round-trip with the <code>keepachangelog-manager</code> CLI ·
+      <span>
+        @if (isLite()) {
+          <span class="lite-tag">Lite</span> ·
+        }
+        Browser-only · fragments round-trip with the <code>keepachangelog-manager</code> CLI ·
         <a routerLink="/help">v{{ version }}</a></span
       >
     </footer>
@@ -104,10 +121,22 @@ import { ConflictCountService } from './features/conflict-count.service';
       footer a {
         color: #7b8794;
       }
+      .lite-tag {
+        background: #e0f0ff;
+        color: #2680c2;
+        border-radius: 4px;
+        padding: 0.1rem 0.4rem;
+        font-weight: 600;
+      }
     `,
   ],
 })
 export class AppComponent {
+  readonly repo = inject(RepoService);
+  retrySave(): void {
+    void this.repo.commit().catch(() => undefined);
+  }
   version = KATL_VERSION;
   conflictCount = inject(ConflictCountService).count;
+  isLite = inject(SiteModeService).isLite;
 }

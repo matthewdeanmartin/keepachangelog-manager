@@ -9,7 +9,13 @@
 // {"detail": "..."} and are surfaced as thrown Errors.
 
 import { RawFile } from '../fixtures';
-import { BackendCapabilities, FileChange, RepoBackend, SaveResult } from './repo-backend';
+import {
+  BackendCapabilities,
+  FileChange,
+  RepoBackend,
+  SaveResult,
+  WorkspaceIdentity,
+} from './repo-backend';
 import { FetchLike } from './github-client';
 import { katlRequest, KatlServerError } from './katl-http';
 
@@ -26,6 +32,13 @@ export interface KatlServerConfig {
   fetchImpl?: FetchLike;
 }
 
+export interface RepoLinkInfo {
+  full_name: string;
+  branch: string;
+  tickets_dir: string;
+  push_policy: string;
+}
+
 const TICKET_PATH_RE = /^tickets\/(.+)\.md$/;
 
 /** The task id for a tickets/<id>.md path, or null for anything else. */
@@ -38,10 +51,10 @@ export class KatlServerBackend implements RepoBackend {
   readonly id = 'katl-server' as const;
   readonly capabilities: BackendCapabilities = { pullRequest: false, directWrite: true };
 
-  private readonly baseUrl: string;
-  private readonly fetchImpl: FetchLike;
+  protected readonly baseUrl: string;
+  protected readonly fetchImpl: FetchLike;
 
-  constructor(private readonly config: KatlServerConfig) {
+  constructor(protected readonly config: KatlServerConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, '');
     this.fetchImpl = config.fetchImpl ?? (globalThis.fetch as unknown as FetchLike);
   }
@@ -51,21 +64,45 @@ export class KatlServerBackend implements RepoBackend {
     return this.config;
   }
 
+  describe(): WorkspaceIdentity {
+    let host = this.baseUrl;
+    try {
+      host = new URL(this.baseUrl).host;
+    } catch {
+      // Not a parseable URL (tests, relative bases): show it as-is.
+    }
+    return { label: this.config.project, detail: `KATL server at ${host}` };
+  }
+
+  /** The projects this connection can see, for the project switcher. */
+  listProjects(): Promise<{ key: string; name: string }[]> {
+    return this.request<{ key: string; name: string }[]>('GET', `${this.baseUrl}/projects`);
+  }
+
+  /** The same connection pointed at a different project. */
+  withProject(project: string): KatlServerBackend {
+    return new KatlServerBackend({ ...this.config, project });
+  }
+
+  /** The project's linked git repos (the server never echoes tokens). */
+  listRepoLinks(): Promise<RepoLinkInfo[]> {
+    return this.request<RepoLinkInfo[]>('GET', `${this.projectPath}/repo-links`);
+  }
+
   private get projectPath(): string {
     return `${this.baseUrl}/projects/${encodeURIComponent(this.config.project)}`;
   }
 
-  private request<T = unknown>(method: string, url: string, body?: unknown): Promise<T> {
+  protected request<T = unknown>(method: string, url: string, body?: unknown): Promise<T> {
     return katlRequest<T>(this.fetchImpl, this.config.token, method, url, body);
   }
 
   /** Export the project's tickets. The server holds no changelog.d/* files. */
   async scan(): Promise<RawFile[]> {
-    const data = await this.request<{ files: { path: string; content: string }[] }>(
-      'GET',
-      `${this.projectPath}/export`,
-    );
-    return data.files.map((f) => ({ path: f.path, content: f.content }));
+    const data = await this.request<{
+      files: { path: string; content: string; repo?: string | null }[];
+    }>('GET', `${this.projectPath}/export`);
+    return data.files.map((f) => ({ path: f.path, content: f.content, repo: f.repo }));
   }
 
   /** Import all upserts in one batch, then delete tickets one by one. */
@@ -104,5 +141,61 @@ export class KatlServerBackend implements RepoBackend {
       message += ` (skipped non-ticket deletes: ${skipped.join(', ')})`;
     }
     return { kind: 'written', message };
+  }
+}
+
+/** The chip's "All projects" option — never a real project key (server keys
+ * are ^[a-z0-9][a-z0-9-]*$). */
+export const ALL_PROJECTS = '*';
+
+/**
+ * The merged all-projects view: one board over every project this connection
+ * can see. Read-only — two projects may both own tickets/0001-x.md, so
+ * path-keyed edits could misroute; editing stays per-project.
+ */
+export class KatlMergedBackend extends KatlServerBackend {
+  override readonly capabilities: BackendCapabilities = {
+    pullRequest: false,
+    directWrite: false,
+    readOnly: true,
+  };
+
+  constructor(config: Omit<KatlServerConfig, 'project'>) {
+    super({ ...config, project: ALL_PROJECTS });
+  }
+
+  override describe(): WorkspaceIdentity {
+    let host = this.baseUrl;
+    try {
+      host = new URL(this.baseUrl).host;
+    } catch {
+      // Not a parseable URL (tests, relative bases): show it as-is.
+    }
+    return { label: 'All projects', detail: `KATL server at ${host}` };
+  }
+
+  /** Every project's export, each file stamped with its project key. */
+  override async scan(): Promise<RawFile[]> {
+    const projects = await this.listProjects();
+    const exports = await Promise.all(
+      projects.map(async ({ key }) => {
+        const data = await this.request<{
+          files: { path: string; content: string; repo?: string | null }[];
+        }>('GET', `${this.baseUrl}/projects/${encodeURIComponent(key)}/export`);
+        return data.files.map((f) => ({
+          path: f.path,
+          content: f.content,
+          repo: f.repo,
+          project: key,
+        }));
+      }),
+    );
+    return exports.flat();
+  }
+
+  override async save(): Promise<SaveResult> {
+    // RepoService never routes edits here (capabilities.readOnly); belt and
+    // braces for any future caller.
+    throw new Error('The all-projects view is read-only. Switch to a project to edit.');
   }
 }

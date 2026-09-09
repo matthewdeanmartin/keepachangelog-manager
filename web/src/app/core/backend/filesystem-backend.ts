@@ -6,7 +6,13 @@
 // where it is unavailable.
 
 import { RawFile } from '../fixtures';
-import { BackendCapabilities, FileChange, RepoBackend, SaveResult } from './repo-backend';
+import {
+  BackendCapabilities,
+  FileChange,
+  RepoBackend,
+  SaveResult,
+  WorkspaceIdentity,
+} from './repo-backend';
 
 const SCAN_DIRS = ['tickets', 'changelog.d'];
 
@@ -20,6 +26,10 @@ export class FilesystemBackend implements RepoBackend {
   readonly capabilities: BackendCapabilities = { pullRequest: false, directWrite: true };
 
   constructor(private readonly root: FileSystemDirectoryHandle) {}
+
+  describe(): WorkspaceIdentity {
+    return { label: this.root.name || 'Local folder', detail: 'local folder on disk' };
+  }
 
   /** Prompt for a repo root directory and build a backend for it. */
   static async pick(): Promise<FilesystemBackend> {
@@ -52,13 +62,15 @@ export class FilesystemBackend implements RepoBackend {
       if (change.op === 'delete') {
         const handle = await this.getDir(dir, false);
         if (handle) {
-          await handle.removeEntry(name).catch(() => undefined);
+          await handle.removeEntry(name).catch((error: unknown) => {
+            if (!isNotFound(error)) throw error;
+          });
           deleted++;
         }
         continue;
       }
       const handle = await this.getDir(dir, true);
-      if (!handle) continue;
+      if (!handle) throw new Error(`Could not open ${dir} for writing.`);
       const fileHandle = await handle.getFileHandle(name, { create: true });
       const writable = await fileHandle.createWritable();
       await writable.write(change.content ?? '');
@@ -79,12 +91,17 @@ export class FilesystemBackend implements RepoBackend {
     for (const segment of path.split('/').filter(Boolean)) {
       try {
         handle = await handle.getDirectoryHandle(segment, { create });
-      } catch {
-        return null;
+      } catch (error) {
+        if (!create && isNotFound(error)) return null;
+        throw error;
       }
     }
     return handle;
   }
+}
+
+function isNotFound(error: unknown): boolean {
+  return error instanceof Error && error.name === 'NotFoundError';
 }
 
 /** Split "tickets/0001-x.md" -> { dir: "tickets", name: "0001-x.md" }. */

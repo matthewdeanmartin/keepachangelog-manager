@@ -173,6 +173,14 @@ Useful options:
 The assembled file includes a generated note pointing back to
 `changelogmanager tasks assemble`.
 
+Generated checklist rows carry an invisible ticket identity. Promotion records
+consumed identities in TASKS.md, including with --keep, and subsequent assembly
+omits those tickets. Keep these comments in version control: they prevent old
+completed work from appearing in another release. The original tickets remain
+unchanged. Use a new ticket identity for new work, even if its title is the same.
+Existing generated task files gain these identities when reassembled; earlier
+promotions cannot be reconstructed automatically.
+
 ## Configuring task and fragment defaults
 
 You can store defaults in `changelogmanager.toml` or

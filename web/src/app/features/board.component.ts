@@ -34,8 +34,16 @@ interface Column {
     <div class="head">
       <h1>Board</h1>
       <div class="actions">
-        <button (click)="newTask()">+ New ticket</button>
-        <button class="ghost" (click)="resetSamples()">Reset to samples</button>
+        @if (readOnly()) {
+          <span class="ro" title="The all-projects view is read-only; switch to a project to edit."
+            >read-only</span
+          >
+        } @else {
+          <button (click)="newTask()">+ New ticket</button>
+        }
+        @if (backendId() === 'local-storage') {
+          <button class="ghost" (click)="resetSamples()">Reset to samples</button>
+        }
       </div>
     </div>
 
@@ -95,18 +103,20 @@ interface Column {
                 (dragStart)="dragging.set($event)"
               />
             }
-            @if (quickAddFor() === col.status) {
-              <input
-                class="quick"
-                [(ngModel)]="quickText"
-                (keydown.enter)="commitQuickAdd(col.status)"
-                (keydown.escape)="cancelQuickAdd()"
-                (blur)="cancelQuickAdd()"
-                placeholder="Title, then Enter"
-                #quickInput
-              />
-            } @else {
-              <button class="add" (click)="startQuickAdd(col.status)">+ Quick add</button>
+            @if (!readOnly()) {
+              @if (quickAddFor() === col.status) {
+                <input
+                  class="quick"
+                  [(ngModel)]="quickText"
+                  (keydown.enter)="commitQuickAdd(col.status)"
+                  (keydown.escape)="cancelQuickAdd()"
+                  (blur)="cancelQuickAdd()"
+                  placeholder="Title, then Enter"
+                  #quickInput
+                />
+              } @else {
+                <button class="add" (click)="startQuickAdd(col.status)">+ Quick add</button>
+              }
             }
           </section>
         }
@@ -175,6 +185,13 @@ interface Column {
         background: transparent;
         color: #4da8da;
         border: 1px solid #4da8da;
+      }
+      .ro {
+        background: #e4e7eb;
+        color: #616e7c;
+        border-radius: 4px;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
       }
       .seg {
         display: flex;
@@ -283,6 +300,8 @@ export class BoardComponent {
 
   glyph = statusGlyph;
 
+  readonly backendId = this.repo.backendId;
+  readonly readOnly = this.repo.readOnly;
   readonly filter = signal<BoardFilter>({ ...EMPTY_FILTER });
   readonly view = signal<'status' | 'milestone'>('status');
   readonly dragging = signal<TaskFragment | null>(null);

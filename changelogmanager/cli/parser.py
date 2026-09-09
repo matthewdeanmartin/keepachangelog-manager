@@ -941,19 +941,19 @@ equivalent manual steps:
     release_rollback_parser.add_argument(
         "--tag",
         default=None,
-        help="Release tag to roll back, e.g. v5.2.0 (prompted if omitted)",
+        help="Release tag to roll back, e.g. v5.2.0 (default: latest local git tag)",
     )
     release_rollback_parser.add_argument(
         "-r",
         "--repository",
         default=None,
-        help="Repository (owner/repo); falls back to GITHUB_REPOSITORY env var",
+        help="Repository (owner/repo); auto-detected from git remote, falls back to GITHUB_REPOSITORY env var",
     )
     release_rollback_parser.add_argument(
         "-t",
         "--github-token",
         default=None,
-        help="GitHub token (falls back to GITHUB_TOKEN env var)",
+        help="GitHub token (falls back to GITHUB_TOKEN env var; not needed when gh CLI is available)",
     )
     release_rollback_parser.add_argument(
         "--remote",

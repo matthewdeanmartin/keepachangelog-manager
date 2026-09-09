@@ -10,7 +10,7 @@ import {
   slugify,
 } from './fragment-parser';
 import { RawFile } from './fixtures';
-import { FileChange, RepoBackend, SaveResult } from './backend/repo-backend';
+import { FileChange, RepoBackend, SaveResult, WorkspaceIdentity } from './backend/repo-backend';
 import { LocalStorageBackend } from './backend/local-storage-backend';
 
 const TICKET_RE = /^tickets\//;
@@ -28,12 +28,25 @@ export class RepoService {
   /** path -> change since last scan/commit; null content means delete. */
   private readonly dirty = signal<Map<string, FileChange>>(new Map());
   private backend: RepoBackend = new LocalStorageBackend();
+  private saveQueue: Promise<unknown> = Promise.resolve();
+  private loadGeneration = 0;
+  readonly saveError = signal<string | null>(null);
   readonly backendId = signal<string>(this.backend.id);
+  /** Human identity of the active workspace, for the topbar chip etc. */
+  readonly identity = signal<WorkspaceIdentity>(this.backend.describe());
+  /** True for view-only workspaces (the merged all-projects board): every
+   * mutation below is a no-op and the UI hides its editing affordances. */
+  readonly readOnly = signal<boolean>(this.backend.capabilities.readOnly === true);
 
   readonly tasks = computed<TaskFragment[]>(() =>
     this.files()
       .filter((f) => TICKET_RE.test(f.path))
-      .map((f) => parseTaskFragment(f.content, f.path))
+      // repo/project ride alongside the file (server metadata), never inside it.
+      .map((f) => ({
+        ...parseTaskFragment(f.content, f.path),
+        repo: f.repo ?? undefined,
+        project: f.project ?? undefined,
+      }))
       .sort((a, b) => a.taskId.localeCompare(b.taskId)),
   );
 
@@ -48,7 +61,7 @@ export class RepoService {
   readonly canOpenPr = computed(() => this.backend.capabilities.pullRequest);
 
   constructor() {
-    void this.scan();
+    void this.scan().catch((error: unknown) => this.reportSaveError(error));
   }
 
   /** The active backend, for backend-specific features (e.g. server conflicts). */
@@ -58,20 +71,36 @@ export class RepoService {
 
   /** Switch the active backend and reload from it. */
   async useBackend(backend: RepoBackend): Promise<void> {
+    await this.saveQueue;
+    if (this.dirty().size) throw new Error('Save pending changes before switching workspaces.');
+    const generation = ++this.loadGeneration;
+    const loaded = await backend.scan();
+    if (generation !== this.loadGeneration) return;
+    if (this.dirty().size) throw new Error('The workspace changed while connecting. Save first.');
     this.backend = backend;
     this.backendId.set(backend.id);
-    await this.scan();
+    this.identity.set(backend.describe());
+    this.readOnly.set(backend.capabilities.readOnly === true);
+    this.files.set(loaded);
+    this.saveError.set(null);
   }
 
   /** Load the workspace from the active backend. Clears dirty state. */
   async scan(): Promise<void> {
+    const generation = ++this.loadGeneration;
+    if (this.dirty().size) throw new Error('Save pending changes before reloading.');
     const loaded = await this.backend.scan();
+    if (generation !== this.loadGeneration) return;
+    if (this.dirty().size) throw new Error('The workspace changed while loading. Save first.');
     this.files.set(loaded);
     this.dirty.set(new Map());
   }
 
   /** Reset the local-storage demo workspace to bundled samples. */
   async loadFixtures(): Promise<void> {
+    await this.saveQueue;
+    if (this.dirty().size) throw new Error('Save pending changes before resetting.');
+    ++this.loadGeneration;
     if (this.backend instanceof LocalStorageBackend) {
       this.files.set(this.backend.reset());
       this.dirty.set(new Map());
@@ -82,10 +111,22 @@ export class RepoService {
 
   /** Push all dirty changes through the backend (commit / PR / write). */
   async commit(): Promise<SaveResult> {
-    const changes = Array.from(this.dirty().values());
-    const result = await this.backend.save(changes);
-    this.dirty.set(new Map());
-    return result;
+    const backend = this.backend;
+    const pending = this.saveQueue.then(async () => {
+      if (backend !== this.backend) throw new Error('Workspace changed before saving.');
+      const changes = Array.from(this.dirty().values());
+      const result = await backend.save(changes);
+      const remaining = new Map(this.dirty());
+      for (const change of changes) {
+        // Object identity is the revision: an edit during save replaces it.
+        if (remaining.get(change.path) === change) remaining.delete(change.path);
+      }
+      this.dirty.set(remaining);
+      this.saveError.set(null);
+      return result;
+    });
+    this.saveQueue = pending.catch((error: unknown) => this.reportSaveError(error));
+    return pending;
   }
 
   getTask(taskId: string): TaskFragment | undefined {
@@ -143,19 +184,22 @@ export class RepoService {
   // --- internal mutation helpers ---
 
   private upsert(path: string, content: string): void {
+    if (this.readOnly()) return;
     const files = [...this.files()];
     const idx = files.findIndex((f) => f.path === path);
-    if (idx >= 0) files[idx] = { path, content };
+    // Spread keeps backend metadata (e.g. repo) across edits.
+    if (idx >= 0) files[idx] = { ...files[idx], path, content };
     else files.push({ path, content });
     this.files.set(files);
     this.markDirty({ path, content, op: 'upsert' });
-    void this.autosave();
+    this.autosave();
   }
 
   private remove(path: string): void {
+    if (this.readOnly()) return;
     this.files.set(this.files().filter((f) => f.path !== path));
     this.markDirty({ path, op: 'delete' });
-    void this.autosave();
+    this.autosave();
   }
 
   private markDirty(change: FileChange): void {
@@ -168,10 +212,13 @@ export class RepoService {
    * Direct-write backends (localStorage, filesystem) persist edits immediately
    * so nothing is lost on refresh. PR backends defer to an explicit commit().
    */
-  private async autosave(): Promise<void> {
+  private autosave(): void {
     if (this.backend.capabilities.directWrite) {
-      await this.backend.save(Array.from(this.dirty().values()));
-      this.dirty.set(new Map());
+      void this.commit().catch((error: unknown) => this.reportSaveError(error));
     }
+  }
+
+  private reportSaveError(error: unknown): void {
+    this.saveError.set(error instanceof Error ? error.message : String(error));
   }
 }

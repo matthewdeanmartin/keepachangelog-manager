@@ -687,13 +687,14 @@ def command_tasks(args: argparse.Namespace, ctx: CliContext) -> None:
         ctx.changelog.add_many(new_entries)
         if new_entries:
             ctx.changelog.write_to_file()
+        promoted_lines = {
+            line
+            for change_type, text, line in entries
+            if (change_type, text) in set(new_entries)
+            or (change_type, text) in existing
+        }
+        task_files.record_promoted_fragments(task_path, parsed, promoted_lines)
         if not getattr(args, "keep", False):
-            promoted_lines = {
-                line
-                for change_type, text, line in entries
-                if (change_type, text) in set(new_entries)
-                or (change_type, text) in existing
-            }
             task_files.remove_completed_tasks(task_path, promoted_lines)
         emit(
             ctx,
@@ -1212,27 +1213,56 @@ def command_release_bump(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_release_rollback(args: argparse.Namespace, ctx: CliContext) -> None:
     """Rolls back a failed release: deletes the GitHub release and the git tag."""
 
+    # ------------------------------------------------------------------
+    # Smart defaults: auto-detect tag + repo when the user omits them.
+    # ------------------------------------------------------------------
+    # 1. Tag: use the latest local tag via `git describe` when not supplied.
+    if not args.tag:
+        latest = services.last_release_tag()
+        if latest:
+            logger.info("Auto-detected latest tag: %s", latest)
+            args.tag = latest
+
     tag = prompts.resolve_required_value(
         args.tag, env_var=None, message="Release tag to roll back (e.g. v1.2.0)"
     )
     if not tag:
         raise logging.Error(message="release-rollback requires a tag (e.g. v1.2.0)")
 
+    # 2. Repository: infer from git remote URL when not explicitly provided.
+    if not args.repository:
+        inferred = services.git_repo_from_remote(args.remote)
+        if inferred:
+            logger.info("Auto-detected repository from remote: %s", inferred)
+            args.repository = inferred
+
     delete_release = not args.no_github
+
+    # 3. Token: only strictly required when gh CLI is absent AND we need the API.
+    gh_available = bool(services.gh_executable())
+    token: str | None = None
     if delete_release and not args.dry_run:
-        args.repository = prompts.resolve_required_value(
-            args.repository,
-            env_var="GITHUB_REPOSITORY",
-            message="GitHub repository (owner/repo)",
-        )
+        if not gh_available:
+            # No gh CLI — must resolve the repo and token via the REST API path.
+            if not args.repository:
+                args.repository = prompts.resolve_required_value(
+                    args.repository,
+                    env_var="GITHUB_REPOSITORY",
+                    message="GitHub repository (owner/repo)",
+                )
+            token = prompts.resolve_required_value(
+                args.github_token, env_var="GITHUB_TOKEN", message="GitHub token"
+            )
+        else:
+            # gh CLI handles its own auth; still resolve the repo but no token needed.
+            if not args.repository:
+                args.repository = prompts.resolve_required_value(
+                    args.repository,
+                    env_var="GITHUB_REPOSITORY",
+                    message="GitHub repository (owner/repo)",
+                )
     else:
         args.repository = args.repository or os.environ.get("GITHUB_REPOSITORY")
-
-    token = None
-    if delete_release and not args.dry_run:
-        token = prompts.resolve_required_value(
-            args.github_token, env_var="GITHUB_TOKEN", message="GitHub token"
-        )
 
     # Guard an irreversible, outward-facing action unless the user opted in.
     if not args.dry_run and not args.yes:
@@ -1277,10 +1307,14 @@ def command_release_rollback(args: argparse.Namespace, ctx: CliContext) -> None:
             else "release deleted"
         )
     if not args.no_local_tag:
-        parts.append("local tag deleted" if result.local_tag_deleted else "local tag not found")
+        parts.append(
+            "local tag deleted" if result.local_tag_deleted else "local tag not found"
+        )
     if not args.no_remote_tag:
         parts.append(
-            "remote tag deleted" if result.remote_tag_deleted else "remote tag not found"
+            "remote tag deleted"
+            if result.remote_tag_deleted
+            else "remote tag not found"
         )
     verb = "Would roll back" if result.dry_run else "Rolled back"
     emit(ctx, text=f"{verb} {tag}: {', '.join(parts)}")

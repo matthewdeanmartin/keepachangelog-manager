@@ -30,12 +30,20 @@ import { TICKET_TEMPLATES, templateById } from '../core/templates';
             <input type="checkbox" [ngModel]="advanced()" (ngModelChange)="advanced.set($event)" />
             Advanced
           </label>
-          <button (click)="save()">Save</button>
-          @if (!isNew) {
-            <button class="danger" (click)="remove()">Delete</button>
-            <button class="ghost" (click)="makeChangelog(m)" [disabled]="!ships(m.category)">
-              Create changelog fragment
-            </button>
+          @if (readOnly()) {
+            <span
+              class="ro"
+              title="The all-projects view is read-only; switch to a project to edit."
+              >read-only</span
+            >
+          } @else {
+            <button (click)="save()">Save</button>
+            @if (!isNew) {
+              <button class="danger" (click)="remove()">Delete</button>
+              <button class="ghost" (click)="makeChangelog(m)" [disabled]="!ships(m.category)">
+                Create changelog fragment
+              </button>
+            }
           }
         </div>
       </div>
@@ -268,6 +276,13 @@ import { TICKET_TEMPLATES, templateById } from '../core/templates';
         opacity: 0.4;
         cursor: not-allowed;
       }
+      .ro {
+        background: #e4e7eb;
+        color: #616e7c;
+        border-radius: 4px;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+      }
       .grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -365,6 +380,8 @@ export class TicketDetailComponent {
   private repo = inject(RepoService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+
+  readonly readOnly = this.repo.readOnly;
 
   categories = ALL_CATEGORIES;
   statuses = TASK_STATUSES;

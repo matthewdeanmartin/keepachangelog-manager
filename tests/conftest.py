@@ -46,3 +46,12 @@ def isolate_config_cache() -> None:
         yield
     finally:
         clear_configuration_cache()
+
+
+@pytest.fixture(scope="session")
+def task_parser_cases(pytestconfig):
+    """Read shared, immutable parser fixtures; no CLI runs against this path."""
+    import json
+
+    fixture = pytestconfig.rootpath / "tests" / "fixtures" / "task-parser-cases.json"
+    return json.loads(fixture.read_text(encoding="UTF-8"))

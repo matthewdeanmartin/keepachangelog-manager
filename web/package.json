@@ -12,7 +12,8 @@
     "lint": "ng lint",
     "format": "prettier --write \"src/**/*.{ts,html,scss}\"",
     "format:check": "prettier --check \"src/**/*.{ts,html,scss}\"",
-    "dead-code": "knip"
+    "dead-code": "knip",
+    "prestart": "node scripts/gen-dev-config.mjs"
   },
   "private": true,
   "prettier": {

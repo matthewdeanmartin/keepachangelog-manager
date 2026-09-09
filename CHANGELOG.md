@@ -7,10 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Support for a backend sync server
+- `release-rollback` now auto-detects the latest git tag and the repository slug from the git remote URL so no flags are required when running from the project root; the `gh` CLI is preferred over the REST API when available, removing the need for an explicit GitHub token in interactive workflows.
 
 ### Fixed
 - Pluralization
+- Preserve pending edits during web saves, report filesystem failures, and check GitHub files for conflicting edits.
+- Prevent completed tickets from being promoted again after a release and align browser and Python ticket parsing.
 
 
 ## [6.6.0] - 2026-07-05

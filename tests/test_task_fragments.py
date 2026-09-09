@@ -345,3 +345,19 @@ def test_cli_assemble_dry_run_writes_nothing(tmp_path, monkeypatch):
     _write(tickets, "0001-a.md", "# 0001-a — Alpha\n- **Category:** added\n")
     assert cli.main(["tasks", "assemble", "--dry-run"]) == 0
     assert not (tmp_path / "TASKS.md").exists()
+
+
+def test_shared_browser_parser_contract(task_parser_cases):
+    from changelogmanager.task_fragments import parse_fragment_text
+
+    for case in task_parser_cases:
+        fragment = parse_fragment_text(case["text"], stem=case["stem"])
+        assert {
+            "taskId": fragment.task_id,
+            "title": fragment.title,
+            "category": fragment.category,
+            "status": fragment.status,
+            "assignees": fragment.assignees,
+            "custom": fragment.custom,
+            "body": fragment.body_md.strip("\n"),
+        } == case["expected"], case["name"]

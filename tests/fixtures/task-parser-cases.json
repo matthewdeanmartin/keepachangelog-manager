@@ -1,0 +1,65 @@
+[
+  {
+    "name": "alternate-colon",
+    "text": "# demo: Fix links\n- **Category**: Fixed\n- **Status**: DONE\n- **Assignees**: @matt, @@sam\n- **Extra**: keep <!-- note -->\n---\nBody\n",
+    "stem": "demo",
+    "expected": {
+      "taskId": "demo",
+      "title": "Fix links",
+      "category": "fixed",
+      "status": "done",
+      "assignees": [
+        "matt",
+        "sam"
+      ],
+      "custom": {
+        "Extra": "keep <!-- note -->"
+      },
+      "body": "Body"
+    }
+  },
+  {
+    "name": "mixed-metadata",
+    "text": "# demo - Fix links\n* **Category:** added\n- **Status**: accepted\n- **Empty:**\n---\nBody",
+    "stem": "demo",
+    "expected": {
+      "taskId": "demo",
+      "title": "Fix links",
+      "category": "added",
+      "status": "accepted",
+      "assignees": [],
+      "custom": {
+        "Empty": ""
+      },
+      "body": "Body"
+    }
+  },
+  {
+    "name": "fenced-metadata",
+    "text": "# demo \u2014 Fix links\n  ````md\n- **Category:** removed\n```\n---\n- **Status:** done\n  ````\n- **Category:** fixed\n- **Status:** blocked\n----\nBody",
+    "stem": "demo",
+    "expected": {
+      "taskId": "demo",
+      "title": "Fix links",
+      "category": "fixed",
+      "status": "blocked",
+      "assignees": [],
+      "custom": {},
+      "body": "Body"
+    }
+  },
+  {
+    "name": "crlf-and-mismatch",
+    "text": "# other \u2014 Fix links\r\n- **Category:** SPIKE\r\n- **Status:** Accepted\r\n---\r\nBody\r\n",
+    "stem": "demo",
+    "expected": {
+      "taskId": "other",
+      "title": "Fix links",
+      "category": "spike",
+      "status": "accepted",
+      "assignees": [],
+      "custom": {},
+      "body": "Body"
+    }
+  }
+]

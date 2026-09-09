@@ -129,6 +129,11 @@ export interface TaskFragment {
   labels: string[];
   assignees: string[];
   milestone?: string;
+  /** "owner/name" of the git repo this ticket lives in (KATL server only;
+   * carried alongside the fragment, never rendered into it). */
+  repo?: string;
+  /** Project key, set only in the merged all-projects view. */
+  project?: string;
   /** Unknown head keys, casing + insertion order preserved. */
   custom: Record<string, string>;
   /** Verbatim free body below the divider. */

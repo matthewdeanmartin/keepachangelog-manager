@@ -233,6 +233,8 @@ def test_release_rollback_deletes_github_release(tmp_path, monkeypatch, mocker):
     fake = mocker.MagicMock()
     fake.find_release_by_tag.return_value = {"id": 123, "tag_name": "v5.2.0"}
     mocker.patch("changelogmanager.github.GitHub", return_value=fake)
+    # Force the REST API path even if gh is installed on this machine.
+    mocker.patch("changelogmanager.services.gh_executable", return_value=None)
 
     result = run_cli(
         [
@@ -261,6 +263,8 @@ def test_release_rollback_reports_missing_github_release(tmp_path, monkeypatch, 
     fake = mocker.MagicMock()
     fake.find_release_by_tag.return_value = None
     mocker.patch("changelogmanager.github.GitHub", return_value=fake)
+    # Force the REST API path even if gh is installed on this machine.
+    mocker.patch("changelogmanager.services.gh_executable", return_value=None)
 
     result = run_cli(
         [

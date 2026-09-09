@@ -1,5 +1,6 @@
-import { Component, input, output } from '@angular/core';
+import { Component, inject, input, output } from '@angular/core';
 import { TaskFragment, lookupCategory } from '../core/models';
+import { RepoService } from '../core/repo.service';
 import { emojiGlyph } from '../core/emoji';
 
 /** A single draggable ticket card, shared by the status and milestone views. */
@@ -10,7 +11,7 @@ import { emojiGlyph } from '../core/emoji';
       class="card"
       role="button"
       tabindex="0"
-      draggable="true"
+      [draggable]="!readOnly()"
       (click)="openTask.emit(task())"
       (keydown.enter)="openTask.emit(task())"
       (keydown.space)="openTask.emit(task()); $event.preventDefault()"
@@ -26,6 +27,12 @@ import { emojiGlyph } from '../core/emoji';
       <div class="title">{{ task().title }}</div>
       <div class="meta">
         <span class="id">{{ task().taskId }}</span>
+        @if (task().project) {
+          <span class="proj" [title]="'Project: ' + task().project">{{ task().project }}</span>
+        }
+        @if (task().repo) {
+          <span class="repo" [title]="task().repo">⌂ {{ repoShort(task().repo!) }}</span>
+        }
         @if (task().milestone) {
           <span class="ms">{{ task().milestone }}</span>
         }
@@ -93,6 +100,18 @@ import { emojiGlyph } from '../core/emoji';
         border-radius: 4px;
         padding: 0 0.3rem;
       }
+      .repo {
+        background: #eef2e6;
+        color: #56701d;
+        border-radius: 4px;
+        padding: 0 0.3rem;
+      }
+      .proj {
+        background: #f3e8ff;
+        color: #6d28d9;
+        border-radius: 4px;
+        padding: 0 0.3rem;
+      }
       .who {
         background: #e4e7eb;
         border-radius: 4px;
@@ -107,6 +126,7 @@ import { emojiGlyph } from '../core/emoji';
   ],
 })
 export class TicketCardComponent {
+  readonly readOnly = inject(RepoService).readOnly;
   task = input.required<TaskFragment>();
   openTask = output<TaskFragment>();
   dragStart = output<TaskFragment>();
@@ -114,4 +134,6 @@ export class TicketCardComponent {
   catGlyph = (key: string) => emojiGlyph(lookupCategory(key)?.emoji);
   catTitle = (key: string) => lookupCategory(key)?.title ?? key;
   ships = (key: string) => lookupCategory(key)?.shipsToChangelog ?? false;
+  /** "owner/name" → "name"; the full name lives in the tooltip. */
+  repoShort = (fullName: string) => fullName.split('/').pop() ?? fullName;
 }

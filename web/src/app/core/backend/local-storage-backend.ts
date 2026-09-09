@@ -3,13 +3,23 @@
 // RepoService behavior as a RepoBackend. See spec/web_remaining_phases.md §4 (W1a).
 
 import { FIXTURE_CHANGELOG_FRAGMENTS, FIXTURE_TICKETS, RawFile } from '../fixtures';
-import { BackendCapabilities, FileChange, RepoBackend, SaveResult } from './repo-backend';
+import {
+  BackendCapabilities,
+  FileChange,
+  RepoBackend,
+  SaveResult,
+  WorkspaceIdentity,
+} from './repo-backend';
 
 const STORAGE_KEY = 'katl.workspace.v1';
 
 export class LocalStorageBackend implements RepoBackend {
   readonly id = 'local-storage' as const;
   readonly capabilities: BackendCapabilities = { pullRequest: false, directWrite: true };
+
+  describe(): WorkspaceIdentity {
+    return { label: 'Sample workspace', detail: 'demo tickets in browser storage' };
+  }
 
   async scan(): Promise<RawFile[]> {
     const raw = this.read();

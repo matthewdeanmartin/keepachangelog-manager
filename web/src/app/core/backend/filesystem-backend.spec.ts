@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { FilesystemBackend, splitPath } from './filesystem-backend';
 import { FileChange } from './repo-backend';
 
@@ -41,7 +41,7 @@ class FakeDir {
   async getDirectoryHandle(name: string, opts?: { create?: boolean }) {
     let d = this.dirs.get(name);
     if (!d) {
-      if (!opts?.create) throw new Error('NotFound');
+      if (!opts?.create) throw new DOMException('Not found', 'NotFoundError');
       d = new FakeDir(name);
       this.dirs.set(name, d);
     }
@@ -50,14 +50,14 @@ class FakeDir {
   async getFileHandle(name: string, opts?: { create?: boolean }) {
     let f = this.files.get(name);
     if (!f) {
-      if (!opts?.create) throw new Error('NotFound');
+      if (!opts?.create) throw new DOMException('Not found', 'NotFoundError');
       f = new FakeFile(name, '');
       this.files.set(name, f);
     }
     return f as unknown as FileSystemFileHandle;
   }
   async removeEntry(name: string) {
-    if (!this.files.delete(name)) throw new Error('NotFound');
+    if (!this.files.delete(name)) throw new DOMException('Not found', 'NotFoundError');
   }
   async *entries(): AsyncGenerator<[string, FakeFile]> {
     for (const [name, file] of this.files) yield [name, file];
@@ -126,5 +126,46 @@ describe('FilesystemBackend.save', () => {
     expect(root.dirs.get('changelog.d')!.files.get('n.fixed.md')!.content).toBe('fresh');
     expect(result.message).toContain('wrote 2');
     expect(result.message).toContain('deleted 1');
+  });
+});
+
+describe('filesystem failures', () => {
+  it('does not treat revoked permission as a missing directory', async () => {
+    const root = new FakeDir('');
+    vi.spyOn(root, 'getDirectoryHandle').mockRejectedValue(
+      new DOMException('Denied', 'NotAllowedError'),
+    );
+    const backend = new FilesystemBackend(root as unknown as FileSystemDirectoryHandle);
+    await expect(backend.scan()).rejects.toThrow('Denied');
+    await expect(
+      backend.save([{ path: 'tickets/a.md', op: 'upsert', content: 'A' }]),
+    ).rejects.toThrow('Denied');
+  });
+  it('reports deletion failures but tolerates already absent files', async () => {
+    const root = repoWith({ 'tickets/a.md': 'A' });
+    const backend = new FilesystemBackend(root as unknown as FileSystemDirectoryHandle);
+    await expect(
+      backend.save([{ path: 'tickets/missing.md', op: 'delete' }]),
+    ).resolves.toBeDefined();
+    vi.spyOn(root.dirs.get('tickets')!, 'removeEntry').mockRejectedValue(
+      new DOMException('Denied', 'NotAllowedError'),
+    );
+    await expect(backend.save([{ path: 'tickets/a.md', op: 'delete' }])).rejects.toThrow('Denied');
+  });
+  it.each(['write', 'close'])('propagates %s failures', async (stage) => {
+    const root = repoWith({ 'tickets/a.md': 'A' });
+    const backend = new FilesystemBackend(root as unknown as FileSystemDirectoryHandle);
+    const file = root.dirs.get('tickets')!.files.get('a.md')!;
+    vi.spyOn(file, 'createWritable').mockResolvedValue({
+      write: async () => {
+        if (stage === 'write') throw new Error('Disk full');
+      },
+      close: async () => {
+        if (stage === 'close') throw new Error('Disk full');
+      },
+    } as unknown as FileSystemWritableFileStream);
+    await expect(
+      backend.save([{ path: 'tickets/a.md', op: 'upsert', content: 'B' }]),
+    ).rejects.toThrow('Disk full');
   });
 });

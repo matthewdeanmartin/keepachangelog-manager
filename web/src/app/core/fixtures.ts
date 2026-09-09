@@ -4,6 +4,12 @@
 export interface RawFile {
   path: string;
   content: string;
+  /** "owner/name" of the git repo the file lives in, when the backend knows
+   * (KATL server export); local backends leave it unset. */
+  repo?: string | null;
+  /** Project key the file came from — set only by the merged all-projects
+   * view; single-project backends leave it unset. */
+  project?: string | null;
 }
 
 export const FIXTURE_TICKETS: RawFile[] = [

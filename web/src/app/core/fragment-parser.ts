@@ -20,22 +20,28 @@ const KNOWN_HEAD_KEYS = new Set([
 
 /** Split head/body on the first column-0 `---` that is NOT inside a fenced code block. */
 export function splitHeadBody(text: string): { head: string; body: string; hadDivider: boolean } {
-  const lines = text.split('\n');
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
   let inFence = false;
   let fenceMarker = '';
+  let fenceLength = 0;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const fenceMatch = line.match(/^(```+|~~~+)/);
+    const fenceMatch = line.match(/^\s*(`{3,}|~{3,})(.*)$/);
     if (fenceMatch) {
       if (!inFence) {
         inFence = true;
         fenceMarker = fenceMatch[1][0];
-      } else if (line.startsWith(fenceMarker)) {
+        fenceLength = fenceMatch[1].length;
+      } else if (
+        fenceMatch[1][0] === fenceMarker &&
+        fenceMatch[1].length >= fenceLength &&
+        !fenceMatch[2].trim()
+      ) {
         inFence = false;
       }
       continue;
     }
-    if (!inFence && /^---\s*$/.test(line)) {
+    if (!inFence && /^---+\s*$/.test(line)) {
       return {
         head: lines.slice(0, i).join('\n'),
         body: lines.slice(i + 1).join('\n'),
@@ -43,7 +49,7 @@ export function splitHeadBody(text: string): { head: string; body: string; hadDi
       };
     }
   }
-  return { head: text, body: '', hadDivider: false };
+  return { head: lines.join('\n'), body: '', hadDivider: false };
 }
 
 function parseList(value: string): string[] {
@@ -74,7 +80,7 @@ export function parseTaskFragment(text: string, path: string): TaskFragment {
     const m = line.match(/^#\s+(.*)$/);
     if (m) {
       const h1 = m[1].trim();
-      const dash = h1.match(/^(\S+)\s+[—–-]\s+(.*)$/);
+      const dash = h1.match(/^(\S+)\s*[—:-]\s+(.+)$/);
       if (dash) {
         h1Id = dash[1];
         title = dash[2].trim();
@@ -95,11 +101,20 @@ export function parseTaskFragment(text: string, path: string): TaskFragment {
   // Metadata: a bullet list of `- **Key:** value` pairs, order-insensitive.
   const known: Record<string, string> = {};
   const custom: Record<string, string> = {};
+  let fence: string | undefined;
   for (const line of headLines) {
-    const m = line.match(/^\s*[-*]\s+\*\*(.+?):\*\*\s*(.*)$/);
+    const marker = line.match(/^\s*(`{3,}|~{3,})(.*)$/);
+    if (marker) {
+      if (!fence) fence = marker[1];
+      else if (marker[1][0] === fence[0] && marker[1].length >= fence.length && !marker[2].trim())
+        fence = undefined;
+      continue;
+    }
+    if (fence) continue;
+    const m = line.match(/^\s*[-*]\s+\*\*([^*]+?)\s*:?\s*\*\*\s*:?\s*(.*?)\s*$/);
     if (!m) continue;
     const rawKey = m[1].trim();
-    const value = stripComment(m[2]).trim();
+    const value = m[2].trim();
     const lowerKey = rawKey.toLowerCase();
     if (KNOWN_HEAD_KEYS.has(lowerKey)) {
       known[lowerKey] = value;
@@ -109,22 +124,24 @@ export function parseTaskFragment(text: string, path: string): TaskFragment {
   }
 
   const rawCategory = known['category'] ?? '';
-  const category = rawCategory ? canonicalCategory(rawCategory) : 'uncategorized';
+  const category = rawCategory.trim().toLowerCase() || 'uncategorized';
   if (!rawCategory) {
     lint.push('Missing required field "Category"; landed in `uncategorized`.');
   }
 
-  const status = (known['status'] || 'proposed') as TaskStatus;
+  const status = (known['status']?.trim().toLowerCase() || 'proposed') as TaskStatus;
 
   return {
-    taskId: stem,
+    taskId: h1Id || stem,
     path,
     title,
     category,
     status,
     tracker: known['tracker'] || undefined,
     labels: known['labels'] ? parseList(known['labels']) : [],
-    assignees: known['assignees'] ? parseList(known['assignees']) : [],
+    assignees: known['assignees']
+      ? parseList(known['assignees']).map((s) => s.replace(/^@+/, ''))
+      : [],
     milestone: known['milestone'] || undefined,
     custom,
     body: body.replace(/\n+$/, ''),
@@ -199,9 +216,4 @@ export function slugify(text: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-}
-
-function stripComment(value: string): string {
-  // Drop a trailing `<!-- ... -->` HTML comment used for inline guidance.
-  return value.replace(/<!--.*?-->\s*$/, '');
 }
