@@ -423,6 +423,24 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
                 + ("" if pyproject_only else " and Python source files"),
             )
             ctx.json_payload["bumped_version"] = result.version
+            # A version bump edits files in place, so the dry run enumerates
+            # every candidate rather than just claiming it will bump "sources".
+            from changelogmanager.version_bumper import (  # noqa: PLC0415
+                plan_version_files,
+            )
+
+            candidates = plan_version_files(pyproject_only=pyproject_only)
+            ctx.json_payload["bump_candidates"] = [
+                str(candidate) for candidate in candidates
+            ]
+            for candidate in candidates:
+                print_dry_run(ctx, f"would bump {candidate}")
+            if not pyproject_only:
+                print_dry_run(
+                    ctx,
+                    f"{len(candidates)} candidate file(s); files marked as generated "
+                    "by a build backend are skipped at write time",
+                )
         return
 
     if not args.yes:
@@ -1189,6 +1207,16 @@ def command_release_bump(args: argparse.Namespace, ctx: CliContext) -> None:
             f"would bump to {result.version}, commit on {result.branch}"
             + (" and open a PR" if args.open_pr else ""),
         )
+        from changelogmanager.version_bumper import plan_version_files  # noqa: PLC0415
+
+        candidates = plan_version_files(
+            pyproject_only=bool(getattr(args, "pyproject_only", False))
+        )
+        ctx.json_payload["bump_candidates"] = [
+            str(candidate) for candidate in candidates
+        ]
+        for candidate in candidates:
+            print_dry_run(ctx, f"would bump {candidate}")
     else:
         message = f"Bumped {result.version} on {result.branch}"
         if result.pr_number:

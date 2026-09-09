@@ -73,6 +73,10 @@ test = [
     "freezegun",
     "hypothesis",
     "mdformat>=0.7",
+    # Bare mdformat treats a "---" frontmatter fence as a thematic break and
+    # folds the YAML keys into a heading, which silently breaks SKILL.md. Any
+    # mdformat run in this repo must have this plugin available.
+    "mdformat-frontmatter>=2.0",
     "pytest>7.0.0",
     "pytest-cov",
     "pytest-mock",

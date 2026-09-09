@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Fixed
+- Version bumping no longer descends into virtualenvs, site-packages, package caches (.uv-cache), node_modules, or gitignored directories, and refuses files a build backend marks as generated. Previously 'release --bump-versions' could rewrite __version__ in installed third-party packages.
+- A bumped file keeps its version_tuple in step with its version string instead of leaving the two disagreeing.
+- 'release --bump-versions --dry-run' now enumerates every candidate file instead of only naming pyproject.toml.
+- Restored the bundled SKILL.md YAML frontmatter, which a bare mdformat run had folded into a heading, leaving the skill's description unreadable so agents never selected it.
+
 ## [6.8.0] - 2026-09-09
 ### Fixed
 - Release workflow now publishes successfully: pinned `pypa/gh-action-pypi-publish` to v1.14.2, whose bundled Twine v7 accepts Metadata-Version 2.5. Hatchling emits 2.5 for PEP 639 license metadata (`license` + `license-files`), and the previously pinned v1.14.0 rejected it with `InvalidDistribution: Invalid distribution metadata: '2.5' is not a valid metadata version`, so 6.7.0 built and tagged but never reached PyPI.

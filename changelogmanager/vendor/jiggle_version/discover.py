@@ -2,18 +2,34 @@
 # Vendored and trimmed from jiggle_version/discover.py (jiggle-version 2.1.1).
 """Discover potential version source files in a project.
 
-Upstream walked the tree honoring ``.gitignore`` via ``pathspec``. That
-third-party dependency is intentionally dropped here: matching is reduced to the
-static :data:`DEFAULT_IGNORE_DIRS` set, which already covers the directories a
-version bump must never descend into (``.git``, ``.tox``, ``.venv``,
-``__pycache__``). The set of filenames searched for is unchanged, so the result
-for a normal project layout matches upstream.
+A version bump rewrites files in place, so the walk here is deliberately
+conservative: anything that is not plausibly the *project's own* source is
+skipped. Three independent guards apply, and a directory is skipped if any one
+of them fires:
+
+1. :data:`DEFAULT_IGNORE_DIRS` / :data:`IGNORE_DIR_GLOBS` -- an unconditional
+   deny-list of directory kinds that hold third-party code: virtualenvs,
+   ``site-packages``, package caches, ``node_modules``, build output.
+2. :data:`VENV_SENTINEL_FILES` -- any directory containing a ``pyvenv.cfg`` is a
+   virtualenv no matter what it is named (``.venv315rc2``, ``env2``, ...).
+3. ``.gitignore`` -- restoring the behavior upstream got from ``pathspec``, via
+   the stdlib matcher in :mod:`.gitignore`.
+
+Guards 1 and 2 apply regardless of ignore-file contents; ``.gitignore`` only
+ever *adds* exclusions. Nothing outside ``project_root`` is ever visited.
 """
 
 from __future__ import annotations
 
+import fnmatch
 import logging
 from pathlib import Path
+
+from changelogmanager.vendor.jiggle_version.gitignore import (
+    GitIgnore,
+    load_gitignore,
+    relative_posix,
+)
 
 # Files to search for recursively in the project tree.
 RECURSIVE_SEARCH_FILES = ["_version.py", "__version__.py", "__about__.py"]
@@ -21,20 +37,88 @@ RECURSIVE_SEARCH_FILES = ["_version.py", "__version__.py", "__about__.py"]
 # Statically named files to check for only in the project root.
 STATIC_SEARCH_FILES = ["pyproject.toml", "setup.cfg", "setup.py"]
 
-# Directories to always ignore (replaces upstream's pathspec/.gitignore walk).
-DEFAULT_IGNORE_DIRS = {".git", ".tox", ".venv", "__pycache__"}
+# Directory names that never contain the project's own version, matched exactly.
+DEFAULT_IGNORE_DIRS = {
+    # VCS / editor / tooling metadata
+    ".git",
+    ".hg",
+    ".svn",
+    ".idea",
+    ".vscode",
+    # Python caches and tool state
+    "__pycache__",
+    ".mypy_cache",
+    ".pytype",
+    ".pyre",
+    ".ruff_cache",
+    ".pytest_cache",
+    ".hypothesis",
+    # Installed third-party code -- the bug this deny-list exists for
+    "site-packages",
+    "dist-packages",
+    ".tox",
+    ".nox",
+    ".eggs",
+    "node_modules",
+    # Package manager caches: corruption here re-seeds every rebuilt env
+    ".uv",
+    ".uv-cache",
+    ".pip-cache",
+    ".cache",
+    ".pdm-build",
+    "__pypackages__",
+    # Build output
+    "build",
+    "dist",
+}
+
+# Directory name globs, for families that are not a fixed name. ``.venv315rc2``
+# and ``venv-3.13`` are as much virtualenvs as ``.venv`` is.
+IGNORE_DIR_GLOBS = (
+    ".venv*",
+    "venv*",
+    "*.egg-info",
+    "*.dist-info",
+    "*.egg",
+)
+
+# A directory containing any of these is a virtualenv, whatever it is named.
+VENV_SENTINEL_FILES = ("pyvenv.cfg",)
 
 LOGGER = logging.getLogger(__name__)
 
 
+def is_ignored_dir_name(name: str) -> bool:
+    """True if a directory named ``name`` must never be descended into."""
+    if name in DEFAULT_IGNORE_DIRS:
+        return True
+    return any(fnmatch.fnmatch(name, pattern) for pattern in IGNORE_DIR_GLOBS)
+
+
+def is_virtualenv_dir(path: Path) -> bool:
+    """True if ``path`` looks like a virtualenv root (has a ``pyvenv.cfg``)."""
+    for sentinel in VENV_SENTINEL_FILES:
+        try:
+            if (path / sentinel).is_file():
+                return True
+        except OSError as exc:
+            LOGGER.warning("Skipping unreadable path %s: %s", path / sentinel, exc)
+    return False
+
+
 def find_source_files(
-    project_root: Path, ignore_paths: list[str] | None = None
+    project_root: Path,
+    ignore_paths: list[str] | None = None,
+    *,
+    use_gitignore: bool = True,
 ) -> list[Path]:
     """Scan ``project_root`` for potential version source files.
 
     Args:
         project_root: The root directory of the project to scan.
         ignore_paths: Relative paths (to ``project_root``) to explicitly ignore.
+        use_gitignore: Honor ``project_root/.gitignore``. Disabling this drops
+            only guard 3; the hard directory excludes still apply.
 
     Returns:
         A sorted list of Path objects for all found source files.
@@ -43,12 +127,14 @@ def find_source_files(
     found_files: set[Path] = set()
 
     explicit_ignore_set = {(project_root / p).resolve() for p in (ignore_paths or [])}
+    gitignore = load_gitignore(project_root) if use_gitignore else None
 
     _walk_and_discover(
         current_dir=project_root,
         project_root=project_root,
         found_files=found_files,
         explicit_ignore_set=explicit_ignore_set,
+        gitignore=gitignore,
     )
 
     return sorted(found_files)
@@ -70,6 +156,7 @@ def _walk_and_discover(
     project_root: Path,
     found_files: set[Path],
     explicit_ignore_set: set[Path],
+    gitignore: GitIgnore | None = None,
 ) -> None:
     """Recursively walk directories to find source files."""
     try:
@@ -79,9 +166,7 @@ def _walk_and_discover(
         return
 
     for item in items:
-        if item.name in DEFAULT_IGNORE_DIRS or _is_explicitly_ignored(
-            item, explicit_ignore_set
-        ):
+        if _is_explicitly_ignored(item, explicit_ignore_set):
             continue
 
         try:
@@ -90,6 +175,28 @@ def _walk_and_discover(
         except OSError as exc:
             LOGGER.warning("Skipping unreadable path %s: %s", item, exc)
             continue
+
+        # Never follow a symlink out of (or back into) the tree.
+        try:
+            if item.is_symlink():
+                LOGGER.debug("Skipping symlink %s", item)
+                continue
+        except OSError:
+            continue
+
+        if is_dir and is_ignored_dir_name(item.name):
+            LOGGER.debug("Skipping excluded directory %s", item)
+            continue
+
+        if is_dir and is_virtualenv_dir(item):
+            LOGGER.debug("Skipping virtualenv %s (has pyvenv.cfg)", item)
+            continue
+
+        if gitignore is not None:
+            relative = relative_posix(item, project_root)
+            if relative and gitignore.is_ignored(relative, is_dir=is_dir):
+                LOGGER.debug("Skipping gitignored path %s", item)
+                continue
 
         if is_dir:
             # A top-level package dir's __init__.py is a version candidate.
@@ -108,6 +215,7 @@ def _walk_and_discover(
                 project_root=project_root,
                 found_files=found_files,
                 explicit_ignore_set=explicit_ignore_set,
+                gitignore=gitignore,
             )
 
         elif is_file:

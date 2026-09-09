@@ -26,6 +26,33 @@ def jiggle_available() -> bool:
     return HAS_JIGGLE
 
 
+def plan_version_files(
+    *,
+    project_root: Path | None = None,
+    pyproject_only: bool = False,
+) -> list[Path]:
+    """Returns the files a bump would consider, without writing anything.
+
+    This is what ``--dry-run`` enumerates. A path listed here is a *candidate*:
+    :func:`bump_version_files` may still decline to write it (no version
+    assignment, or a build-backend-generated file), so the real bump can touch
+    fewer files than this lists -- never more.
+    """
+    root = project_root or Path.cwd()
+    candidates: list[Path] = []
+
+    pyproject = root / "pyproject.toml"
+    if pyproject.is_file():
+        candidates.append(pyproject)
+
+    if not pyproject_only:
+        for path in find_source_files(root):
+            if path != pyproject and path.suffix == ".py":
+                candidates.append(path)
+
+    return candidates
+
+
 def bump_version_files(
     new_version: str,
     *,
@@ -34,7 +61,12 @@ def bump_version_files(
 ) -> list[Path]:
     """Bumps version strings in pyproject.toml and optionally Python source files.
 
-    Returns the list of files that were modified.
+    The search deliberately never descends into virtualenvs, ``site-packages``,
+    package caches, or gitignored directories, and refuses files a build backend
+    marks as generated -- rewriting an installed third-party package's
+    ``__version__`` corrupts the environment (and any cache it was seeded from).
+
+    Returns the list of files that were actually modified.
     """
     root = project_root or Path.cwd()
     bumped: list[Path] = []
@@ -50,9 +82,12 @@ def bump_version_files(
         for path in source_files:
             if path == pyproject:
                 continue
-            if path.suffix == ".py":
-                logger.info("Bumping version in %s to %s", path, new_version)
-                update_python_file(path, new_version)
+            if path.suffix != ".py":
+                continue
+            logger.info("Bumping version in %s to %s", path, new_version)
+            # A False return means the file was declined (generated, or has no
+            # version assignment); it must not be reported as bumped.
+            if update_python_file(path, new_version) is not False:
                 bumped.append(path)
 
     logger.info("Version bumped to %s in %d file(s)", new_version, len(bumped))
