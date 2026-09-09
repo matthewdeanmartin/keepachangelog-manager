@@ -4,8 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
+## [6.7.0] - 2026-09-09
 ### Added
 - `release-rollback` now auto-detects the latest git tag and the repository slug from the git remote URL so no flags are required when running from the project root; the `gh` CLI is preferred over the REST API when available, removing the need for an explicit GitHub token in interactive workflows.
 
