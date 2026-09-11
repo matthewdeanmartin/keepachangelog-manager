@@ -250,6 +250,9 @@ def test_resolve_required_value_non_interactive_returns_none(monkeypatch):
 
 
 def test_command_github_release_prompts_for_repository(monkeypatch):
+    # Exercise prompts even when pytest runs inside GitHub Actions.
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     changelog = DummyChangelog(has_unreleased=True)
     monkeypatch.setattr(cli.prompts, "interactive_enabled", lambda: True)
 

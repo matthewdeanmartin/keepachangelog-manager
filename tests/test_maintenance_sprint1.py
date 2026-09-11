@@ -158,7 +158,8 @@ def test_semver_prerelease_precedence_and_metadata():
     assert parse_version("1.0.0+build1") == parse_version("1.0.0+build2")
 
 
-def test_gui_local_release_passes_selected_component(tmp_path, monkeypatch):
+@pytest.mark.parametrize("saved", [True, False])
+def test_gui_local_release_passes_selected_component(tmp_path, monkeypatch, saved):
     from changelogmanager.gui.screens.edit import EditScreen
 
     config = project(tmp_path)
@@ -167,8 +168,8 @@ def test_gui_local_release_passes_selected_component(tmp_path, monkeypatch):
     monkeypatch.setattr("changelogmanager.gui.cli_runner.run_cli", runner)
     screen = SimpleNamespace(
         require_changelog=lambda: changelog,
-        save=Mock(),
-        prompt_release_options=lambda future: (True, False),
+        save_document=Mock(return_value=saved),
+        prompt_release_options=Mock(return_value=(True, False)),
         app_state=SimpleNamespace(
             config_path=str(config),
             component="plugin",
@@ -180,6 +181,12 @@ def test_gui_local_release_passes_selected_component(tmp_path, monkeypatch):
         controller=SimpleNamespace(reload=Mock()),
     )
     EditScreen.release(screen)
+    screen.save_document.assert_called_once_with()
+    if not saved:
+        screen.prompt_release_options.assert_not_called()
+        runner.assert_not_called()
+        screen.controller.reload.assert_not_called()
+        return
     argv = runner.call_args.args[0]
     assert argv[argv.index("--component") + 1] == "plugin"
     assert argv[argv.index("--input-file") + 1] == str(tmp_path / "CHANGELOG.md")
