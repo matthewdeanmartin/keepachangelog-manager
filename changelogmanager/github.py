@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Mapping, Sequence
 from enum import Enum
 from textwrap import dedent
@@ -18,6 +19,7 @@ from changelogmanager import _json_compat as orjson
 from changelogmanager.change_types import CATEGORIES, UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
 from changelogmanager.runtime_logging import VERBOSE, get_logger
+from changelogmanager.versioning import parse_version
 
 RELEASES_CHUNK_SIZE = 100
 GITHUB_API_VERSION = "2026-03-10"
@@ -271,14 +273,17 @@ class GitHub:
 
         return releases
 
-    def delete_draft_releases(self) -> None:
+    def delete_draft_releases(self, tag_pattern: str | None = None) -> None:
         """Deletes all releases marked as 'Draft'"""
         logger.info("Deleting draft releases for %s", self.repository)
 
         releases = self.get_releases()
 
         for rel in releases:
-            if rel.get("draft"):
+            if rel.get("draft") and (
+                tag_pattern is None
+                or re.fullmatch(tag_pattern, str(rel.get("tag_name", "")))
+            ):
                 self.delete_release(rel)
 
     def delete_release(self, release: Mapping[str, Any]) -> None:
@@ -364,8 +369,15 @@ class GitHub:
             raise logging.Error(message="GitHub did not return PR details")
         return response
 
-    def create_release(self, changelog: Changelog, draft: bool) -> Mapping[str, Any]:
-        """Creates a new release on GitHub"""
+    def create_release(
+        self,
+        changelog: Changelog,
+        draft: bool,
+        tag_name: str | None = None,
+        version: str | None = None,
+        notes_version: str = UNRELEASED_ENTRY,
+    ) -> Mapping[str, Any]:
+        """Create or refresh an exact-tag release without deleting assets or human notes."""
         logger.info(
             "Creating %s GitHub release for %s",
             "draft" if draft else "published",
@@ -387,20 +399,79 @@ class GitHub:
             )
             return body
 
-        version = f"v{changelog.suggest_future_version()}"
-        logger.info("Preparing GitHub release payload for version %s", version)
-        response = self.github_request(
-            method=HttpMethods.POST,
-            api="releases",
-            data={
-                "tag_name": version,
-                "name": f"Release {version}",
-                "draft": draft,
-                "body": generate_release_notes(changelog.get(UNRELEASED_ENTRY)),
-            },
+        parsed = (
+            parse_version(version, changelog.versioning_scheme)
+            if version
+            else changelog.suggest_future_version()
         )
+        if notes_version == UNRELEASED_ENTRY:
+            from changelogmanager.release_plan import get_plan, validate_override
+
+            validate_override(get_plan(changelog.get()), parsed)
+        tag = tag_name or f"v{parsed}"
+        generated = generate_release_notes(changelog.get(notes_version))
+        existing = next(
+            (item for item in self.get_releases() if item.get("tag_name") == tag), None
+        )
+        if existing and not existing.get("draft", False) and draft:
+            # Background draft refresh must never alter an already published release.
+            return existing
+        body = merge_generated_notes(
+            str(existing.get("body") or "") if existing else "", generated
+        )
+        if existing:
+            # PATCH leaves assets, title, target commit, prerelease/latest flags and
+            # all other provider metadata alone. Publishing is explicit.
+            data: dict[str, Any] = {"body": body}
+            if existing.get("draft") and not draft:
+                data["draft"] = False
+            response = self.github_request(
+                method=HttpMethods.PATCH, api=f"releases/{existing['id']}", data=data
+            )
+        else:
+            prerelease = (
+                bool(parsed.parsed.is_prerelease)
+                if parsed.scheme == "pep440"
+                else (
+                    bool(parsed.parsed.prerelease)
+                    if parsed.scheme == "semver"
+                    else False
+                )
+            )
+            response = self.github_request(
+                method=HttpMethods.POST,
+                api="releases",
+                data={
+                    "tag_name": tag,
+                    "name": f"Release {tag}",
+                    "draft": draft,
+                    "body": body,
+                    "prerelease": prerelease,
+                },
+            )
         if not isinstance(response, Mapping):
             raise logging.Error(
-                message=f"GitHub did not return release details for {version}"
+                message=f"GitHub did not return release details for {tag}"
             )
         return response
+
+
+NOTES_START = "<!-- kaclm:release-notes:start -->"
+NOTES_END = "<!-- kaclm:release-notes:end -->"
+
+
+def merge_generated_notes(body: str, generated: str) -> str:
+    """Refresh only our marked block. Preserve unmarked legacy notes verbatim."""
+    block = f"{NOTES_START}\n{generated}\n{NOTES_END}"
+    if NOTES_START not in body and NOTES_END not in body:
+        return f"{body}\n\n{block}" if body else block
+    if body.count(NOTES_START) != 1 or body.count(NOTES_END) != 1:
+        raise logging.Error(
+            message="Ambiguous generated release-note markers; repair the release body before refreshing"
+        )
+    start, end = body.index(NOTES_START), body.index(NOTES_END)
+    if end < start:
+        raise logging.Error(
+            message="Reversed generated release-note markers; repair the release body before refreshing"
+        )
+    return body[:start] + block + body[end + len(NOTES_END) :]

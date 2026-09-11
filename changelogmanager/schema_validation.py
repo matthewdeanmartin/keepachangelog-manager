@@ -40,6 +40,15 @@ def metadata_schema() -> dict[str, Any]:
                 ]
             },
             "url": {"type": "string"},
+            "release_plan": {
+                "type": "object",
+                "required": ["phase"],
+                "properties": {
+                    "phase": {"enum": ["alpha", "beta", "rc", "dev", "final"]},
+                    "target": {"type": "string", "minLength": 1},
+                },
+                "additionalProperties": False,
+            },
             "semantic_version": {
                 "type": "object",
                 "required": ["major", "minor", "patch", "prerelease", "buildmetadata"],

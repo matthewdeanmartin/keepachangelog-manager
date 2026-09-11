@@ -5,7 +5,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Changelog-owned Release Phase and optional Target metadata for opt-in PEP 440 prerelease progression, with desktop editing and validation; preserve SemVer and CalVer behavior.
+- Component-scoped version files and independent release tags for monorepos.
+- Explicit GitHub release versions and existing-section publication, including configured PEP 440 prereleases, with direct GitHub Actions outputs from release-bump.
+
 ### Fixed
+- Refresh GitHub releases in place, preserving assets and human notes outside generated sections; handle prerelease publication events.
+- Preserve TOML comments and release ownership settings, and restore changelog and companion files when release updates fail.
+- Use configured component paths consistently in validation and GUI releases; reject missing changelogs and equivalent already-released versions.
+- Correct SemVer prerelease ordering, preserve PEP 440 epochs, respect explicit CLI defaults, and constrain recursive component globs correctly.
+- Exclude web dependencies, build caches, and local connection data from Python source distributions.
+- Preserve sibling components during version bumps, draft cleanup, and release commits.
 - Version bumping no longer descends into virtualenvs, site-packages, package caches (.uv-cache), node_modules, or gitignored directories, and refuses files a build backend marks as generated. Previously 'release --bump-versions' could rewrite __version__ in installed third-party packages.
 - A bumped file keeps its version_tuple in step with its version string instead of leaving the two disagreeing.
 - 'release --bump-versions --dry-run' now enumerates every candidate file instead of only naming pyproject.toml.

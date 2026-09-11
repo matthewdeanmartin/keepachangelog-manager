@@ -38,6 +38,9 @@ class VersionValue:
     def __str__(self) -> str:
         return self.raw
 
+    def __hash__(self) -> int:
+        return hash((self.scheme, self.sort_key))
+
     def __lt__(self, other: object) -> bool:
         other_value = coerce_same_scheme(other, self.scheme)
         return self.sort_key < other_value.sort_key
@@ -88,13 +91,8 @@ def parse_version(version: str, scheme: str = "semver") -> VersionValue:
             raw=str(parsed),
             scheme=scheme,
             parsed=parsed,
-            sort_key=(
-                parsed.major,
-                parsed.minor,
-                parsed.patch,
-                tuple(parsed.prerelease or ()),
-                tuple(parsed.build or ()),
-            ),
+            # Build metadata has no precedence; use the parser's ordering.
+            sort_key=(parsed.truncate("prerelease"),),
         )
     if scheme == "pep440":
         try:
@@ -194,7 +192,10 @@ def bump_version(previous: VersionValue, bump_type: VersionCore) -> VersionValue
             release = [release[0], release[1] + 1, 0]
         else:
             release = [release[0], release[1], release[2] + 1]
-        return parse_version(".".join(str(part) for part in release), previous.scheme)
+        epoch = f"{previous.parsed.epoch}!" if previous.parsed.epoch else ""
+        return parse_version(
+            epoch + ".".join(str(part) for part in release), previous.scheme
+        )
 
     today = date.today()
     parsed = previous.parsed

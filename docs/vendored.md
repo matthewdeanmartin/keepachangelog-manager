@@ -43,6 +43,6 @@ output.
 Version bumping is now **built in** — there is no optional `[jiggle]` extra and no
 runtime dependency to install. Only three functions are vendored
 (`find_source_files`, `update_pyproject_toml`, `update_python_file`), and they were
-reimplemented to use only the standard library: upstream's `pathspec`-based
-`.gitignore` walk and `tomlkit`-based pyproject rewrite were dropped. See
+adapted locally. Version edits use TOML Kit to preserve comments and support
+valid TOML headers; individual writes use atomic replacement. See
 `changelogmanager/vendor/jiggle_version/UPSTREAM.md` for exactly what was cut.

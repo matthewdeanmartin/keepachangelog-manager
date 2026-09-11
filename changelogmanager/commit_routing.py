@@ -14,6 +14,7 @@ import shutil
 import subprocess  # nosec
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from functools import cache
 
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.runtime_logging import VERBOSE, get_logger
@@ -91,26 +92,25 @@ def component_match_globs(component: Mapping[str, object]) -> list[str]:
 
 
 def file_matches(path: str, globs: Sequence[str]) -> bool:
-    """Returns True if ``path`` matches any glob.
+    """Case-sensitive repository globs: * matches one segment, ** zero or more."""
+    parts = tuple(path.replace("\\", "/").split("/"))
 
-    ``**`` is treated as "match across directory separators" by also testing the
-    path with separators collapsed, so ``api/**`` matches ``api/x/y.py``.
-    """
+    def matches(pattern: tuple[str, ...]) -> bool:
+        @cache
+        def walk(i: int, j: int) -> bool:
+            if j == len(pattern):
+                return i == len(parts)
+            if pattern[j] == "**":
+                return walk(i, j + 1) or (i < len(parts) and walk(i + 1, j))
+            return (
+                i < len(parts)
+                and fnmatch.fnmatchcase(parts[i], pattern[j])
+                and walk(i + 1, j + 1)
+            )
 
-    posix = path.replace("\\", "/")
-    for glob in globs:
-        if fnmatch.fnmatch(posix, glob):
-            return True
-        # fnmatch does not special-case "**"; emulate recursive match.
-        if "**" in glob:
-            simplified = glob.replace("**/", "*/").replace("**", "*")
-            if fnmatch.fnmatch(posix, simplified):
-                return True
-            # api/** should also match the directory root "api/anything".
-            prefix = glob.split("**", 1)[0].rstrip("/")
-            if prefix and (posix == prefix or posix.startswith(prefix + "/")):
-                return True
-    return False
+        return walk(0, 0)
+
+    return any(matches(tuple(glob.replace("\\", "/").split("/"))) for glob in globs)
 
 
 def route_commit(

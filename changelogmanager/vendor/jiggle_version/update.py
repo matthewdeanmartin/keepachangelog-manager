@@ -3,11 +3,8 @@
 """Update version strings in source files.
 
 ``update_python_file`` is tightened relative to upstream (see below) but stays
-pure ``re``. ``update_pyproject_toml``
-is reimplemented with a section-aware line rewrite instead of upstream's
-``tomlkit`` round-trip, so the vendored copy needs no third-party dependency. The
-line rewrite preserves all surrounding formatting because it only replaces the
-value on the single ``version = ...`` line, leaving every other byte untouched.
+pure ``re``. ``update_pyproject_toml`` uses TOML Kit to preserve comments,
+whitespace and valid TOML syntax while updating the project version.
 
 ``update_setup_cfg`` is intentionally not vendored: ``bump_version_files`` never
 calls it.
@@ -33,6 +30,10 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
+
+import tomlkit
+
+from changelogmanager.file_updates import atomic_write_text
 
 LOGGER = logging.getLogger(__name__)
 
@@ -103,51 +104,26 @@ def _version_tuple_literal(new_version: str) -> str:
     return ", ".join(parts)
 
 
-# A TOML table header line, e.g. ``[project]`` or ``[tool.setuptools]``.
-_TABLE_HEADER_RE = re.compile(r"^\s*\[\s*(?P<name>[^\]]+?)\s*\]\s*$")
-# A ``version = "..."`` assignment, capturing the prefix, quote, value, and tail
-# (which may include a trailing comment) so only the value is replaced.
-_VERSION_ASSIGN_RE = re.compile(r"""^(?P<prefix>\s*version\s*=\s*)(?P<quote>['"])(?P<value>.*?)(?P=quote)(?P<tail>.*)$""")
+def update_pyproject_toml(file_path: Path, new_version: str) -> bool:
+    """Update the declared version without discarding TOML comments or layout.
 
-# Tables whose ``version`` key carries the project version, in priority order.
-_VERSION_TABLES = ("project", "tool.setuptools")
-
-
-def update_pyproject_toml(file_path: Path, new_version: str) -> None:
-    """Update ``version`` in a pyproject.toml, preserving file formatting.
-
-    Rewrites the ``version`` key under ``[project]`` if present, otherwise under
-    ``[tool.setuptools]`` (mirroring upstream). Only the first matching key is
-    changed; if no such key exists the file is left untouched.
+    A missing static version is a deliberate no-op (e.g. dynamic versioning).
+    Callers with explicit ownership can distinguish this using the return value.
     """
-    text = file_path.read_text(encoding="utf-8")
-    lines = text.splitlines(keepends=True)
-
-    current_table: str | None = None
-    for table in _VERSION_TABLES:
-        for index, line in enumerate(lines):
-            header = _TABLE_HEADER_RE.match(line)
-            if header:
-                current_table = header.group("name")
-                continue
-            if current_table != table:
-                continue
-            assign = _VERSION_ASSIGN_RE.match(line.rstrip("\r\n"))
-            if not assign:
-                continue
-            line_ending = _line_ending(line)
-            lines[index] = f"{assign.group('prefix')}{assign.group('quote')}{new_version}{assign.group('quote')}{assign.group('tail')}{line_ending}"
-            file_path.write_text("".join(lines), encoding="utf-8")
-            return
-        current_table = None
-
-
-def _line_ending(line: str) -> str:
-    if line.endswith("\r\n"):
-        return "\r\n"
-    if line.endswith("\n"):
-        return "\n"
-    return ""
+    text = file_path.read_bytes().decode("utf-8")
+    document = tomlkit.parse(text)
+    for keys in (("project",), ("tool", "setuptools")):
+        table = document
+        for key in keys:
+            table = table.get(key, {})
+        if "version" not in table:
+            continue
+        if not isinstance(table["version"], str):
+            raise ValueError(f"Version in {file_path} must be a string")
+        table["version"] = new_version
+        atomic_write_text(file_path, tomlkit.dumps(document))
+        return True
+    return False
 
 
 def update_python_file(file_path: Path, new_version: str) -> bool:
@@ -179,7 +155,7 @@ def update_python_file(file_path: Path, new_version: str) -> bool:
         return False
 
     new_content = _sync_version_tuple(new_content, new_version)
-    file_path.write_text(new_content, encoding="utf-8")
+    atomic_write_text(file_path, new_content)
     return True
 
 

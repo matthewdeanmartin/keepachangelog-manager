@@ -31,12 +31,13 @@ def test_pep440_release_validation_and_bump(tmp_path):
     )
 
     assert str(changelog.version()) == "1.2rc1"
-    assert str(changelog.suggest_future_version()) == "1.2.1"
+    assert str(changelog.suggest_future_version()) == "1.2rc2"
 
     changelog.release()
     released = next(iter(changelog.get().values()))
-    assert released["metadata"]["version"] == "1.2.1"
-    assert released["metadata"]["pep440_version"]["release"] == [1, 2, 1]
+    assert released["metadata"]["version"] == "1.2rc2"
+    assert released["metadata"]["pep440_version"]["release"] == [1, 2]
+    assert released["metadata"]["pep440_version"]["pre"] == ["rc", 2]
 
 
 class FrozenDate(date):

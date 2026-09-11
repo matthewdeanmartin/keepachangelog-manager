@@ -6,12 +6,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import changelogmanager.llvm_diagnostics as logging
+from changelogmanager.file_updates import rollback_file_updates
 from changelogmanager.runtime_logging import get_logger
 from changelogmanager.vendor.jiggle_version import (
     find_source_files,
     update_pyproject_toml,
     update_python_file,
 )
+from changelogmanager.versioning import parse_version
 
 logger = get_logger(__name__)
 
@@ -30,6 +33,7 @@ def plan_version_files(
     *,
     project_root: Path | None = None,
     pyproject_only: bool = False,
+    version_files: tuple[Path, ...] | None = None,
 ) -> list[Path]:
     """Returns the files a bump would consider, without writing anything.
 
@@ -38,6 +42,15 @@ def plan_version_files(
     assignment, or a build-backend-generated file), so the real bump can touch
     fewer files than this lists -- never more.
     """
+    if version_files is not None:
+        for path in version_files:
+            if not path.is_file():
+                raise logging.Error(message=f"Version file does not exist: {path}")
+        return [
+            path
+            for path in version_files
+            if not pyproject_only or path.name == "pyproject.toml"
+        ]
     root = project_root or Path.cwd()
     candidates: list[Path] = []
 
@@ -58,6 +71,8 @@ def bump_version_files(
     *,
     project_root: Path | None = None,
     pyproject_only: bool = False,
+    version_files: tuple[Path, ...] | None = None,
+    versioning_scheme: str = "semver",
 ) -> list[Path]:
     """Bumps version strings in pyproject.toml and optionally Python source files.
 
@@ -68,27 +83,30 @@ def bump_version_files(
 
     Returns the list of files that were actually modified.
     """
-    root = project_root or Path.cwd()
+    try:
+        parse_version(new_version, versioning_scheme)
+    except ValueError as exc:
+        raise logging.Error(
+            message=f"Invalid {versioning_scheme} version: {new_version}"
+        ) from exc
+    paths = plan_version_files(
+        project_root=project_root,
+        pyproject_only=pyproject_only,
+        version_files=version_files,
+    )
     bumped: list[Path] = []
-
-    pyproject = root / "pyproject.toml"
-    if pyproject.is_file():
-        logger.info("Bumping version in %s to %s", pyproject, new_version)
-        update_pyproject_toml(pyproject, new_version)
-        bumped.append(pyproject)
-
-    if not pyproject_only:
-        source_files = find_source_files(root)
-        for path in source_files:
-            if path == pyproject:
-                continue
-            if path.suffix != ".py":
-                continue
-            logger.info("Bumping version in %s to %s", path, new_version)
-            # A False return means the file was declined (generated, or has no
-            # version assignment); it must not be reported as bumped.
-            if update_python_file(path, new_version) is not False:
+    with rollback_file_updates(paths):
+        for path in paths:
+            before = path.read_bytes()
+            updated = (
+                update_pyproject_toml(path, new_version)
+                if path.name == "pyproject.toml"
+                else update_python_file(path, new_version)
+            )
+            if version_files is not None and updated is False:
+                raise logging.Error(
+                    message=f"Explicit version file has no editable version: {path}"
+                )
+            if path.read_bytes() != before:
                 bumped.append(path)
-
-    logger.info("Version bumped to %s in %d file(s)", new_version, len(bumped))
     return bumped

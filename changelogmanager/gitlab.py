@@ -137,7 +137,7 @@ class GitLab:
         return result if isinstance(result, Mapping) else None
 
     def create_release(
-        self, changelog: Changelog, ref: str = "HEAD"
+        self, changelog: Changelog, ref: str = "HEAD", tag_name: str | None = None
     ) -> Mapping[str, Any]:
         """Creates or updates the GitLab release derived from the changelog.
 
@@ -145,7 +145,7 @@ class GitLab:
         create the tag (ignored when the release already exists).
         """
 
-        version = f"v{changelog.suggest_future_version()}"
+        version = tag_name or f"v{changelog.suggest_future_version()}"
         name = f"Release {version}"
         description = generate_release_notes(changelog.get(UNRELEASED_ENTRY))
 

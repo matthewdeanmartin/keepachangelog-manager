@@ -22,8 +22,10 @@ from tkinter import messagebox, ttk
 
 from changelogmanager.change_types import TYPES_OF_CHANGE, UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
+from changelogmanager.file_updates import atomic_write_text
 from changelogmanager.gui.screens.base import Screen
 from changelogmanager.gui.widgets import ScrollableFrame
+from changelogmanager.release_plan import PHASES, get_plan
 from changelogmanager.runtime_logging import get_logger
 from changelogmanager.vendor.keepachangelog import PREAMBLE
 
@@ -48,6 +50,30 @@ class EditScreen(
         prologue_frame.pack(fill=tk.X, pady=(0, 4))
         self.prologue = tk.Text(prologue_frame, height=4, wrap=tk.WORD)
         self.prologue.pack(fill=tk.X, padx=4, pady=4)
+
+        self.release_plan_frame = ttk.LabelFrame(
+            self.work_area, text="Upcoming release"
+        )
+        self.release_plan_frame.pack(fill=tk.X, pady=(0, 4))
+        self.phase_var = tk.StringVar(value="automatic")
+        self.target_var = tk.StringVar()
+        ttk.Label(self.release_plan_frame, text="Phase:").pack(side=tk.LEFT, padx=4)
+        ttk.Combobox(
+            self.release_plan_frame,
+            textvariable=self.phase_var,
+            values=("automatic", *PHASES),
+            state="readonly",
+            width=12,
+        ).pack(side=tk.LEFT)
+        ttk.Label(self.release_plan_frame, text="Target (optional):").pack(
+            side=tk.LEFT, padx=4
+        )
+        ttk.Entry(self.release_plan_frame, textvariable=self.target_var, width=16).pack(
+            side=tk.LEFT
+        )
+        ttk.Button(
+            self.release_plan_frame, text="Apply", command=self.apply_release_plan
+        ).pack(side=tk.LEFT, padx=4)
 
         # Center: scrollable per-section editor.
         center = ttk.LabelFrame(self.work_area, text="[Unreleased] entries")
@@ -89,6 +115,16 @@ class EditScreen(
         changelog = self.app_state.changelog
         self.set_text(self.prologue, self.current_prologue(), editable=True)
         self.set_text(self.links, self.derived_links(), editable=False)
+
+        if changelog is not None and changelog.versioning_scheme == "pep440":
+            self.release_plan_frame.pack(
+                fill=tk.X, pady=(0, 4), before=self.sections.master
+            )
+            plan = get_plan(changelog.get()) or {}
+            self.phase_var.set(plan.get("phase", "automatic"))
+            self.target_var.set(plan.get("target", ""))
+        else:
+            self.release_plan_frame.pack_forget()
 
         self.sections.clear()
         if self.app_state.load_error:
@@ -204,6 +240,27 @@ class EditScreen(
             messagebox.showerror("No changelog", "No changelog is loaded.")
         return changelog
 
+    def apply_release_plan(self) -> None:
+        changelog = self.require_changelog()
+        if changelog is None:
+            return
+        try:
+            phase = self.phase_var.get()
+            target = self.target_var.get().strip()
+            if phase == "automatic" and target:
+                raise ValueError("Choose a Phase when specifying a Target.")
+            changelog.set_release_plan(
+                None if phase == "automatic" else phase, target or None
+            )
+            future = changelog.suggest_future_version()
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            messagebox.showerror(
+                "Invalid release plan", str(getattr(exc, "message", exc))
+            )
+            return
+        self.status(f"Upcoming release: {future}. Save to write the changelog.")
+        self.refresh()
+
     def add_entry(self) -> None:
         changelog = self.require_changelog()
         if changelog is None:
@@ -271,9 +328,12 @@ class EditScreen(
     # Persistence
     # ------------------------------------------------------------------
     def save(self) -> None:
+        self.save_document()
+
+    def save_document(self) -> bool:
         changelog = self.require_changelog()
         if changelog is None:
-            return
+            return False
         # Never overwrite a file that exists on disk but failed to parse: the
         # in-memory model would not reflect its contents.
         if self.app_state.load_error and Path(changelog.get_file_path()).is_file():
@@ -283,25 +343,30 @@ class EditScreen(
                 f"destroy its contents:\n\n{self.app_state.load_error}",
             )
             self.status("Save blocked: changelog failed to load.")
-            return
+            return False
         try:
             text = changelog.render()
             text = self.apply_prologue(text)
-            Path(changelog.get_file_path()).write_text(text, encoding="utf-8")
+            atomic_write_text(Path(changelog.get_file_path()), text)
         except Exception as exc:  # pylint: disable=broad-exception-caught
             messagebox.showerror("Save failed", str(getattr(exc, "message", exc)))
             self.status(f"Save failed: {getattr(exc, 'message', exc)}")
-            return
+            return False
         self.status(f"Saved {changelog.get_file_path()}")
         self.refresh()
+        return True
 
     def validate(self) -> None:
         """Re-reads the file through the reader and reports diagnostics."""
 
         # Persist in-editor edits only when there is a cleanly loaded model;
         # when the on-disk file failed to parse, validate it as-is.
-        if self.app_state.changelog is not None and not self.app_state.load_error:
-            self.save()
+        if (
+            self.app_state.changelog is not None
+            and not self.app_state.load_error
+            and not self.save_document()
+        ):
+            return
         from changelogmanager.gui.cli_runner import (
             run_cli,
         )  # pylint: disable=import-outside-toplevel
@@ -309,6 +374,7 @@ class EditScreen(
         argv: list[str] = []
         if self.app_state.config_path:
             argv += ["--config", self.app_state.config_path]
+        argv += ["--component", self.app_state.component]
         argv += ["--error-format", self.app_state.error_format]
         argv += ["--input-file", self.app_state.input_file, "validate"]
         code, output = run_cli(argv)
@@ -328,7 +394,8 @@ class EditScreen(
             messagebox.showinfo("Release", "No [Unreleased] entries to release.")
             return
         # Persist any in-editor edits first so the CLI release sees them.
-        self.save()
+        if not self.save_document():
+            return
         try:
             future = str(changelog.suggest_future_version())
         except Exception as exc:  # pylint: disable=broad-exception-caught
@@ -346,6 +413,7 @@ class EditScreen(
         argv: list[str] = []
         if self.app_state.config_path:
             argv += ["--config", self.app_state.config_path]
+        argv += ["--component", self.app_state.component]
         argv += ["--error-format", self.app_state.error_format]
         argv += ["--input-file", self.app_state.input_file, "release", "--yes"]
         if bump:

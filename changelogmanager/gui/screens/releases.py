@@ -50,6 +50,7 @@ class ReleasesScreen(
         self.repo_var = tk.StringVar(value=os.environ.get("GITHUB_REPOSITORY", ""))
         self.token_var = tk.StringVar(value=os.environ.get("GITHUB_TOKEN", ""))
         self.draft_var = tk.BooleanVar(value=True)
+        self.version_var = tk.StringVar()
         self.project_var = tk.StringVar(value=os.environ.get("CI_PROJECT_ID", ""))
         self.gitlab_token_var = tk.StringVar(value=os.environ.get("GITLAB_TOKEN", ""))
         self.head_var = tk.StringVar()
@@ -66,6 +67,12 @@ class ReleasesScreen(
             (
                 frozenset(gh),
                 self.field(form, "GitHub token:", self.token_var, secret=True),
+            )
+        )
+        self.field_rows.append(
+            (
+                frozenset({"github-release"}),
+                self.field(form, "Version (blank = suggested):", self.version_var),
             )
         )
         self.draft_row = ttk.Frame(form)
@@ -198,10 +205,13 @@ class ReleasesScreen(
         argv: list[str] = []
         if self.app_state.config_path:
             argv += ["--config", self.app_state.config_path]
+        argv += ["--component", self.app_state.component]
         argv += ["--error-format", self.app_state.error_format]
         argv += ["--input-file", self.app_state.input_file, command]
 
         if command == "github-release":
+            if self.version_var.get().strip():
+                argv += ["--version", self.version_var.get().strip()]
             if self.repo_var.get().strip():
                 argv += ["--repository", self.repo_var.get().strip()]
             if self.token_var.get().strip():

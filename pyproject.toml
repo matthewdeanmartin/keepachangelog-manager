@@ -15,6 +15,7 @@ dependencies = [
     "inquirer>=3.4.0",
     "tomli>=2.4.1; python_version < '3.11'",
     "keyring>=25.0,<27",
+    "tomlkit>=0.13.2,<1",
 ]
 authors = [
     { name = "Matthew Martin", email = "matthewdeanmartin@gmail.com" },
@@ -188,6 +189,15 @@ packages = ["changelogmanager"]
 # Ship the vendored jiggle-version attribution (MIT requires the license to
 # travel with the copied code).
 force-include = { "changelogmanager/vendor/jiggle_version/LICENSE" = "changelogmanager/vendor/jiggle_version/LICENSE", "changelogmanager/vendor/jiggle_version/UPSTREAM.md" = "changelogmanager/vendor/jiggle_version/UPSTREAM.md" }
+
+[tool.hatch.build.targets.sdist]
+# Nested web .gitignore rules are not sufficient for Hatch's source archive.
+# Ship sources, not installed dependencies, build caches or local connection data.
+exclude = [
+    "/.uv-cache", "/.ruff_cache", "/.ruff-cache-tmp",
+    "/web/node_modules", "/web/.angular", "/web/coverage", "/web/dist",
+    "/web/tmp", "/web/out-tsc", "/web/public/dev-katl.json",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

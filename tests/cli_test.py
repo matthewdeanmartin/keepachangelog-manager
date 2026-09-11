@@ -183,7 +183,7 @@ def test_config_init_writes_pyproject_by_default(tmp_path, monkeypatch, mocker):
 
     assert result.exit_code == 0
     pyproject = (tmp_path / "pyproject.toml").read_text(encoding="UTF-8")
-    assert "[tool.changelogmanager]" in pyproject
+    assert "[tool.changelogmanager.versioning]" in pyproject
     assert 'scheme = "pep440"' in pyproject
     # commits.style is gone; the dead knob must not be written.
     assert "style" not in pyproject

@@ -89,14 +89,17 @@ def apply_config_defaults(args: argparse.Namespace, config: str | None) -> None:
     """Fills args still at their built-in default with values from config.
 
     Implements the "config" tier of the precedence chain
-    (flag > env > config > built-in default). An explicit flag is detected by the
-    arg differing from its known built-in default, in which case config is ignored.
+    (flag > env > config > built-in default). The parser records supplied string
+    options even if their values equal the built-in defaults.
     """
 
     for attr, getter, key, builtin_default in CONFIG_DEFAULTS:
         if not hasattr(args, attr):
             continue
-        if getattr(args, attr) != builtin_default:
+        if (
+            attr in getattr(args, "explicit_options", ())
+            or getattr(args, attr) != builtin_default
+        ):
             # Explicit flag (or already non-default) wins over config.
             continue
         options = getter(config)

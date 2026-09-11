@@ -167,6 +167,17 @@ def main(  # pylint: disable=too-many-return-statements
             logger.info("Finished CLI command %s successfully", args.command)
             return 0
 
+        if args.command == "validate":
+            from changelogmanager.cli.loaders import resolve_changelog_file
+
+            path = resolve_changelog_file(
+                resolved_config, args.component, args.input_file
+            )
+            if not Path(path).is_file():
+                raise logging.Error(
+                    file_path=path, message="Changelog file does not exist"
+                )
+
         changelog = (
             load_changelog_for_validate_fix(args, resolved_config)
             if args.command == "validate" and getattr(args, "fix", False)

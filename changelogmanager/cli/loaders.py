@@ -19,7 +19,9 @@ from changelogmanager.config import (
     get_preamble_keywords,
     get_validation_options,
     get_versioning_scheme,
+    resolve_config_file,
 )
+from changelogmanager.file_updates import atomic_write_text
 from changelogmanager.formatting import Formatter
 from changelogmanager.formatting import (
     discover_formatter as discover_formatter,
@@ -92,7 +94,7 @@ def resolve_changelog_file(
         component_config = get_component_from_config(config=config, component=component)
         changelog = component_config.get("changelog")
         if changelog:
-            return str(changelog)
+            return resolve_config_file(config, str(changelog))
     return DEFAULT_CHANGELOG_FILE
 
 
@@ -181,7 +183,7 @@ def load_changelog_for_validate_fix(
 
     # Validation passed — atomically commit the fix to the real file.
     if not getattr(args, "dry_run", False):
-        Path(file_path).write_text(fixed_text, encoding="UTF-8")
+        atomic_write_text(Path(file_path), fixed_text)
 
     return Changelog(
         file_path=file_path,

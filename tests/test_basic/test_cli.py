@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -14,6 +15,7 @@ class DummyChangelog:
         self.exists_value = exists
         self.has_unreleased_value = has_unreleased
         self.calls = []
+        self.changelog = {}
         self.file_path = "CHANGELOG.md"
 
     def exists(self):
@@ -109,8 +111,10 @@ def test_load_changelog_uses_component_config_when_present(monkeypatch):
         input_file=None,
     )
 
-    assert seen["file_path"] == "docs/COMPONENT_CHANGELOG.md"
-    assert changelog.get_file_path() == "docs/COMPONENT_CHANGELOG.md"
+    assert Path(seen["file_path"]) == Path("docs/COMPONENT_CHANGELOG.md").resolve()
+    assert (
+        Path(changelog.get_file_path()) == Path("docs/COMPONENT_CHANGELOG.md").resolve()
+    )
     assert changelog.get()["1.0.0"]["metadata"]["version"] == "1.0.0"
     assert seen["preamble_keywords"] == ("keep a changelog", "semantic versioning")
     assert seen["versioning_scheme"] == "semver"
@@ -266,10 +270,10 @@ def test_command_github_release_supports_dry_run_and_real_execution(
         def __init__(self, repository, token):
             calls.append(("init", repository, token))
 
-        def delete_draft_releases(self):
+        def delete_draft_releases(self, tag_pattern=None):
             calls.append(("delete_draft_releases",))
 
-        def create_release(self, changelog, draft):
+        def create_release(self, changelog, draft, tag_name=None):
             calls.append(("create_release", changelog, draft))
             return {
                 "id": 99,
@@ -307,7 +311,6 @@ def test_command_github_release_supports_dry_run_and_real_execution(
 
     assert calls == [
         ("init", "owner/repo", "token"),
-        ("delete_draft_releases",),
         ("create_release", changelog, True),
     ]
     assert (

@@ -126,10 +126,10 @@ class TestCommandValidate:
         rc = main(["--input-file", p, "validate"])
         assert rc == 0
 
-    def test_validate_missing_file_returns_zero(self, tmp_path):
+    def test_validate_missing_file_returns_error(self, tmp_path):
         p = str(tmp_path / "CHANGELOG.md")
         rc = main(["--input-file", p, "validate"])
-        assert rc == 0
+        assert rc == 1
 
     def test_validate_invalid_file_returns_one(self, tmp_path):
         p = tmp_path / "CHANGELOG.md"

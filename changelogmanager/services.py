@@ -32,7 +32,10 @@ from changelogmanager.config import (
     get_preamble_keywords,
     get_validation_options,
     get_versioning_scheme,
+    resolve_config_file,
 )
+from changelogmanager.file_updates import atomic_write_text, rollback_file_updates
+from changelogmanager.release_scope import ReleaseScope
 from changelogmanager.runtime_logging import VERBOSE, get_logger
 
 logger = get_logger(__name__)
@@ -95,6 +98,7 @@ def release_changelog(
     pyproject_only: bool = False,
     dry_run: bool = False,
     write: bool = True,
+    scope: ReleaseScope | None = None,
 ) -> ReleaseResult:
     """Releases [Unreleased] and optionally bumps version files.
 
@@ -112,8 +116,20 @@ def release_changelog(
         write,
     )
 
+    if scope and bump_versions:
+        scope.require_version_files()
+        from changelogmanager.version_bumper import plan_version_files
+
+        plan_version_files(
+            project_root=scope.root,
+            version_files=scope.version_files,
+            pyproject_only=pyproject_only,
+        )
+    if scope and override_version:
+        override_version = scope.version(override_version)
     # Version bumping is built in (vendored), so --bump-versions needs no extra
     # dependency or availability check.
+    original_data = deepcopy(changelog.changelog)
     changelog.release(override_version)
     new_version = str(next(iter(changelog.get())))
     logger.info(
@@ -136,24 +152,48 @@ def release_changelog(
         )
         return result
 
-    logger.info("Writing released changelog to %s", changelog.get_file_path())
-    changelog.write_to_file()
+    from changelogmanager.version_bumper import plan_version_files
 
-    if bump_versions:
-        from changelogmanager.version_bumper import bump_version_files  # noqa: PLC0415
+    try:
+        targets = [Path(changelog.get_file_path())]
+        if bump_versions:
+            targets.extend(
+                plan_version_files(
+                    project_root=scope.root if scope else None,
+                    version_files=scope.version_files if scope else None,
+                    pyproject_only=pyproject_only,
+                )
+            )
+        with rollback_file_updates(targets):
+            logger.info("Writing released changelog to %s", changelog.get_file_path())
+            changelog.write_to_file()
 
-        logger.info(
-            "Bumping companion version files to %s (pyproject_only=%s)",
-            new_version,
-            pyproject_only,
-        )
-        bumped = bump_version_files(new_version, pyproject_only=pyproject_only)
-        result.bumped_files = [str(p) for p in bumped]
-        logger.debug(
-            "Bumped files for release %s: %s",
-            new_version,
-            ", ".join(result.bumped_files) or "<none>",
-        )
+            if bump_versions:
+                from changelogmanager.version_bumper import (
+                    bump_version_files,
+                )  # noqa: PLC0415
+
+                logger.info(
+                    "Bumping companion version files to %s (pyproject_only=%s)",
+                    new_version,
+                    pyproject_only,
+                )
+                bumped = bump_version_files(
+                    new_version,
+                    pyproject_only=pyproject_only,
+                    project_root=scope.root if scope else None,
+                    version_files=scope.version_files if scope else None,
+                    versioning_scheme=changelog.versioning_scheme,
+                )
+                result.bumped_files = [str(p) for p in bumped]
+                logger.debug(
+                    "Bumped files for release %s: %s",
+                    new_version,
+                    ", ".join(result.bumped_files) or "<none>",
+                )
+    except Exception:
+        changelog.changelog = original_data
+        raise
 
     return result
 
@@ -420,7 +460,7 @@ def seed_components_from_commits(
     results: list[ComponentSeedResult] = []
     for component in components:
         name = str(component.get("name"))
-        path = str(component.get("changelog"))
+        path = resolve_config_file(config_path, str(component.get("changelog")))
         changelog = Changelog(
             file_path=path,
             changelog=ChangelogReader(
@@ -680,7 +720,10 @@ def validate_components(
                 file_path=config_path,
                 message="Each component must define string 'name' and 'changelog' values",
             )
-        if changed is not None and Path(path).as_posix() not in changed:
+        path = resolve_config_file(config_path, path)
+        if changed is not None and Path(path).resolve() not in {
+            Path(item).resolve() for item in changed
+        }:
             logger.info("Skipping unchanged component %s at %s", name, path)
             results.append(
                 ComponentValidation(component=name, path=path, status="skipped")
@@ -732,9 +775,9 @@ def validate_one_component(  # pylint: disable=too-many-locals
     """Validates a single component, returning the list of applied fix labels."""
 
     # Read the file once; pass the text through the pipeline to avoid re-reads.
-    original_text = (
-        Path(path).read_text(encoding="UTF-8") if Path(path).is_file() else ""
-    )
+    if not Path(path).is_file():
+        raise logging.Error(file_path=path, message="Changelog file does not exist")
+    original_text = Path(path).read_text(encoding="UTF-8")
 
     if not fix:
         reader = ChangelogReader(
@@ -827,7 +870,7 @@ def validate_one_component(  # pylint: disable=too-many-locals
         finally:
             if temp_path:
                 Path(temp_path).unlink(missing_ok=True)
-        Path(path).write_text(final_text, encoding="UTF-8")
+        atomic_write_text(Path(path), final_text)
 
     return all_applied
 
@@ -857,25 +900,55 @@ def github_release(
     token: str,
     draft: bool,
     dry_run: bool = False,
+    scope: ReleaseScope | None = None,
+    version: str | None = None,
 ) -> GitHubReleaseResult:
     """Creates or updates a GitHub release from the changelog."""
 
-    if not changelog.has_unreleased():
-        return GitHubReleaseResult(skipped=True)
+    from changelogmanager.versioning import parse_version
 
+    notes_version = UNRELEASED_ENTRY
+    if version:
+        raw_version = scope.version(version) if scope else version.removeprefix("v")
+        try:
+            selected = parse_version(raw_version, changelog.versioning_scheme)
+        except ValueError as exc:
+            raise logging.Error(
+                message=f"Invalid {changelog.versioning_scheme} version: {raw_version}"
+            ) from exc
+        # Existing sections are published as-is; a new version uses Unreleased.
+        notes_version = next(
+            (
+                key
+                for key in changelog.get()
+                if key != UNRELEASED_ENTRY
+                and parse_version(key, changelog.versioning_scheme) == selected
+            ),
+            UNRELEASED_ENTRY,
+        )
+        if notes_version == UNRELEASED_ENTRY:
+            preview = deepcopy(changelog)
+            preview.release(str(selected))
+    else:
+        if not changelog.has_unreleased():
+            return GitHubReleaseResult(skipped=True)
+        selected = changelog.suggest_future_version()
+    tag = scope.tag(str(selected)) if scope else f"v{selected}"
     if dry_run:
-        future_version = changelog.suggest_future_version()
         return GitHubReleaseResult(
             dry_run=True,
             release_state="draft" if draft else "published",
-            version=str(future_version),
+            version=str(selected),
+            tag_name=tag,
         )
 
-    from changelogmanager.github import GitHub  # noqa: PLC0415
+    from changelogmanager.github import GitHub
 
     github = GitHub(repository=repository, token=token)
-    github.delete_draft_releases()
-    release = github.create_release(changelog=changelog, draft=draft)
+    options: dict[str, Any] = {"tag_name": tag} if scope else {}
+    if version:
+        options.update(version=str(selected), notes_version=notes_version)
+    release = github.create_release(changelog=changelog, draft=draft, **options)
     release_state = "draft" if bool(release.get("draft", draft)) else "published"
     return GitHubReleaseResult(
         release_state=release_state,
@@ -955,6 +1028,8 @@ class ReleaseBumpResult:
     pr_number: Any = None
     html_url: str | None = None
     dry_run: bool = False
+    commit_sha: str | None = None
+    changed_files: list[str] = field(default_factory=list)
 
 
 def release_bump(
@@ -971,6 +1046,7 @@ def release_bump(
     pr_body: str | None = None,
     pyproject_only: bool = False,
     dry_run: bool = False,
+    scope: ReleaseScope | None = None,
 ) -> ReleaseBumpResult:
     """Bumps the changelog + version files, commits, pushes a branch, opens a PR.
 
@@ -980,7 +1056,7 @@ def release_bump(
     workflow shrinks to a single command and the behaviour is unit-testable.
     """
 
-    normalized = version.lstrip("v")
+    normalized = scope.version(version) if scope else version.lstrip("v")
 
     if dry_run:
         release_changelog(
@@ -989,6 +1065,7 @@ def release_bump(
             bump_versions=True,
             pyproject_only=pyproject_only,
             dry_run=True,
+            scope=scope,
         )
         return ReleaseBumpResult(
             version=normalized,
@@ -997,21 +1074,26 @@ def release_bump(
             dry_run=True,
         )
 
+    if _run_git(["status", "--porcelain", "--untracked-files=no"]).stdout.strip():
+        raise logging.Error(
+            message="Release bump requires a clean working tree; commit or stash unrelated changes first"
+        )
+
     # 1. Bump changelog + version files on disk (the only place versions are
     #    written into the repo).
-    release_changelog(
+    released = release_changelog(
         changelog,
         normalized,
         bump_versions=True,
         pyproject_only=pyproject_only,
+        scope=scope,
     )
 
     # 2. Create the bump branch off HEAD (the caller checked out `base`).
     _run_git(["checkout", "-B", branch])
 
-    # 3. Stage the changelog + version files and anything else the bump touched.
-    _run_git(["add", str(changelog.get_file_path()), "pyproject.toml"])
-    _run_git(["add", "-u"])
+    # 3. Stage only the selected changelog and version files changed by the bump.
+    _run_git(["add", "--", str(changelog.get_file_path()), *released.bumped_files])
 
     # 4. Nothing to commit means the version was already bumped; surface it.
     staged = _run_git(["diff", "--cached", "--quiet"], check=False)
@@ -1030,6 +1112,8 @@ def release_bump(
         version=normalized,
         branch=branch,
         committed=True,
+        commit_sha=_run_git(["rev-parse", "HEAD"]).stdout.strip(),
+        changed_files=[str(changelog.get_file_path()), *released.bumped_files],
         skip_ci=skip_ci,
     )
 
@@ -1131,9 +1215,7 @@ def release_rollback(
             if repository:
                 cmd += ["--repo", repository]
             logger.info("Running gh release delete %s", tag)
-            proc = subprocess.run(  # nosec B603
-                cmd, capture_output=True, text=True
-            )
+            proc = subprocess.run(cmd, capture_output=True, text=True)  # nosec B603
             if proc.returncode == 0:
                 result.release_deleted = True
             else:
@@ -1163,7 +1245,9 @@ def release_rollback(
             release = github.find_release_by_tag(tag)
             if release is None:
                 result.release_missing = True
-                logger.warning("No GitHub release found for tag %s in %s", tag, repository)
+                logger.warning(
+                    "No GitHub release found for tag %s in %s", tag, repository
+                )
             else:
                 github.delete_release(release)
                 result.release_deleted = True
@@ -1214,6 +1298,7 @@ def gitlab_release(
     gitlab_url: str,
     ref: str,
     dry_run: bool = False,
+    scope: ReleaseScope | None = None,
 ) -> GitLabReleaseResult:
     """Creates or updates a GitLab release from the changelog."""
 
@@ -1222,12 +1307,24 @@ def gitlab_release(
 
     if dry_run:
         future_version = changelog.suggest_future_version()
-        return GitLabReleaseResult(dry_run=True, version=str(future_version))
+        return GitLabReleaseResult(
+            dry_run=True,
+            version=str(future_version),
+            tag_name=scope.tag(str(future_version)) if scope else f"v{future_version}",
+        )
 
     from changelogmanager.gitlab import GitLab  # noqa: PLC0415
 
     gitlab = GitLab(project=project, token=token, gitlab_url=gitlab_url)
-    release = gitlab.create_release(changelog=changelog, ref=ref)
+    release = gitlab.create_release(
+        changelog=changelog,
+        ref=ref,
+        **(
+            {"tag_name": scope.tag(str(changelog.suggest_future_version()))}
+            if scope
+            else {}
+        ),
+    )
     links = release.get("_links")
     web_url = str(links.get("self", "") if isinstance(links, Mapping) else "").strip()
     return GitLabReleaseResult(

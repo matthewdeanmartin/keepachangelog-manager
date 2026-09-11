@@ -40,6 +40,7 @@ from changelogmanager.config import (
     write_configuration,
 )
 from changelogmanager.github import GitHub as GitHub  # noqa: F401, PLC0414 # pylint: disable=unused-import # fmt: skip
+from changelogmanager.release_scope import release_scope
 
 # (re-exported; patched in tests)
 from changelogmanager.runtime_logging import VERBOSE, get_logger
@@ -378,6 +379,10 @@ def _raise_on_strict_violations(violations: list[str]) -> None:
 def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
     """Release changes added to [Unreleased] block."""
 
+    scope = release_scope(
+        resolved_config_path(args), getattr(args, "component", "default")
+    )
+
     logger.info(
         "Running release command for %s (override=%s, bump_versions=%s, pyproject_only=%s, dry_run=%s, yes=%s)",
         ctx.changelog.get_file_path(),
@@ -413,6 +418,7 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
             bump_versions=bump_versions,
             pyproject_only=pyproject_only,
             dry_run=True,
+            scope=scope,
         )
         print_dry_run(ctx, f"would release {changelog.get_file_path()}")
         ctx.json_payload["released"] = result.version
@@ -425,11 +431,15 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
             ctx.json_payload["bumped_version"] = result.version
             # A version bump edits files in place, so the dry run enumerates
             # every candidate rather than just claiming it will bump "sources".
-            from changelogmanager.version_bumper import (  # noqa: PLC0415
+            from changelogmanager.version_bumper import (
                 plan_version_files,
-            )
+            )  # noqa: PLC0415
 
-            candidates = plan_version_files(pyproject_only=pyproject_only)
+            candidates = plan_version_files(
+                pyproject_only=pyproject_only,
+                project_root=scope.root,
+                version_files=scope.version_files,
+            )
             ctx.json_payload["bump_candidates"] = [
                 str(candidate) for candidate in candidates
             ]
@@ -454,7 +464,7 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
         # Compute predicted version without mutating the changelog object.
         override = args.override_version
         predicted_version = (
-            override.lstrip("v")
+            scope.version(override)
             if override
             else str(changelog.suggest_future_version())
         )
@@ -479,6 +489,7 @@ def command_release(args: argparse.Namespace, ctx: CliContext) -> None:
         args.override_version,
         bump_versions=bump_versions,
         pyproject_only=pyproject_only,
+        scope=scope,
     )
     emit(
         ctx,
@@ -608,10 +619,15 @@ def command_tasks(args: argparse.Namespace, ctx: CliContext) -> None:
     # Precedence (flag > component config > global config > discovery), mirroring
     # how the changelog file is resolved per component in loaders.resolve_changelog_file.
     component = getattr(args, "component", "default")
-    task_file_arg = (
-        getattr(args, "tasks_file", None)
-        or get_component_tasks_file(config, component)
-        or options.get("file")
+    from changelogmanager.config import resolve_config_file
+
+    configured_task_file = get_component_tasks_file(config, component) or options.get(
+        "file"
+    )
+    task_file_arg = getattr(args, "tasks_file", None) or (
+        resolve_config_file(config, configured_task_file)
+        if configured_task_file
+        else None
     )
     task_path = task_files.discover_task_file(task_file_arg)
     subcommand = args.tasks_command
@@ -969,9 +985,15 @@ def command_edit(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_github_release(args: argparse.Namespace, ctx: CliContext) -> None:
     """Creates or updates a GitHub release from the changelog."""
 
+    scope = release_scope(
+        resolved_config_path(args), getattr(args, "component", "default")
+    )
+
     changelog = ctx.changelog
     repository = prompts.resolve_required_value(
-        args.repository, env_var=None, message="GitHub repository (owner/repo)"
+        args.repository,
+        env_var="GITHUB_REPOSITORY",
+        message="GitHub repository (owner/repo)",
     )
     if not repository:
         raise logging.Error(
@@ -984,7 +1006,7 @@ def command_github_release(args: argparse.Namespace, ctx: CliContext) -> None:
         repository,
     )
 
-    if not changelog.has_unreleased():
+    if not changelog.has_unreleased() and not getattr(args, "version", None):
         emit(
             ctx,
             text=(
@@ -1011,15 +1033,18 @@ def command_github_release(args: argparse.Namespace, ctx: CliContext) -> None:
         token=token,
         draft=args.draft,
         dry_run=args.dry_run,
+        scope=scope,
+        version=getattr(args, "version", None),
     )
 
     if result.dry_run:
         print_dry_run(
             ctx,
-            f"would create or update {result.release_state} GitHub release v{result.version} in {args.repository}",
+            f"would create or update {result.release_state} GitHub release {result.tag_name} in {args.repository}",
         )
         ctx.json_payload["release_state"] = result.release_state
         ctx.json_payload["version"] = result.version
+        ctx.json_payload["tag_name"] = result.tag_name
         return
 
     message = f"Created {result.release_state} GitHub release {result.tag_name} in {args.repository}"
@@ -1142,6 +1167,10 @@ def command_release_bump(args: argparse.Namespace, ctx: CliContext) -> None:
     ``release.yml``.
     """
 
+    scope = release_scope(
+        resolved_config_path(args), getattr(args, "component", "default")
+    )
+
     version = prompts.resolve_required_value(
         args.version, env_var="RELEASE_VERSION", message="Release version"
     )
@@ -1160,12 +1189,15 @@ def command_release_bump(args: argparse.Namespace, ctx: CliContext) -> None:
     else:
         args.repository = args.repository or os.environ.get("GITHUB_REPOSITORY")
 
-    normalized = version.lstrip("v")
+    normalized = scope.version(version)
     branch = args.branch or (
         f"release/bump-{args.release_id}"
         if args.release_id
         else f"release/bump-{normalized}"
     )
+
+    if scope.monorepo and not args.branch:
+        branch = f"release/{scope.component}/bump-{args.release_id or normalized}"
 
     skip_ci = args.skip_ci
     if skip_ci is None:
@@ -1186,6 +1218,13 @@ def command_release_bump(args: argparse.Namespace, ctx: CliContext) -> None:
         bool(args.dry_run),
     )
 
+    from changelogmanager.cli.actions_output import output_file, write_outputs
+
+    actions_output = (
+        output_file()
+        if getattr(args, "github_output", False) and not args.dry_run
+        else None
+    )
     result = services.release_bump(
         changelog=ctx.changelog,
         version=normalized,
@@ -1199,8 +1238,12 @@ def command_release_bump(args: argparse.Namespace, ctx: CliContext) -> None:
         pr_body=args.body,
         pyproject_only=bool(getattr(args, "pyproject_only", False)),
         dry_run=bool(args.dry_run),
+        scope=scope,
     )
 
+    ctx.json_payload.update(
+        {"component": scope.component, "tag_name": scope.tag(result.version)}
+    )
     if result.dry_run:
         print_dry_run(
             ctx,
@@ -1210,7 +1253,9 @@ def command_release_bump(args: argparse.Namespace, ctx: CliContext) -> None:
         from changelogmanager.version_bumper import plan_version_files  # noqa: PLC0415
 
         candidates = plan_version_files(
-            pyproject_only=bool(getattr(args, "pyproject_only", False))
+            project_root=scope.root,
+            version_files=scope.version_files,
+            pyproject_only=bool(getattr(args, "pyproject_only", False)),
         )
         ctx.json_payload["bump_candidates"] = [
             str(candidate) for candidate in candidates
@@ -1230,12 +1275,16 @@ def command_release_bump(args: argparse.Namespace, ctx: CliContext) -> None:
             "version": result.version,
             "branch": result.branch,
             "committed": result.committed,
+            "commit_sha": result.commit_sha,
+            "changed_files": result.changed_files,
             "pushed": result.pushed,
             "skip_ci": result.skip_ci,
             "pr_number": result.pr_number,
             "html_url": result.html_url,
         }
     )
+    if actions_output is not None:
+        write_outputs(actions_output, ctx.json_payload)
 
 
 def command_release_rollback(args: argparse.Namespace, ctx: CliContext) -> None:
@@ -1361,6 +1410,10 @@ def command_release_rollback(args: argparse.Namespace, ctx: CliContext) -> None:
 def command_gitlab_release(args: argparse.Namespace, ctx: CliContext) -> None:
     """Creates or updates a GitLab release from the changelog."""
 
+    scope = release_scope(
+        resolved_config_path(args), getattr(args, "component", "default")
+    )
+
     changelog = ctx.changelog
     project = prompts.resolve_required_value(
         args.project, env_var=None, message="GitLab project (id or group/project)"
@@ -1408,14 +1461,16 @@ def command_gitlab_release(args: argparse.Namespace, ctx: CliContext) -> None:
         gitlab_url=args.gitlab_url,
         ref=args.ref,
         dry_run=args.dry_run,
+        scope=scope,
     )
 
     if result.dry_run:
         print_dry_run(
             ctx,
-            f"would create or update GitLab release v{result.version} in {args.project}",
+            f"would create or update GitLab release {result.tag_name} in {args.project}",
         )
         ctx.json_payload["version"] = result.version
+        ctx.json_payload["tag_name"] = result.tag_name
         ctx.json_payload["project"] = args.project
         return
 

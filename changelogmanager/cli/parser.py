@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+from typing import Any
 
 from changelogmanager.change_types import ALL_TYPES_OF_CHANGE, TYPES_OF_CHANGE
 from changelogmanager.cli import commands
@@ -12,6 +13,22 @@ from changelogmanager.gitlab import DEFAULT_GITLAB_URL
 from changelogmanager.schema_validation import DEFAULT_SCHEMA_VERSION, SCHEMA_VERSIONS
 
 VERSION_REFERENCES = ["previous", "current", "future"]
+
+
+class ExplicitStore(argparse.Action):
+    """Remember supplied values even when they equal an option's default."""
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,  # noqa: ARG002 - argparse callback signature
+        namespace: argparse.Namespace,
+        values: Any,
+        option_string: str | None = None,  # noqa: ARG002 - argparse callback signature
+    ) -> None:
+        setattr(namespace, self.dest, values)
+        supplied: set[str] = set(getattr(namespace, "explicit_options", ()))
+        supplied.add(self.dest)
+        namespace.explicit_options = supplied
 
 
 def add_dry_run_argument(parser: argparse.ArgumentParser) -> None:
@@ -376,6 +393,7 @@ examples:
     )
     to_json_parser.add_argument(
         "--schema-version",
+        action=ExplicitStore,
         choices=SCHEMA_VERSIONS,
         default=DEFAULT_SCHEMA_VERSION,
         help="KAG-Manager JSON schema version to validate the export against",
@@ -719,7 +737,7 @@ examples:
 
     github_release_parser = subparsers.add_parser(
         "github-release",
-        help="Deletes draft GitHub releases and creates a new one",
+        help="Creates or refreshes a GitHub release by exact tag",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 examples:
@@ -760,6 +778,11 @@ examples:
         dest="draft",
         action="store_false",
         help="Update/Create the GitHub Release in Release state",
+    )
+    github_release_parser.add_argument(
+        "--version",
+        default=None,
+        help="Version or component tag to publish; use that existing section or Unreleased for a new version",
     )
     add_dry_run_argument(github_release_parser)
     github_release_parser.set_defaults(handler=commands.command_github_release)
@@ -850,7 +873,7 @@ examples:
     release_bump_parser.add_argument(
         "--version",
         default=None,
-        help="Release version (falls back to RELEASE_VERSION env var); leading 'v' is stripped",
+        help="Release version or selected component tag (falls back to RELEASE_VERSION env var)",
     )
     release_bump_parser.add_argument(
         "--base",
@@ -913,6 +936,11 @@ examples:
         "--yes",
         action="store_true",
         help="Confirm non-interactively (required in CI).",
+    )
+    release_bump_parser.add_argument(
+        "--github-output",
+        action="store_true",
+        help="Write successful release outputs to GITHUB_OUTPUT (no writes during dry-run)",
     )
     add_dry_run_argument(release_bump_parser)
     release_bump_parser.set_defaults(handler=commands.command_release_bump)
@@ -1088,6 +1116,7 @@ examples:
     )
     backfill_parser.add_argument(
         "--commit-schema",
+        action=ExplicitStore,
         choices=["auto", "conventional", "gitmoji", "keepachangelog"],
         default="auto",
         help=(
@@ -1145,6 +1174,7 @@ examples:
     )
     gitlab_release_parser.add_argument(
         "--gitlab-url",
+        action=ExplicitStore,
         default=DEFAULT_GITLAB_URL,
         help=f"Base URL of the GitLab instance (default: {DEFAULT_GITLAB_URL})",
     )
@@ -1209,6 +1239,7 @@ examples:
     )
     from_commits_parser.add_argument(
         "--commit-schema",
+        action=ExplicitStore,
         choices=["auto", "conventional", "gitmoji", "keepachangelog"],
         default="auto",
         help=(
@@ -1258,6 +1289,7 @@ examples:
     )
     lint_commits_parser.add_argument(
         "--commit-schema",
+        action=ExplicitStore,
         choices=["auto", "conventional", "gitmoji", "keepachangelog"],
         default=None,
         help=(
@@ -1319,6 +1351,7 @@ examples:
     )
     rewrite_messages_parser.add_argument(
         "--commit-schema",
+        action=ExplicitStore,
         choices=["auto", "conventional", "gitmoji", "keepachangelog"],
         default=None,
         help="Commit message schema to lint against (default: config or auto)",

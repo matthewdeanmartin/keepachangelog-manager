@@ -2,6 +2,8 @@
 
 """Configuration Management"""
 
+from __future__ import annotations
+
 import os
 import re
 from collections.abc import Mapping, Sequence
@@ -9,8 +11,12 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
+import tomlkit
+
 import changelogmanager.llvm_diagnostics as logging
+from changelogmanager.file_updates import atomic_write_text
 from changelogmanager.runtime_logging import VERBOSE, get_logger
+from changelogmanager.toml_edits import update_document
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from changelogmanager.message_lint import LintOptions
@@ -285,7 +291,7 @@ def get_effective_configuration(config_path: Optional[str]) -> dict[str, Any]:
 def get_component_from_config(config: str, component: str) -> dict[str, Any]:
     """Retrieves a specific component from the configuration file"""
     logger.info("Resolving component '%s' from %s", component, config)
-    configuration = wrap_unwrapped_schema(load_configuration(config))
+    configuration = normalize_configuration(load_configuration(config))
 
     validate_configuration(config, configuration)
 
@@ -301,6 +307,11 @@ def get_component_from_config(config: str, component: str) -> dict[str, Any]:
         raise logging.Error(file_path=config, message=f"Unknown component name: {name}")
 
     return filter_component(project.get("components", []), component)
+
+
+def resolve_config_file(config: str | None, value: str) -> str:
+    """Resolve configured paths from the config directory; CLI paths stay cwd-relative."""
+    return str(Path(config).resolve().parent / value) if config else value
 
 
 def get_component_tasks_file(config: Optional[str], component: str) -> Optional[str]:
@@ -332,7 +343,7 @@ def get_components_from_config(config: str) -> list[dict[str, Any]]:
     """Retrieves all components from the configuration file"""
 
     logger.info("Loading all configured components from %s", config)
-    configuration = wrap_unwrapped_schema(load_configuration(config))
+    configuration = normalize_configuration(load_configuration(config))
     validate_configuration(config, configuration)
     components: list[dict[str, Any]] = configuration.get("project", {}).get(
         "components", []
@@ -411,7 +422,7 @@ def get_format_options(config: Optional[str]) -> dict[str, Any]:
 MESSAGE_LINT_SCHEMAS = ("auto", "conventional", "gitmoji", "keepachangelog")
 
 
-def get_message_lint_options(config: Optional[str]) -> "LintOptions":
+def get_message_lint_options(config: Optional[str]) -> LintOptions:
     """Returns commit-message lint settings as a resolved ``LintOptions``.
 
     Reads ``project.validation.message_lint``; recognised keys:
@@ -650,7 +661,13 @@ def merge_mappings(base: dict[str, Any], updates: Mapping[str, Any]) -> dict[str
 
 def write_standalone_toml(path: Path, config: Mapping[str, Any]) -> None:
     logger.log(VERBOSE, "Serializing standalone TOML configuration to %s", path)
-    path.write_text(serialize_config_toml(config, prefix=""), encoding="UTF-8")
+    document = (
+        tomlkit.parse(path.read_bytes().decode("utf-8"))
+        if path.is_file()
+        else tomlkit.document()
+    )
+    update_document(document, tomlkit.parse(serialize_config_toml(config, prefix="")))
+    atomic_write_text(path, tomlkit.dumps(document))
 
 
 def write_pyproject(path: Path, config: Mapping[str, Any]) -> None:
@@ -658,42 +675,20 @@ def write_pyproject(path: Path, config: Mapping[str, Any]) -> None:
     content = path.read_text(encoding="UTF-8") if path.is_file() else ""
     section = serialize_pyproject_section(config)
     updated = replace_pyproject_section(content, section)
-    path.write_text(updated, encoding="UTF-8")
+    atomic_write_text(path, updated)
 
 
 def replace_pyproject_section(content: str, section: str) -> str:
-    lines = content.splitlines(keepends=True)
-    start = None
-    end = None
-
-    for index, line in enumerate(lines):
-        if re.match(r"^\[tool\.changelogmanager\]\s*$", line.strip()):
-            start = index
-            end = len(lines)
-            for candidate in range(index + 1, len(lines)):
-                stripped = lines[candidate].strip()
-                if not stripped.startswith("["):
-                    continue
-                if stripped.startswith("[tool.changelogmanager") or stripped.startswith(
-                    "[[tool.changelogmanager"
-                ):
-                    continue
-                end = candidate
-                break
-            break
-
-    if start is None or end is None:
-        prefix = content.rstrip()
-        if prefix:
-            return f"{prefix}\n\n{section}"
-        return section
-
-    before = "".join(lines[:start]).rstrip()
-    after = "".join(lines[end:]).lstrip("\n")
-    merged = section if not before else f"{before}\n\n{section}"
-    if after:
-        return f"{merged}\n\n{after}"
-    return merged
+    document = tomlkit.parse(content)
+    incoming = tomlkit.parse(section)
+    if "tool" not in document:
+        document["tool"] = tomlkit.table()
+    if "changelogmanager" not in document["tool"]:
+        document["tool"]["changelogmanager"] = tomlkit.table()
+    update_document(
+        document["tool"]["changelogmanager"], incoming["tool"]["changelogmanager"]
+    )
+    return tomlkit.dumps(document)
 
 
 def serialize_pyproject_section(config: Mapping[str, Any]) -> str:
@@ -736,6 +731,17 @@ def serialize_config_toml(config: Mapping[str, Any], *, prefix: str) -> str:
         ]
     )
 
+    for key, value in validation.items():
+        if key not in {"enforce_preamble", "format"}:
+            lines.append(f"{key} = {toml_scalar(value)}")
+    # These fields used to be dropped when a GUI/config command saved settings.
+    if len(versioning) > 1:
+        insertion = lines.index(table("validation")) - 1
+        for key, value in versioning.items():
+            if key != "scheme":
+                lines.insert(insertion, f"{key} = {toml_scalar(value)}")
+                insertion += 1
+
     fmt = validation.get("format")
     if fmt is not None:
         lines.append(f"format = {toml_scalar(fmt)}")
@@ -772,6 +778,15 @@ def serialize_config_toml(config: Mapping[str, Any], *, prefix: str) -> str:
         fragment_directory = component.get("fragment_directory")
         if fragment_directory:
             lines.append(f"fragment_directory = {toml_string(str(fragment_directory))}")
+        for key, value in component.items():
+            if key not in {
+                "name",
+                "changelog",
+                "match",
+                "fragment_directory",
+                "tasks_file",
+            }:
+                lines.append(f"{key} = {toml_scalar(value)}")
         tasks_file = component.get("tasks_file")
         if tasks_file:
             lines.append(f"tasks_file = {toml_string(str(tasks_file))}")
@@ -782,11 +797,7 @@ def serialize_config_toml(config: Mapping[str, Any], *, prefix: str) -> str:
 def toml_scalar(value: Any) -> str:
     """Renders a scalar (str/bool/int) as TOML."""
 
-    if isinstance(value, bool):
-        return toml_bool(value)
-    if isinstance(value, int):
-        return str(value)
-    return toml_string(str(value))
+    return str(tomlkit.item(value).as_string())
 
 
 def toml_string(value: str) -> str:

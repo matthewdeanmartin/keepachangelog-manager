@@ -3,7 +3,7 @@
 Source: https://github.com/matthewdeanmartin/jiggle_version
 Copied from: **jiggle-version 2.1.1** (PyPI), MIT licensed (see `LICENSE`).
 
-This is a minimal, dependency-free copy of the only jiggle-version surface
+This is a minimal copy of the only jiggle-version surface
 `changelogmanager.version_bumper` uses:
 
 | Public symbol | Vendored module |
@@ -14,8 +14,7 @@ This is a minimal, dependency-free copy of the only jiggle-version surface
 
 ## What was changed vs upstream
 
-The two functions that pulled in third-party dependencies were reimplemented so
-this copy needs **only the standard library**:
+The vendored helpers have these local adaptations:
 
 - **`discover.py` — dropped `pathspec`.** Upstream walked the tree honoring
   `.gitignore` via `pathspec.GitWildMatchPattern` (upstream `gitignore.py`).
@@ -26,12 +25,11 @@ this copy needs **only the standard library**:
   the caller skips the pyproject path and non-`.py` files. The list of searched
   filenames is unchanged, so results match upstream for a normal layout.
 
-- **`update.py` — dropped `tomlkit`.** Upstream's `update_pyproject_toml` parsed
-  and re-dumped the document with `tomlkit` to preserve formatting. The vendored
-  copy does a section-aware line rewrite that replaces only the value on the
-  `version = ...` line under `[project]` (then `[tool.setuptools]`), leaving
-  every other byte untouched — so formatting is preserved without the dependency.
-  `update_python_file` is copied verbatim (pure `re`).
+- **`update.py` � restored `tomlkit` for version edits.** Table-header regexes
+  missed valid comments and quoted keys. TOML Kit preserves comments, whitespace
+  and line endings. Writes use atomic replacement. Python version updates keep
+  the local generated-file guard and restricted assignment matching.
+
 
 ## What was NOT copied
 
@@ -42,5 +40,5 @@ and `utils/` packages, and `update_setup_cfg` (never called by this project).
 ## Updating
 
 To pull a newer upstream version, diff `discover.py` / `update.py` against the
-new release, re-apply the two dependency-removing changes above, and bump the
+new release, re-apply the local adaptations above, and bump the
 version noted at the top of this file.

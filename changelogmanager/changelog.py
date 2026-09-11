@@ -5,6 +5,8 @@
 import html
 from collections import OrderedDict
 from collections.abc import Mapping
+from contextlib import suppress
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional, cast
@@ -19,6 +21,15 @@ from changelogmanager.change_types import (
     VersionCore,
 )
 from changelogmanager.config import get_versioning_markdown
+from changelogmanager.file_updates import atomic_write_text
+from changelogmanager.release_plan import (
+    PLAN_KEY,
+    get_plan,
+    render_plan,
+    suggest_pep440,
+    validate_override,
+    validate_plan,
+)
 from changelogmanager.runtime_logging import VERBOSE, get_logger
 from changelogmanager.schema_validation import (
     DEFAULT_SCHEMA_VERSION,
@@ -105,10 +116,43 @@ class Changelog:
         unreleased = self.changelog.get(UNRELEASED_ENTRY)
         if not isinstance(unreleased, Mapping):
             return False
+        plan = get_plan(self.changelog)
+        if (
+            plan is not None
+            and plan.get("phase") == "final"
+            and self.versioning_scheme == "pep440"
+            and not self.has_only_unreleased_version()
+        ):
+            return bool(self.version().parsed.is_prerelease) or any(
+                change_type != "metadata" and entries
+                for change_type, entries in unreleased.items()
+            )
         return any(
             change_type != "metadata" and entries
             for change_type, entries in unreleased.items()
         )
+
+    def set_release_plan(self, phase: str | None, target: str | None = None) -> None:
+        """Set or clear the upcoming release instructions without changing entries."""
+        if phase is None:
+            entry = self.changelog.get(UNRELEASED_ENTRY, {})
+            entry.get("metadata", {}).pop(PLAN_KEY, None)
+            return
+        values = {"phase": phase}
+        if target:
+            values["target"] = target
+        plan = validate_plan(values, self.versioning_scheme)
+        previous = deepcopy(self.changelog)
+        entry = self.changelog.setdefault(
+            UNRELEASED_ENTRY, {"metadata": {"version": UNRELEASED_ENTRY}}
+        )
+        entry.setdefault("metadata", {"version": UNRELEASED_ENTRY})[PLAN_KEY] = plan
+        self.changelog = {UNRELEASED_ENTRY: entry, **self.changelog}
+        try:
+            self.suggest_future_version()
+        except Exception:
+            self.changelog = previous
+            raise
 
     def set_data(self, data: dict[str, Any]) -> None:
         """Replaces the in-memory changelog data (used by autofix)."""
@@ -415,6 +459,7 @@ class Changelog:
             )
             raise logging.Error(message=msg) from exc_info
 
+        validate_override(get_plan(self.changelog), target_version)
         logger.info(
             "Resolved release target %s for %s (latest release: %s)",
             target_version,
@@ -422,9 +467,17 @@ class Changelog:
             self.current_release_text(),
         )
 
-        if str(target_version) in self.get():
-            existing_summary = self.summarize_release(str(target_version))
-            existing_position = self.summarize_release_position(str(target_version))
+        existing_version = next(
+            (
+                version
+                for version in self.released_versions()
+                if parse_version(version, self.versioning_scheme) == target_version
+            ),
+            None,
+        )
+        if existing_version is not None:
+            existing_summary = self.summarize_release(existing_version)
+            existing_position = self.summarize_release_position(existing_version)
             logger.warning(
                 "Refusing release %s for %s because that version already exists (%s; %s)",
                 target_version,
@@ -527,6 +580,13 @@ class Changelog:
     def suggest_future_version(self) -> VersionValue:
         """Suggests a future version based on the [Unreleased]-changes"""
         logger.info("Suggesting future version for %s", self.changelog_file_path)
+
+        if self.versioning_scheme == "pep440":
+            first = initial_version("pep440")
+            if self.initial_version_override:
+                with suppress(ValueError):
+                    first = parse_version(self.initial_version_override, "pep440")
+            return suggest_pep440(self.changelog, first)
 
         if self.has_only_unreleased_version():
             if self.initial_version_override:
@@ -655,10 +715,8 @@ class Changelog:
         """Updates CHANGELOG.md based on the Keep a Changelog standard."""
         logger.info("Writing changelog file %s", self.changelog_file_path)
 
-        with Path(self.changelog_file_path).open("w", encoding="UTF-8") as file_handle:
-            file_handle.write(
-                self.render(formatter=formatter, format_options=format_options)
-            )
+        rendered = self.render(formatter=formatter, format_options=format_options)
+        atomic_write_text(Path(self.changelog_file_path), rendered)
 
     def has_only_unreleased_version(self) -> bool:
         """Returns True when the changelog only contains an Unreleased version"""
@@ -668,7 +726,7 @@ class Changelog:
         """String representation"""
 
         rendered = str(keepachangelog.from_dict(self.changelog))
-        return self.render_preamble(rendered)
+        return render_plan(self.render_preamble(rendered), get_plan(self.changelog))
 
     def render_preamble(self, rendered: str) -> str:
         if self.versioning_scheme == "semver":

@@ -363,11 +363,19 @@ class AppController:  # pylint: disable=too-many-instance-attributes
             return
         changelog = str(component.get("changelog") or "").strip()
         if changelog:
-            self.input_file_var.set(changelog)
+            from changelogmanager.config import resolve_config_file
+
+            self.input_file_var.set(resolve_config_file(config_path, changelog))
         # Per-component tasks file; fall back to the resolved default so the
         # Tasks-file picker is never left pointing at the previous component.
         tasks_file = get_component_tasks_file(config_path, name)
-        self.tasks_file_var.set(tasks_file or default_task_file_name())
+        from changelogmanager.config import resolve_config_file
+
+        self.tasks_file_var.set(
+            resolve_config_file(config_path, tasks_file)
+            if tasks_file
+            else default_task_file_name()
+        )
         self.reload()
 
     def add_component(self) -> None:

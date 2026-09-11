@@ -18,6 +18,12 @@ from changelogmanager.change_types import (
     TYPES_OF_CHANGE,
     UNRELEASED_ENTRY,
 )
+from changelogmanager.release_plan import (
+    PLAN_KEY,
+    extract_plan,
+    is_finalization,
+    suggest_pep440,
+)
 from changelogmanager.runtime_logging import VERBOSE, get_logger
 from changelogmanager.schema_validation import validate_changelog_mapping
 from changelogmanager.vendor import keepachangelog
@@ -213,9 +219,17 @@ class ChangelogReader:
                 ),
             )
 
+        clean, plan, _ = extract_plan(text, self.versioning_scheme, self.file_path)
         changelog: dict[str, Any] = keepachangelog.to_dict(
-            text.splitlines(keepends=True), show_unreleased=True
+            clean.splitlines(keepends=True), show_unreleased=True
         )
+        if plan is not None:
+            changelog.setdefault(
+                UNRELEASED_ENTRY, {"metadata": {"version": UNRELEASED_ENTRY}}
+            )
+            changelog[UNRELEASED_ENTRY]["metadata"][PLAN_KEY] = plan
+        if plan is not None:
+            suggest_pep440(changelog, parse_version("0.0.1", "pep440"))
 
         self.validate_contents(changelog)
         validate_changelog_mapping(changelog, file_path=self.file_path)
@@ -521,7 +535,11 @@ class ChangelogReader:
         else:
             lines = text.splitlines(keepends=True)
 
-        for line in lines:
+        clean, _, plan_errors = extract_plan(
+            "".join(lines), self.versioning_scheme, self.file_path
+        )
+        errors.extend(plan_errors)
+        for line in clean.splitlines(keepends=True):
             errors.extend(list(self.validate_heading(line_number, line)))
             errors.extend(list(self.validate_entry(line_number, line)))
             line_number += 1
@@ -549,33 +567,7 @@ class ChangelogReader:
         Used for before/after comparisons around write operations.
         """
 
-        if not self.versioning_scheme_explicit:
-            detected = detect_versioning_scheme_from_file(self.file_path)
-            if detected:
-                self.versioning_scheme = detected
-
-        if text is None:
-            try:
-                raw = Path(self.file_path).read_text(encoding="UTF-8")
-            except OSError:
-                return 0
-        else:
-            raw = text
-        lines = raw.splitlines(keepends=True)
-
-        count = 0
-        line_number = 1
-        for line in lines:
-            count += sum(1 for _ in self.validate_heading(line_number, line))
-            count += sum(1 for _ in self.validate_entry(line_number, line))
-            line_number += 1
-
-        if self.enforce_preamble:
-            head = raw.lower()[:1024]
-            missing = [kw for kw in self.preamble_keywords if kw not in head]
-            count += len(missing)
-
-        return count
+        return len(self.collect_layout_errors(text=text))
 
     def autofix_text(self, text: str | None = None) -> tuple[str, list[str]]:
         """Returns raw Markdown with safe layout fixes applied.
@@ -615,6 +607,8 @@ class ChangelogReader:
 
         heading = HEADING_BODY_RE.match(body)
         if heading:
+            if heading.group(2).strip().lower() == "release":
+                return line, []
             hashes = heading.group(1)
             content = heading.group(2)
             depth = len(hashes)
@@ -761,6 +755,14 @@ class ChangelogReader:
 
                 prev_version = new_version
 
+            history = [key for key in changelog if key != UNRELEASED_ENTRY]
+            if (
+                version != UNRELEASED_ENTRY
+                and is_finalization(version, history, self.versioning_scheme)
+                and set(release) <= {"metadata"}
+            ):
+                is_first_entry = False
+                continue
             self.validate_release_contents(version, release)
 
             is_first_entry = False
@@ -861,7 +863,15 @@ class ChangelogReader:
                 prev_version = new_version
 
             if isinstance(release, Mapping):
-                violations.extend(self._release_content_violations(version, release))
+                history = [key for key in changelog if key != UNRELEASED_ENTRY]
+                if not (
+                    version != UNRELEASED_ENTRY
+                    and is_finalization(version, history, self.versioning_scheme)
+                    and set(release) <= {"metadata"}
+                ):
+                    violations.extend(
+                        self._release_content_violations(version, release)
+                    )
             is_first_entry = False
 
         # --- Canonical preamble ------------------------------------------
@@ -871,10 +881,16 @@ class ChangelogReader:
             except OSError:
                 text = ""
         head = text.lower()[:1024]
-        if any(keyword not in head for keyword in PREAMBLE_KEYWORDS):
+        expected = (
+            "keep a changelog",
+            {"pep440": "pep 440", "calver": "calendar versioning"}.get(
+                self.versioning_scheme, "semantic versioning"
+            ),
+        )
+        if any(keyword not in head for keyword in expected):
             violations.append(
                 "Missing canonical Keep a Changelog preamble (references to "
-                "Keep a Changelog and Semantic Versioning)"
+                f"Keep a Changelog and {expected[1]})"
             )
 
         return violations

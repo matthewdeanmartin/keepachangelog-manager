@@ -51,6 +51,48 @@ def write_changelog(path: Path) -> None:
     path.write_text(VALID_CHANGELOG, encoding="utf-8")
 
 
+def test_editor_release_plan_preview_save_and_invalid_target(
+    gui_root, tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    write_changelog(tmp_path / "CHANGELOG.md")
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.changelogmanager.versioning]\nscheme = "pep440"\n'
+    )
+    controller = AppController(gui_root)
+    screen = controller.screens[EditScreen.title]
+    assert screen.release_plan_frame.winfo_manager()
+    screen.phase_var.set("alpha")
+    screen.target_var.set("1.1.0")
+    screen.apply_release_plan()
+    assert str(controller.state.changelog.suggest_future_version()) == "1.1.0a1"
+    screen.save()
+    saved = (tmp_path / "CHANGELOG.md").read_text()
+    assert "## Release\n- Phase: alpha\n- Target: 1.1.0" in saved
+    errors = []
+    monkeypatch.setattr(
+        "changelogmanager.gui.screens.edit.messagebox.showerror",
+        lambda *args: errors.append(args),
+    )
+    screen.target_var.set("0.9.0")
+    screen.apply_release_plan()
+    assert errors
+    assert str(controller.state.changelog.suggest_future_version()) == "1.1.0a1"
+    assert (tmp_path / "CHANGELOG.md").read_text() == saved
+
+
+def test_semver_editor_does_not_require_release_metadata(
+    gui_root, tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    write_changelog(tmp_path / "CHANGELOG.md")
+    controller = AppController(gui_root)
+    screen = controller.screens[EditScreen.title]
+    assert not screen.release_plan_frame.winfo_manager()
+    screen.save()
+    assert "## Release" not in (tmp_path / "CHANGELOG.md").read_text()
+
+
 def test_app_state_reload_handles_missing_and_present_files(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     for name in ("CI", "GITHUB_ACTIONS", "GITLAB_CI"):
@@ -193,8 +235,8 @@ def test_selecting_component_updates_tasks_file_picker(gui_root, tmp_path, monke
     screen.select_component("api")
 
     # The active component's changelog and tasks file drive the workspace pickers.
-    assert controller.input_file_var.get() == "api/CHANGELOG.md"
-    assert controller.tasks_file_var.get() == "api/TASKS.md"
+    assert Path(controller.input_file_var.get()) == tmp_path / "api/CHANGELOG.md"
+    assert Path(controller.tasks_file_var.get()) == tmp_path / "api/TASKS.md"
 
     # A component without a tasks_file falls back to the resolved default.
     screen.select_component("default")

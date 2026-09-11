@@ -1,6 +1,10 @@
 import pytest
 
 from changelogmanager import version_bumper
+from changelogmanager.vendor.jiggle_version import (
+    update_pyproject_toml,
+    update_python_file,
+)
 
 
 def test_jiggle_available_is_always_true():
@@ -19,7 +23,10 @@ def test_bump_version_files_honors_pyproject_only(monkeypatch, tmp_path):
     monkeypatch.setattr(
         version_bumper,
         "update_pyproject_toml",
-        lambda path, version: updated.append(("pyproject", path, version)),
+        lambda path, version: (
+            updated.append(("pyproject", path, version)),
+            update_pyproject_toml(path, version),
+        )[1],
         raising=False,
     )
     monkeypatch.setattr(
@@ -52,13 +59,19 @@ def test_bump_version_files_updates_python_sources(monkeypatch, tmp_path):
     monkeypatch.setattr(
         version_bumper,
         "update_pyproject_toml",
-        lambda path, version: updated.append(("pyproject", path, version)),
+        lambda path, version: (
+            updated.append(("pyproject", path, version)),
+            update_pyproject_toml(path, version),
+        )[1],
         raising=False,
     )
     monkeypatch.setattr(
         version_bumper,
         "update_python_file",
-        lambda path, version: updated.append(("python", path, version)),
+        lambda path, version: (
+            updated.append(("python", path, version)),
+            update_python_file(path, version),
+        )[1],
         raising=False,
     )
     monkeypatch.setattr(

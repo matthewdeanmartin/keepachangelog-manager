@@ -47,6 +47,7 @@ def test_delete_draft_releases_only_deletes_drafts(monkeypatch):
 
 
 def test_create_release_posts_expected_payload(monkeypatch):
+    monkeypatch.setattr(GitHub, "get_releases", lambda self: [])
     captured = {}
     changelog = Changelog(
         changelog=OrderedDict(
