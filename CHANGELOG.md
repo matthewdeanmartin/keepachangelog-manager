@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Changed
+- Requires Python 3.11 or newer; Python 3.9-3.10 are no longer supported.
+
 ## [6.9.0] - 2026-09-11
 ### Added
 - Changelog-owned Release Phase and optional Target metadata for opt-in PEP 440 prerelease progression, with desktop editing and validation; preserve SemVer and CalVer behavior.
