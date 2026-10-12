@@ -220,3 +220,7 @@ instead of a shared task list, the tool also supports changelog fragments; see [
 - [Scripting and CI integration](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/scripting.md)
 - [CLI reference](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/cli.md)
 - [Desktop GUI](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/gui.md)
+
+## Python 3.15 wheel verification — 2026-10-04
+
+Windows Python 3.15.0rc3 passes 992 tests, two skips, and 16 snapshots with the stdlib/test toolchain, using published dependency wheels. The same result holds on Python 3.14 and with dependency prereleases allowed (none selected). Fast/all extras and the broad dev group remain blocked by google-re2 wheel availability. Local checkout tests describe version 6.8.0; published 6.9.0 separately passes wheel-install/CLI-startup smoke checks. Require wheels and separate optional acceleration from core verification.
