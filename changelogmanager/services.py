@@ -1100,8 +1100,7 @@ def release_bump(
     if staged.returncode == 0:
         raise logging.Error(
             message=(
-                "No files changed after release --bump-versions; is the version "
-                f"{normalized} already released?"
+                f"No files changed after release --bump-versions; is the version {normalized} already released?"
             ),
         )
 
@@ -1237,8 +1236,7 @@ def release_rollback(
             if not token:
                 raise logging.Error(
                     message=(
-                        "Deleting the GitHub release requires either the gh CLI on PATH "
-                        "or a token (pass --github-token or set GITHUB_TOKEN)"
+                        "Deleting the GitHub release requires either the gh CLI on PATH or a token (pass --github-token or set GITHUB_TOKEN)"
                     ),
                 )
             github = GitHub(repository=repository, token=token)

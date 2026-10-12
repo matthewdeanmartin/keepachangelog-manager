@@ -186,13 +186,7 @@ def test_components_screen_validate_all_lists_components_and_runs(
     monkeypatch.chdir(tmp_path)
     config_path = tmp_path / "changelogmanager.toml"
     config_path.write_text(
-        "[[components]]\n"
-        'name = "api"\n'
-        'changelog = "api/CHANGELOG.md"\n'
-        "\n"
-        "[[components]]\n"
-        'name = "web"\n'
-        'changelog = "web/CHANGELOG.md"\n',
+        '[[components]]\nname = "api"\nchangelog = "api/CHANGELOG.md"\n\n[[components]]\nname = "web"\nchangelog = "web/CHANGELOG.md"\n',
         encoding="utf-8",
     )
     write_changelog(tmp_path / "api" / "CHANGELOG.md")
@@ -422,8 +416,7 @@ def test_releases_screen_skip_ci_default_from_config(gui_root, tmp_path, monkeyp
     monkeypatch.chdir(tmp_path)
     write_changelog(tmp_path / "CHANGELOG.md")
     (tmp_path / "changelogmanager.toml").write_text(
-        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n\n'
-        "[defaults]\nskip_ci = false\n",
+        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n\n[defaults]\nskip_ci = false\n',
         encoding="utf-8",
     )
     controller = AppController(gui_root)

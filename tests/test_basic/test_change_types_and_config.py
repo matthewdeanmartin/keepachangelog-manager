@@ -57,13 +57,7 @@ def test_validate_configuration_rejects_invalid_shapes(config, message):
 def test_get_component_from_config_returns_named_component(tmp_path):
     config_file = tmp_path / "changelogmanager.toml"
     config_file.write_text(
-        "[[components]]\n"
-        'name = "api"\n'
-        'changelog = "docs/API_CHANGELOG.md"\n'
-        "\n"
-        "[[components]]\n"
-        'name = "ui"\n'
-        'changelog = "docs/UI_CHANGELOG.md"\n',
+        '[[components]]\nname = "api"\nchangelog = "docs/API_CHANGELOG.md"\n\n[[components]]\nname = "ui"\nchangelog = "docs/UI_CHANGELOG.md"\n',
         encoding="utf-8",
     )
 
@@ -75,7 +69,7 @@ def test_get_component_from_config_returns_named_component(tmp_path):
 def test_get_component_from_config_rejects_unknown_component(tmp_path):
     config_file = tmp_path / "changelogmanager.toml"
     config_file.write_text(
-        "[[components]]\n" 'name = "api"\n' 'changelog = "docs/API_CHANGELOG.md"\n',
+        '[[components]]\nname = "api"\nchangelog = "docs/API_CHANGELOG.md"\n',
         encoding="utf-8",
     )
 
@@ -126,12 +120,7 @@ def test_write_configuration_round_trips_standalone_and_pyproject(tmp_path):
 def test_preamble_keywords_follow_configured_versioning(tmp_path):
     config_path = tmp_path / "changelogmanager.toml"
     config_path.write_text(
-        "[[components]]\n"
-        'name = "default"\n'
-        'changelog = "CHANGELOG.md"\n'
-        "\n"
-        "[versioning]\n"
-        'scheme = "calver"\n',
+        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n\n[versioning]\nscheme = "calver"\n',
         encoding="utf-8",
     )
 
@@ -280,20 +269,8 @@ def test_serialize_config_toml_includes_component_tasks_file():
 
 
 def test_replace_pyproject_section_replaces_only_changelogmanager_block():
-    content = (
-        "[build-system]\n"
-        'requires = ["hatchling"]\n\n'
-        "[tool.changelogmanager]\n"
-        "old = true\n\n"
-        "[tool.ruff]\n"
-        "line-length = 160\n"
-    )
-    section = (
-        "[tool.changelogmanager]\n"
-        "\n"
-        "[tool.changelogmanager.versioning]\n"
-        'scheme = "pep440"\n'
-    )
+    content = '[build-system]\nrequires = ["hatchling"]\n\n[tool.changelogmanager]\nold = true\n\n[tool.ruff]\nline-length = 160\n'
+    section = '[tool.changelogmanager]\n\n[tool.changelogmanager.versioning]\nscheme = "pep440"\n'
 
     updated = replace_pyproject_section(content, section)
 
@@ -351,12 +328,7 @@ def test_auto_detect_config_ignores_invalid_pyproject(tmp_path):
 def test_config_reads_are_cached_across_helper_calls(tmp_path, monkeypatch):
     config_path = tmp_path / "changelogmanager.toml"
     config_path.write_text(
-        "[[components]]\n"
-        'name = "default"\n'
-        'changelog = "CHANGELOG.md"\n'
-        "\n"
-        "[versioning]\n"
-        'scheme = "calver"\n',
+        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n\n[versioning]\nscheme = "calver"\n',
         encoding="utf-8",
     )
 
@@ -419,7 +391,7 @@ def test_auto_detected_pyproject_reuses_cached_toml_read(tmp_path, monkeypatch):
 def test_config_cache_can_be_disabled_for_testing(tmp_path, monkeypatch):
     config_path = tmp_path / "changelogmanager.toml"
     config_path.write_text(
-        "[[components]]\n" 'name = "default"\n' 'changelog = "CHANGELOG.md"\n',
+        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n',
         encoding="utf-8",
     )
 

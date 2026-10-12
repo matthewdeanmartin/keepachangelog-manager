@@ -270,8 +270,7 @@ def test_render_tasks_md_rich_has_status_headings():
 
 def test_render_tasks_md_rich_shows_body():
     frag = parse_fragment_text(
-        "# c — C\n- **Category:** added\n- **Status:** proposed\n\n---\n\n"
-        "## Detail\n\nSome detail text.\n",
+        "# c — C\n- **Category:** added\n- **Status:** proposed\n\n---\n\n## Detail\n\nSome detail text.\n",
         stem="c",
     )
     output = render_tasks_md([frag], rich=True)
@@ -311,8 +310,7 @@ def test_render_tasks_md_flat_status_collapse():
 def test_shift_headings_via_rich_render_adjusts_depth():
     """H2 inside a body should become H4 after a +2 shift in rich mode."""
     frag = parse_fragment_text(
-        "# h — H\n- **Category:** added\n- **Status:** proposed\n\n---\n\n"
-        "## Sub-heading\n\nContent.\n",
+        "# h — H\n- **Category:** added\n- **Status:** proposed\n\n---\n\n## Sub-heading\n\nContent.\n",
         stem="h",
     )
     output = render_tasks_md([frag], rich=True)
@@ -323,8 +321,7 @@ def test_shift_headings_via_rich_render_adjusts_depth():
 def test_shift_headings_does_not_shift_inside_fence():
     """Headings inside fenced code blocks must not be shifted."""
     frag = parse_fragment_text(
-        "# f — F\n- **Category:** added\n- **Status:** proposed\n\n---\n\n"
-        "```\n## Not a heading\n```\n\n## Real heading\n",
+        "# f — F\n- **Category:** added\n- **Status:** proposed\n\n---\n\n```\n## Not a heading\n```\n\n## Real heading\n",
         stem="f",
     )
     output = render_tasks_md([frag], rich=True)
@@ -529,8 +526,7 @@ def test_assemble_noop_when_identical(tmp_path, monkeypatch):
 def test_heading_shift_caps_at_h6():
     """A heading already at depth 5 shifted by +2 must cap at H6."""
     frag = parse_fragment_text(
-        "# deep — Deep\n- **Category:** added\n- **Status:** proposed\n\n---\n\n"
-        "##### Level 5 heading\n",
+        "# deep — Deep\n- **Category:** added\n- **Status:** proposed\n\n---\n\n##### Level 5 heading\n",
         stem="deep",
     )
     output = render_tasks_md([frag], rich=True)

@@ -30,8 +30,7 @@ def _deprecated(old: str, new: str) -> None:
     """Prints a one-line deprecation notice to stderr for a renamed console script."""
 
     print(
-        f"warning: '{old}' is deprecated and will be removed in a future release; "
-        f"use '{new}' instead.",
+        f"warning: '{old}' is deprecated and will be removed in a future release; use '{new}' instead.",
         file=sys.stderr,
     )
 

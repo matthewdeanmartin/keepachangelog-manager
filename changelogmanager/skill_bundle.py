@@ -66,8 +66,7 @@ def parse_skill_frontmatter(text: str) -> dict[str, str]:
     lines = text.splitlines()
     if not lines or lines[0].strip() != "---":
         raise SkillFrontmatterError(
-            "SKILL.md must start with a '---' YAML frontmatter fence "
-            "(a bare mdformat run destroys it)"
+            "SKILL.md must start with a '---' YAML frontmatter fence (a bare mdformat run destroys it)"
         )
 
     try:

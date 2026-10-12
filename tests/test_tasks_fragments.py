@@ -95,8 +95,7 @@ def test_tasks_use_per_component_tasks_file(tmp_path, monkeypatch):
 def test_tasks_explicit_flag_beats_component_tasks_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     Path("changelogmanager.toml").write_text(
-        '[[components]]\nname = "api"\nchangelog = "api/CHANGELOG.md"\n'
-        'tasks_file = "api/TASKS.md"\n',
+        '[[components]]\nname = "api"\nchangelog = "api/CHANGELOG.md"\ntasks_file = "api/TASKS.md"\n',
         encoding="UTF-8",
     )
 

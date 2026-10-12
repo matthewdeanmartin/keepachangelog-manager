@@ -21,8 +21,7 @@ def test_vendored_public_surface_is_importable_and_callable():
 def test_update_pyproject_toml_rewrites_project_version_preserving_format(tmp_path):
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
-        '[project]\nname = "demo"\nversion = "0.1.0"  # current\n\n'
-        "[tool.ruff]\nline-length = 100\n",
+        '[project]\nname = "demo"\nversion = "0.1.0"  # current\n\n[tool.ruff]\nline-length = 100\n',
         encoding="utf-8",
     )
 

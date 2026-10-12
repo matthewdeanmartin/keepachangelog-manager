@@ -6,7 +6,6 @@
 import re
 from collections.abc import Generator
 from pathlib import Path
-from typing import Union
 
 import changelogmanager.llvm_diagnostics as llvm_diagnostics
 from changelogmanager.llvm_diagnostics import utils
@@ -19,7 +18,7 @@ DIAGNOSTICS_HEADER = re.compile(
 def diagnostics_messages_from_file(
     file_path: str,
 ) -> Generator[
-    Union[llvm_diagnostics.Info, llvm_diagnostics.Error, llvm_diagnostics.Warning],
+    llvm_diagnostics.Info | llvm_diagnostics.Error | llvm_diagnostics.Warning,
     None,
     None,
 ]:
@@ -40,11 +39,11 @@ def diagnostics_messages_from_file(
 
                 level = llvm_diagnostics.Level[parsed_level.strip(" ").upper()]
 
-                message_class_type: Union[
-                    type[llvm_diagnostics.Info],
-                    type[llvm_diagnostics.Error],
-                    type[llvm_diagnostics.Warning],
-                ] = llvm_diagnostics.Info
+                message_class_type: (
+                    type[llvm_diagnostics.Info]
+                    | type[llvm_diagnostics.Error]
+                    | type[llvm_diagnostics.Warning]
+                ) = llvm_diagnostics.Info
 
                 if level == llvm_diagnostics.Level.ERROR:
                     message_class_type = llvm_diagnostics.Error

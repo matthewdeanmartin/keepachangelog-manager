@@ -103,11 +103,7 @@ def test_vendored_parser_adds_supported_version_metadata():
 def test_reader_detects_versioning_scheme_from_preamble(tmp_path):
     changelog_file = tmp_path / "CHANGELOG.md"
     changelog_file.write_text(
-        "# Changelog\n"
-        "All notable changes follow Keep a Changelog and PEP 440.\n\n"
-        "## [1.0rc1] - 2024-01-01\n\n"
-        "### Added\n"
-        "- prerelease\n",
+        "# Changelog\nAll notable changes follow Keep a Changelog and PEP 440.\n\n## [1.0rc1] - 2024-01-01\n\n### Added\n- prerelease\n",
         encoding="UTF-8",
     )
 

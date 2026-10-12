@@ -63,10 +63,7 @@ def test_read_returns_parsed_changelog_after_validation(tmp_path, monkeypatch):
 def test_validate_layout_reports_heading_and_entry_errors(tmp_path, monkeypatch):
     changelog_file = tmp_path / "CHANGELOG.md"
     changelog_file.write_text(
-        "#### Too Deep\n"
-        "## 1.0.0 - 2024-01-01\n"
-        "### Unexpected\n"
-        "* 1. nested list\n",
+        "#### Too Deep\n## 1.0.0 - 2024-01-01\n### Unexpected\n* 1. nested list\n",
         encoding="utf-8",
     )
     reader = ChangelogReader(file_path=str(changelog_file))

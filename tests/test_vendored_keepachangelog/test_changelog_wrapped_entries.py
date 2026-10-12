@@ -31,8 +31,7 @@ def test_wrapped_entries_are_not_split():
         result = keepachangelog.to_dict(reader)
 
     assert result["1.0.0"]["added"] == [
-        "Initial release of `mastodon_mock`, a stateful FastAPI + SQLite mock of the "
-        "Mastodon REST API, driveable by real clients including Mastodon.py.",
+        "Initial release of `mastodon_mock`, a stateful FastAPI + SQLite mock of the Mastodon REST API, driveable by real clients including Mastodon.py.",
         "Auth & apps: app registration, `client_credentials` and `refresh_token` OAuth "
         "grants, token revocation, self-service account creation, and OAuth server "
         "metadata.",

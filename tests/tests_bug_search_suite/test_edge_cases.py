@@ -31,12 +31,7 @@ def write(path: Path, content: str, name: str = "CHANGELOG.md") -> str:
 
 class TestVersionOrdering:
     def test_versions_in_correct_descending_order_reads_fine(self, tmp_path):
-        content = (
-            "# Changelog\n\n"
-            "## [3.0.0] - 2024-03-01\n### Fixed\n- C\n\n"
-            "## [2.0.0] - 2024-02-01\n### Fixed\n- B\n\n"
-            "## [1.0.0] - 2024-01-01\n### Fixed\n- A\n"
-        )
+        content = "# Changelog\n\n## [3.0.0] - 2024-03-01\n### Fixed\n- C\n\n## [2.0.0] - 2024-02-01\n### Fixed\n- B\n\n## [1.0.0] - 2024-01-01\n### Fixed\n- A\n"
         p = write(tmp_path, content)
         result = ChangelogReader(file_path=p).read()
         assert list(result.keys()) == ["3.0.0", "2.0.0", "1.0.0"]
@@ -166,15 +161,7 @@ class TestReleaseOverrideEdgeCases:
 class TestWriteIdempotency:
     def test_write_read_write_is_stable(self, tmp_path):
         """Writing, reading back and writing again should produce identical output."""
-        content = (
-            "# Changelog\n\n"
-            "## [Unreleased]\n"
-            "### Added\n"
-            "- New thing\n\n"
-            "## [1.0.0] - 2024-01-01\n"
-            "### Added\n"
-            "- Initial\n"
-        )
+        content = "# Changelog\n\n## [Unreleased]\n### Added\n- New thing\n\n## [1.0.0] - 2024-01-01\n### Added\n- Initial\n"
         p = tmp_path / "CHANGELOG.md"
         p.write_text(content, encoding="utf-8")
 
@@ -241,7 +228,7 @@ class TestValidateLayoutErrorCount:
         assert errors == 2
 
     def test_zero_errors_on_valid_content(self, tmp_path):
-        content = "# Changelog\n\n" "## [Unreleased]\n" "### Added\n" "- Something\n"
+        content = "# Changelog\n\n## [Unreleased]\n### Added\n- Something\n"
         p = write(tmp_path, content)
         errors = ChangelogReader(file_path=p).validate_layout()
         assert errors == 0

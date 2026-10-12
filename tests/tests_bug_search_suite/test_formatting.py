@@ -366,8 +366,7 @@ class TestValidateAllWithFormat:
         """validate --all --fix --no-format applies structural fixes to every component."""
         cfg = tmp_path / "config.toml"
         cfg.write_text(
-            '[[components]]\nname = "api"\nchangelog = "api/CHANGELOG.md"\n\n'
-            '[[components]]\nname = "web"\nchangelog = "web/CHANGELOG.md"\n',
+            '[[components]]\nname = "api"\nchangelog = "api/CHANGELOG.md"\n\n[[components]]\nname = "web"\nchangelog = "web/CHANGELOG.md"\n',
             encoding="utf-8",
         )
         for name in ("api", "web"):

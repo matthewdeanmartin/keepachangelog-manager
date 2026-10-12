@@ -98,12 +98,7 @@ def test_validate_only_logs_one_configuration_load(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     write_changelog(tmp_path / "CHANGELOG.md")
     (tmp_path / "changelogmanager.toml").write_text(
-        "[[components]]\n"
-        'name = "default"\n'
-        'changelog = "CHANGELOG.md"\n'
-        "\n"
-        "[validation]\n"
-        "enforce_preamble = false\n",
+        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n\n[validation]\nenforce_preamble = false\n',
         encoding="utf-8",
     )
 
@@ -150,12 +145,7 @@ def test_config_show_reports_auto_detected_source(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     config_path = tmp_path / "changelogmanager.toml"
     config_path.write_text(
-        "[[components]]\n"
-        'name = "default"\n'
-        'changelog = "CHANGELOG.md"\n'
-        "\n"
-        "[versioning]\n"
-        'scheme = "calver"\n',
+        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n\n[versioning]\nscheme = "calver"\n',
         encoding="utf-8",
     )
 
@@ -194,12 +184,7 @@ def test_config_init_updates_existing_toml_on_second_run(tmp_path, monkeypatch, 
     monkeypatch.chdir(tmp_path)
     config_path = tmp_path / "changelogmanager.toml"
     config_path.write_text(
-        "[[components]]\n"
-        'name = "default"\n'
-        'changelog = "CHANGELOG.md"\n'
-        "\n"
-        "[versioning]\n"
-        'scheme = "semver"\n',
+        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n\n[versioning]\nscheme = "semver"\n',
         encoding="utf-8",
     )
     mocker.patch(

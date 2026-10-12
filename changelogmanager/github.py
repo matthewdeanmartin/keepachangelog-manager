@@ -133,7 +133,7 @@ class GitHub:
                   Method: {method.value}
                   Status: {http_error.code} {http_error.reason}
                   Data:   {data}
-                  Body:   {response_body or '<empty>'}""")) from http_error
+                  Body:   {response_body or "<empty>"}""")) from http_error
         except URLError as url_error:
             logger.error("GitHub API request failed for %s %s", method.value, url)
             raise logging.Error(message=dedent(f"""
@@ -166,8 +166,7 @@ class GitHub:
             _check_rate_limit(dict(http_error.headers), "GitHub")
             raise logging.Error(
                 message=(
-                    f"GitHub API request failed: {url} HTTP {http_error.code} {http_error.reason}\n"
-                    f"  {response_body or '<empty>'}"
+                    f"GitHub API request failed: {url} HTTP {http_error.code} {http_error.reason}\n  {response_body or '<empty>'}"
                 )
             ) from http_error
         except URLError as url_error:

@@ -155,8 +155,7 @@ def validate_routing_components(
         raise logging.Error(
             file_path=config_path,
             message=(
-                "Commit routing needs at most one fallback component "
-                f"(without 'match'); found multiple: {names}"
+                f"Commit routing needs at most one fallback component (without 'match'); found multiple: {names}"
             ),
         )
     logger.log(VERBOSE, "Routing components validated (%d total)", len(components))

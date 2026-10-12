@@ -141,8 +141,7 @@ class AppController:  # pylint: disable=too-many-instance-attributes
         tasks_label.pack(side=tk.LEFT)
         add_tooltip(
             tasks_label,
-            "The primary TASKS.md this workspace acts on (prefilled with the "
-            "first existing of TASKS.md, .changelogmanager/TASKS.md).",
+            "The primary TASKS.md this workspace acts on (prefilled with the first existing of TASKS.md, .changelogmanager/TASKS.md).",
         )
         ttk.Entry(
             self.tasks_file_picker, textvariable=self.tasks_file_var, width=38
@@ -185,16 +184,14 @@ class AppController:  # pylint: disable=too-many-instance-attributes
         new_component_button.pack(side=tk.LEFT)
         add_tooltip(
             new_component_button,
-            "Add a new component (name + changelog file) to the config file and "
-            "select it.",
+            "Add a new component (name + changelog file) to the config file and select it.",
         )
         self.refresh_component_choices()
         error_format_label = ttk.Label(row2, text="Error format:")
         error_format_label.pack(side=tk.LEFT, padx=(12, 0))
         add_tooltip(
             error_format_label,
-            "How diagnostics are printed: 'llvm' for human-readable file:line "
-            "messages, 'github' for GitHub Actions inline annotations.",
+            "How diagnostics are printed: 'llvm' for human-readable file:line messages, 'github' for GitHub Actions inline annotations.",
         )
         ttk.Combobox(
             row2,
@@ -207,8 +204,7 @@ class AppController:  # pylint: disable=too-many-instance-attributes
         dry_run_check.pack(side=tk.LEFT, padx=12)
         add_tooltip(
             dry_run_check,
-            "Preview destructive actions (release, backfill, promote) without "
-            "writing files or calling GitHub/GitLab.",
+            "Preview destructive actions (release, backfill, promote) without writing files or calling GitHub/GitLab.",
         )
         ttk.Button(row2, text="Reload", command=self.reload).pack(side=tk.LEFT, padx=4)
 
@@ -386,8 +382,7 @@ class AppController:  # pylint: disable=too-many-instance-attributes
             # No config yet: offer to create the default standalone config.
             if not messagebox.askyesno(
                 "No config file",
-                "No config file is selected. Create 'changelogmanager.toml' "
-                "to hold the new component?",
+                "No config file is selected. Create 'changelogmanager.toml' to hold the new component?",
             ):
                 return
             config_path = default_config_path_for_format("toml")

@@ -213,13 +213,22 @@ def test_release_rollback_deletes_local_tag(tmp_path, monkeypatch):
     assert not _tag_exists(tmp_path, "v5.2.0")
 
 
-def test_release_rollback_refuses_without_yes_when_noninteractive(tmp_path, monkeypatch):
+def test_release_rollback_refuses_without_yes_when_noninteractive(
+    tmp_path, monkeypatch
+):
     monkeypatch.chdir(tmp_path)
     _init_repo_with_tag(tmp_path, "v5.2.0")
 
     # --json forces non-interactive; without --yes the deletion must be refused.
     result = run_cli(
-        ["--json", "release-rollback", "--tag", "v5.2.0", "--no-github", "--no-remote-tag"]
+        [
+            "--json",
+            "release-rollback",
+            "--tag",
+            "v5.2.0",
+            "--no-github",
+            "--no-remote-tag",
+        ]
     )
 
     assert result.exit_code == 1

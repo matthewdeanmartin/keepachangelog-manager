@@ -30,8 +30,7 @@ def project(root, scheme="pep440"):
         encoding="utf-8",
     )
     (root / "CHANGELOG.md").write_text(
-        "# Changelog\n\n## [Unreleased]\n### Fixed\n- Repair parsing.\n\n"
-        "## [1.0.0] - 2026-01-01\n### Added\n- Initial.\n",
+        "# Changelog\n\n## [Unreleased]\n### Fixed\n- Repair parsing.\n\n## [1.0.0] - 2026-01-01\n### Added\n- Initial.\n",
         encoding="utf-8",
     )
     return config

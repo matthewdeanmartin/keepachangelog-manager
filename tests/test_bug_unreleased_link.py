@@ -126,8 +126,7 @@ def test_no_backfill_when_no_released_links():
 def test_no_backfill_when_unreleased_already_linked():
     text = FIXTURE.replace(
         "[0.2.0]: https://github.com/acme/proj/compare/v0.1.0...v0.2.0",
-        "[Unreleased]: https://github.com/acme/proj/compare/v0.2.0...HEAD\n"
-        "[0.2.0]: https://github.com/acme/proj/compare/v0.1.0...v0.2.0",
+        "[Unreleased]: https://github.com/acme/proj/compare/v0.2.0...HEAD\n[0.2.0]: https://github.com/acme/proj/compare/v0.1.0...v0.2.0",
     )
     reader = ChangelogReader(versioning_scheme="semver")
     _fixed, applied = reader.autofix(_read(text))

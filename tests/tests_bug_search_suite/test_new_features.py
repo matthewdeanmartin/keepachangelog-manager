@@ -192,14 +192,7 @@ class TestValidateFix:
     def test_fix_repairs_safe_layout_errors_before_parsing(self, tmp_path):
         p = tmp_path / "CHANGELOG.md"
         p.write_text(
-            "# Changelog\n\n"
-            "## [unreleased]\n"
-            "## ADDED\n"
-            "  - > quoted thing\n"
-            "- 1. numbered thing\n\n"
-            "## v1.0.0 - 2024/01/01\n"
-            "### Chnaged\n"
-            "- - nested fix\n",
+            "# Changelog\n\n## [unreleased]\n## ADDED\n  - > quoted thing\n- 1. numbered thing\n\n## v1.0.0 - 2024/01/01\n### Chnaged\n- - nested fix\n",
             encoding="utf-8",
         )
 
@@ -397,8 +390,7 @@ class TestAutoDetectAndAll:
 
     def test_validate_all(self, tmp_path, monkeypatch):
         (tmp_path / "config.toml").write_text(
-            '[[components]]\nname = "api"\nchangelog = "api/CHANGELOG.md"\n\n'
-            '[[components]]\nname = "web"\nchangelog = "web/CHANGELOG.md"\n',
+            '[[components]]\nname = "api"\nchangelog = "api/CHANGELOG.md"\n\n[[components]]\nname = "web"\nchangelog = "web/CHANGELOG.md"\n',
             encoding="utf-8",
         )
         for name in ("api", "web"):

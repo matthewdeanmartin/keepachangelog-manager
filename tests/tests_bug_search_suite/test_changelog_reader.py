@@ -45,21 +45,13 @@ class TestValidateHeadingDepth:
         assert errors > 0
 
     def test_three_hash_heading_with_valid_type_is_ok(self, tmp_path):
-        content = "# Changelog\n\n" "## [Unreleased]\n" "### Added\n" "- Something\n"
+        content = "# Changelog\n\n## [Unreleased]\n### Added\n- Something\n"
         p = write(tmp_path, content)
         reader = ChangelogReader(file_path=p)
         assert reader.validate_layout() == 0
 
     def test_valid_full_changelog_no_errors(self, tmp_path):
-        content = (
-            "# Changelog\n\n"
-            "## [Unreleased]\n"
-            "### Fixed\n"
-            "- A fix\n\n"
-            "## [1.0.0] - 2024-01-01\n"
-            "### Added\n"
-            "- Initial\n"
-        )
+        content = "# Changelog\n\n## [Unreleased]\n### Fixed\n- A fix\n\n## [1.0.0] - 2024-01-01\n### Added\n- Initial\n"
         p = write(tmp_path, content)
         reader = ChangelogReader(file_path=p)
         assert reader.validate_layout() == 0
@@ -200,15 +192,7 @@ class TestValidateEntryContent:
 
 class TestValidateContents:
     def test_versions_out_of_order_reports_warning(self, tmp_path):
-        content = (
-            "# Changelog\n\n"
-            "## [1.0.0] - 2024-01-01\n"
-            "### Added\n"
-            "- Initial\n\n"
-            "## [2.0.0] - 2024-06-01\n"
-            "### Added\n"
-            "- Newer but listed last\n"
-        )
+        content = "# Changelog\n\n## [1.0.0] - 2024-01-01\n### Added\n- Initial\n\n## [2.0.0] - 2024-06-01\n### Added\n- Newer but listed last\n"
         p = write(tmp_path, content)
         reader = ChangelogReader(file_path=p)
         # Validation should report a warning (not raise), but layout is valid
@@ -220,15 +204,7 @@ class TestValidateContents:
 
     def test_unreleased_not_first_reports_warning(self, tmp_path):
         """validate_contents prints a warning but does not raise when Unreleased is not first."""
-        content = (
-            "# Changelog\n\n"
-            "## [1.0.0] - 2024-01-01\n"
-            "### Added\n"
-            "- Item\n\n"
-            "## [Unreleased]\n"
-            "### Fixed\n"
-            "- Fix\n"
-        )
+        content = "# Changelog\n\n## [1.0.0] - 2024-01-01\n### Added\n- Item\n\n## [Unreleased]\n### Fixed\n- Fix\n"
         p = write(tmp_path, content)
         reader = ChangelogReader(file_path=p)
         # Layout is technically valid (keepachangelog handles this)
@@ -247,15 +223,7 @@ class TestValidateContents:
 
 class TestReadIntegration:
     def test_read_valid_changelog_returns_dict(self, tmp_path):
-        content = (
-            "# Changelog\n\n"
-            "## [Unreleased]\n"
-            "### Added\n"
-            "- Coming soon\n\n"
-            "## [1.0.0] - 2024-01-01\n"
-            "### Added\n"
-            "- Initial release\n"
-        )
+        content = "# Changelog\n\n## [Unreleased]\n### Added\n- Coming soon\n\n## [1.0.0] - 2024-01-01\n### Added\n- Initial release\n"
         p = write(tmp_path, content)
         reader = ChangelogReader(file_path=p)
         result = reader.read()
@@ -270,15 +238,7 @@ class TestReadIntegration:
             reader.read()
 
     def test_read_only_released_versions(self, tmp_path):
-        content = (
-            "# Changelog\n\n"
-            "## [2.0.0] - 2024-06-01\n"
-            "### Removed\n"
-            "- Old API\n\n"
-            "## [1.0.0] - 2024-01-01\n"
-            "### Added\n"
-            "- Initial\n"
-        )
+        content = "# Changelog\n\n## [2.0.0] - 2024-06-01\n### Removed\n- Old API\n\n## [1.0.0] - 2024-01-01\n### Added\n- Initial\n"
         p = write(tmp_path, content)
         reader = ChangelogReader(file_path=p)
         result = reader.read()
@@ -295,16 +255,7 @@ class TestReadIntegration:
         assert isinstance(result, dict)
 
     def test_read_multiple_change_types(self, tmp_path):
-        content = (
-            "# Changelog\n\n"
-            "## [1.0.0] - 2024-01-01\n"
-            "### Added\n"
-            "- Feature A\n"
-            "### Fixed\n"
-            "- Bug B\n"
-            "### Security\n"
-            "- Vuln C\n"
-        )
+        content = "# Changelog\n\n## [1.0.0] - 2024-01-01\n### Added\n- Feature A\n### Fixed\n- Bug B\n### Security\n- Vuln C\n"
         p = write(tmp_path, content)
         reader = ChangelogReader(file_path=p)
         result = reader.read()

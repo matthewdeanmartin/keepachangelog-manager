@@ -118,8 +118,7 @@ def test_release_rejects_duplicate_and_older_versions():
     with pytest.raises(
         logging.Error,
         match=(
-            "Unable to release a version older than the last release "
-            "'2.0.0' \\(requested '1.5.0'\\)"
+            "Unable to release a version older than the last release '2.0.0' \\(requested '1.5.0'\\)"
         ),
     ):
         older.release("1.5.0")

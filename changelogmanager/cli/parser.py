@@ -458,8 +458,7 @@ examples:
         default=None,
         metavar="SLUG",
         help=(
-            "Write or update a changelog fragment instead of [Unreleased]. "
-            "Pass an optional slug to choose the fragment filename."
+            "Write or update a changelog fragment instead of [Unreleased]. Pass an optional slug to choose the fragment filename."
         ),
     )
     add_parser.add_argument(
@@ -832,9 +831,7 @@ examples:
         default=None,
         action="store_true",
         help=(
-            "Append [skip ci] to the PR title so merging it does not trigger a "
-            "CI run (conserves build minutes). Defaults to [defaults].skip_ci "
-            "in config."
+            "Append [skip ci] to the PR title so merging it does not trigger a CI run (conserves build minutes). Defaults to [defaults].skip_ci in config."
         ),
     )
     github_pr_parser.add_argument(
@@ -916,8 +913,7 @@ examples:
         default=None,
         action="store_true",
         help=(
-            "Append [skip ci] to the commit message and PR title. Defaults to "
-            "[defaults].skip_ci in config."
+            "Append [skip ci] to the commit message and PR title. Defaults to [defaults].skip_ci in config."
         ),
     )
     release_bump_parser.add_argument(
@@ -1129,8 +1125,7 @@ examples:
         type=int,
         default=None,
         help=(
-            "Refuse to backfill when the walked range exceeds this many commits "
-            "(default 5000); pass 0 to disable the guard for monster repos"
+            "Refuse to backfill when the walked range exceeds this many commits (default 5000); pass 0 to disable the guard for monster repos"
         ),
     )
     add_dry_run_argument(backfill_parser)
@@ -1293,8 +1288,7 @@ examples:
         choices=["auto", "conventional", "gitmoji", "keepachangelog"],
         default=None,
         help=(
-            "Commit message schema to lint against; overrides the configured "
-            "message_lint.schema (default: config or auto)"
+            "Commit message schema to lint against; overrides the configured message_lint.schema (default: config or auto)"
         ),
     )
     lint_commits_parser.add_argument(
@@ -1315,8 +1309,7 @@ examples:
         type=int,
         default=None,
         help=(
-            "Refuse to audit when the walked range exceeds this many commits "
-            "(default 5000); pass 0 to disable the guard"
+            "Refuse to audit when the walked range exceeds this many commits (default 5000); pass 0 to disable the guard"
         ),
     )
     add_dry_run_argument(lint_commits_parser)
@@ -1325,7 +1318,7 @@ examples:
     rewrite_messages_parser = subparsers.add_parser(
         "rewrite-messages",
         help=(
-            "Plan subject rewrites over UNPUSHED commits (apply not yet " "implemented)"
+            "Plan subject rewrites over UNPUSHED commits (apply not yet implemented)"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
@@ -1368,8 +1361,7 @@ examples:
         choices=TYPES_OF_CHANGE,
         default=None,
         help=(
-            "Force every suggested subject to use this category prefix instead "
-            "of guessing one from keywords"
+            "Force every suggested subject to use this category prefix instead of guessing one from keywords"
         ),
     )
     rewrite_messages_parser.add_argument(
@@ -1377,8 +1369,7 @@ examples:
         action="store_true",
         default=False,
         help=(
-            "Apply the rewrite (NOT YET IMPLEMENTED; requires --yes or an "
-            "interactive confirmation, then fails fast)"
+            "Apply the rewrite (NOT YET IMPLEMENTED; requires --yes or an interactive confirmation, then fails fast)"
         ),
     )
     rewrite_messages_parser.add_argument(
@@ -1394,8 +1385,7 @@ examples:
         type=int,
         default=None,
         help=(
-            "Refuse when the unpushed range exceeds this many commits "
-            "(default 5000); pass 0 to disable the guard"
+            "Refuse when the unpushed range exceeds this many commits (default 5000); pass 0 to disable the guard"
         ),
     )
     rewrite_messages_parser.set_defaults(handler=commands.command_rewrite_messages)

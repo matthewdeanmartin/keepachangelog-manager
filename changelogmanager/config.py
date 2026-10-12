@@ -208,8 +208,7 @@ def read_toml(path: Path) -> dict[str, Any]:
         raise logging.Error(
             file_path=str(path),
             message=(
-                "TOML configuration requires Python 3.11+ or the 'tomli' package "
-                "(tomllib unavailable)"
+                "TOML configuration requires Python 3.11+ or the 'tomli' package (tomllib unavailable)"
             ),
         )
     cached = _get_cached_copy(_RAW_TOML_CACHE, path)
@@ -454,8 +453,7 @@ def get_message_lint_options(config: Optional[str]) -> LintOptions:
         raise logging.Error(
             file_path=config,
             message=(
-                f"Invalid message_lint.schema {schema!r}; "
-                f"choose one of {', '.join(MESSAGE_LINT_SCHEMAS)}"
+                f"Invalid message_lint.schema {schema!r}; choose one of {', '.join(MESSAGE_LINT_SCHEMAS)}"
             ),
         )
 
@@ -726,8 +724,7 @@ def serialize_config_toml(config: Mapping[str, Any], *, prefix: str) -> str:
             f"scheme = {toml_string(str(versioning.get('scheme', 'semver')))}",
             "",
             table("validation"),
-            f"enforce_preamble = "
-            f"{toml_bool(bool(validation.get('enforce_preamble', False)))}",
+            f"enforce_preamble = {toml_bool(bool(validation.get('enforce_preamble', False)))}",
         ]
     )
 
@@ -767,8 +764,7 @@ def serialize_config_toml(config: Mapping[str, Any], *, prefix: str) -> str:
                 "",
                 array_table("components"),
                 f"name = {toml_string(str(component.get('name', 'default')))}",
-                f"changelog = "
-                f"{toml_string(str(component.get('changelog', 'CHANGELOG.md')))}",
+                f"changelog = {toml_string(str(component.get('changelog', 'CHANGELOG.md')))}",
             ]
         )
         match = component.get("match")

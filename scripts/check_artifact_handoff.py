@@ -45,10 +45,14 @@ def check_workflow(path: Path) -> list[str]:
         return errors
 
     if uploads and not downloads:
-        errors.append(f"{path.name}: has upload-artifact but no matching download-artifact")
+        errors.append(
+            f"{path.name}: has upload-artifact but no matching download-artifact"
+        )
         return errors
     if downloads and not uploads:
-        errors.append(f"{path.name}: has download-artifact but no matching upload-artifact")
+        errors.append(
+            f"{path.name}: has download-artifact but no matching upload-artifact"
+        )
         return errors
 
     for upload_job, upload_step in uploads:
@@ -57,15 +61,11 @@ def check_workflow(path: Path) -> list[str]:
             download_with = download_step.get("with", {}) or {}
             if upload_with.get("name") != download_with.get("name"):
                 errors.append(
-                    f"{path.name}: artifact name mismatch between "
-                    f"{upload_job} ({upload_with.get('name')!r}) and "
-                    f"{download_job} ({download_with.get('name')!r})"
+                    f"{path.name}: artifact name mismatch between {upload_job} ({upload_with.get('name')!r}) and {download_job} ({download_with.get('name')!r})"
                 )
             if upload_with.get("path") != download_with.get("path"):
                 errors.append(
-                    f"{path.name}: artifact path mismatch between "
-                    f"{upload_job} ({upload_with.get('path')!r}) and "
-                    f"{download_job} ({download_with.get('path')!r})"
+                    f"{path.name}: artifact path mismatch between {upload_job} ({upload_with.get('path')!r}) and {download_job} ({download_with.get('path')!r})"
                 )
 
     if not errors:

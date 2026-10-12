@@ -225,8 +225,7 @@ def parse_fragment_text(
 
     if fragment.status not in KNOWN_STATUSES:
         fragment.lint.append(
-            f"unknown status {fragment.status!r}; expected one of "
-            f"{', '.join(KNOWN_STATUSES)}"
+            f"unknown status {fragment.status!r}; expected one of {', '.join(KNOWN_STATUSES)}"
         )
 
     return fragment

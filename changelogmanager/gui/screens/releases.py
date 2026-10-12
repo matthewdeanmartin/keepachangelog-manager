@@ -36,8 +36,7 @@ class ReleasesScreen(
             "CI detected — live calls enabled."
             if running_in_ci()
             else (
-                "Local mode — dry-run is on by default. Copy the sample CI snippet to "
-                "run real releases from your pipeline."
+                "Local mode — dry-run is on by default. Copy the sample CI snippet to run real releases from your pipeline."
             )
         )
         ttk.Label(self.work_area, text=banner, wraplength=820, foreground="#444").pack(

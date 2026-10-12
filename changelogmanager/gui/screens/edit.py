@@ -339,8 +339,7 @@ class EditScreen(
         if self.app_state.load_error and Path(changelog.get_file_path()).is_file():
             messagebox.showerror(
                 "Save blocked",
-                "The changelog on disk could not be loaded, so saving would "
-                f"destroy its contents:\n\n{self.app_state.load_error}",
+                f"The changelog on disk could not be loaded, so saving would destroy its contents:\n\n{self.app_state.load_error}",
             )
             self.status("Save blocked: changelog failed to load.")
             return False

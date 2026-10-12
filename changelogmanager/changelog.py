@@ -319,8 +319,7 @@ class Changelog:
             raise logging.Error(
                 file_path=self.get_file_path(),
                 message=(
-                    f"Index {index} out of range for '{change_type}' "
-                    f"(0..{len(entries) - 1})"
+                    f"Index {index} out of range for '{change_type}' (0..{len(entries) - 1})"
                 ),
             )
         removed = entries.pop(index)
@@ -363,8 +362,7 @@ class Changelog:
             raise logging.Error(
                 file_path=self.get_file_path(),
                 message=(
-                    f"Index {index} out of range for '{change_type}' "
-                    f"(0..{len(entries) - 1})"
+                    f"Index {index} out of range for '{change_type}' (0..{len(entries) - 1})"
                 ),
             )
 
@@ -505,8 +503,7 @@ class Changelog:
             raise logging.Error(
                 file_path=self.get_file_path(),
                 message=(
-                    "Unable to release a version older than the last release "
-                    f"'{self.version()}' (requested '{target_version}')"
+                    f"Unable to release a version older than the last release '{self.version()}' (requested '{target_version}')"
                 ),
             )
 
@@ -737,10 +734,7 @@ class Changelog:
             "Rewriting Keep a Changelog preamble for versioning scheme %s",
             self.versioning_scheme,
         )
-        replacement = (
-            "and this project adheres to "
-            f"{get_versioning_markdown(self.versioning_scheme)}."
-        )
+        replacement = f"and this project adheres to {get_versioning_markdown(self.versioning_scheme)}."
         semver_preamble = (
             r"and this project adheres to "
             r"\[Semantic Versioning\]\(https://semver\.org/spec/v2\.0\.0\.html\)\."

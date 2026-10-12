@@ -60,8 +60,7 @@ def write_component_config(path: Path) -> None:
 
 def test_parse_log_with_files_parses_multifile_records():
     commits = commit_routing.parse_log_with_files(
-        "\x1ecommit\x1efeat: add api\napi/service.py\napi/tests/test_service.py\n"
-        "\x1ecommit\x1efix: repair ui\nweb/app.js\n"
+        "\x1ecommit\x1efeat: add api\napi/service.py\napi/tests/test_service.py\n\x1ecommit\x1efix: repair ui\nweb/app.js\n"
     )
 
     assert commits == [

@@ -245,7 +245,6 @@ def validate_supported_schema_version(schema_version: str) -> None:
         supported = ", ".join(SCHEMA_VERSIONS)
         raise logging.Error(
             message=(
-                f"Unsupported KAG-Manager schema version '{schema_version}'. "
-                f"Only the current schema exists today; supported versions: {supported}"
+                f"Unsupported KAG-Manager schema version '{schema_version}'. Only the current schema exists today; supported versions: {supported}"
             )
         )

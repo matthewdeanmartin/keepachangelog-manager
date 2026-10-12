@@ -149,10 +149,7 @@ def test_appstate_invalid_changelog_yields_no_model(tmp_path, monkeypatch):
     from changelogmanager.gui.state import AppState
 
     monkeypatch.chdir(tmp_path)
-    original = (
-        "# Changelog\n\n## [Unreleased]\n\n### Added\n\n"
-        "- Top-level entry\n- 1. a numbered list entry (invalid)\n"
-    )
+    original = "# Changelog\n\n## [Unreleased]\n\n### Added\n\n- Top-level entry\n- 1. a numbered list entry (invalid)\n"
     (tmp_path / "CHANGELOG.md").write_text(original, encoding="UTF-8")
     with patch("changelogmanager.gui.state.auto_detect_config", return_value=None):
         state = AppState()

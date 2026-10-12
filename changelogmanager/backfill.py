@@ -8,10 +8,10 @@ import re
 import subprocess  # nosec
 import unicodedata
 from collections import OrderedDict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import UNRELEASED_ENTRY
@@ -498,8 +498,7 @@ def cap_release_entries(
         BackfillEntry(
             change_type="changed",
             text=(
-                f"… and {dropped} more commit(s) in this release "
-                "(truncated; narrow the range to capture them)."
+                f"… and {dropped} more commit(s) in this release (truncated; narrow the range to capture them)."
             ),
             source="commits",
             confidence="low",
@@ -1167,8 +1166,7 @@ def plan_backfill(
             sources = ["tags", "commits", "github-releases", "github-prs"]
         elif source == "all" and not repository:
             logger.warning(
-                "backfill --source all without --repository falls back to local sources only; "
-                "switch to --source local to suppress this warning"
+                "backfill --source all without --repository falls back to local sources only; switch to --source local to suppress this warning"
             )
     elif source == "github-releases":
         if not repository:

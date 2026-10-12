@@ -106,8 +106,7 @@ def test_github_pr_no_skip_ci_flag_overrides(tmp_path, monkeypatch, capsys):
 def test_github_pr_title_follows_config_false(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     Path("changelogmanager.toml").write_text(
-        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n\n'
-        "[defaults]\nskip_ci = false\n",
+        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n\n[defaults]\nskip_ci = false\n',
         encoding="UTF-8",
     )
     monkeypatch.setenv("GITHUB_TOKEN", "x")
@@ -168,8 +167,7 @@ def test_version_future_honors_initial_version_end_to_end(tmp_path, monkeypatch)
     monkeypatch.chdir(tmp_path)
     Path("CHANGELOG.md").write_text(EMPTY_CHANGELOG, encoding="UTF-8")
     Path("changelogmanager.toml").write_text(
-        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n\n'
-        '[versioning]\nscheme = "semver"\ninitial_version = "0.1.0"\n',
+        '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n\n[versioning]\nscheme = "semver"\ninitial_version = "0.1.0"\n',
         encoding="UTF-8",
     )
     # The future reference should propose the configured initial version.

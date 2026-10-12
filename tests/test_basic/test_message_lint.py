@@ -152,8 +152,7 @@ class TestConfigReader:
     def test_bad_schema_is_rejected(self, tmp_path):
         config = tmp_path / "changelogmanager.toml"
         config.write_text(
-            '[validation.message_lint]\nschema = "nonsense"\n'
-            '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n',
+            '[validation.message_lint]\nschema = "nonsense"\n[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n',
             encoding="utf-8",
         )
         import changelogmanager.llvm_diagnostics as logging
@@ -164,8 +163,7 @@ class TestConfigReader:
     def test_bad_regex_is_rejected(self, tmp_path):
         config = tmp_path / "changelogmanager.toml"
         config.write_text(
-            '[validation.message_lint]\nexempt_patterns = ["(unclosed"]\n'
-            '[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n',
+            '[validation.message_lint]\nexempt_patterns = ["(unclosed"]\n[[components]]\nname = "default"\nchangelog = "CHANGELOG.md"\n',
             encoding="utf-8",
         )
         import changelogmanager.llvm_diagnostics as logging

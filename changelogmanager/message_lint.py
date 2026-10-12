@@ -116,11 +116,7 @@ class LintOptions:
 
 
 _VALID_CATEGORIES = ", ".join(name.capitalize() + ":" for name in TYPES_OF_CHANGE)
-_UNCLASSIFIED_HINT = (
-    f"prefix with a Keep a Changelog category ({_VALID_CATEGORIES}) "
-    "or a Conventional type (feat:, fix:, ... or chore:/docs:/refactor: "
-    "to intentionally skip)"
-)
+_UNCLASSIFIED_HINT = f"prefix with a Keep a Changelog category ({_VALID_CATEGORIES}) or a Conventional type (feat:, fix:, ... or chore:/docs:/refactor: to intentionally skip)"
 
 
 def subject_of(message: str) -> str:
@@ -213,8 +209,7 @@ def classify_subject(
             subject=subject,
             outcome=LintOutcome.UNCLASSIFIED,
             reason=(
-                f"'{conv_type}:' is a non-changelog type but skip types are "
-                "disabled (allow_skip_types = false)"
+                f"'{conv_type}:' is a non-changelog type but skip types are disabled (allow_skip_types = false)"
             ),
         )
 

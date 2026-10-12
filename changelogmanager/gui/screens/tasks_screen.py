@@ -57,8 +57,7 @@ class TasksScreen(
         keep_check.pack(side=tk.LEFT, padx=8)
         add_tooltip(
             keep_check,
-            "Leave promoted tasks in TASKS.md after copying them into "
-            "[Unreleased]. Off: completed tasks are removed once promoted.",
+            "Leave promoted tasks in TASKS.md after copying them into [Unreleased]. Off: completed tasks are removed once promoted.",
         )
 
         # Parsed task list with inline check/uncheck buttons.

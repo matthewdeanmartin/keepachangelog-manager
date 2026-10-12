@@ -45,8 +45,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="changelogmanager-lint-message",
         description=(
-            "Lint a commit message subject against the Keep a Changelog commit "
-            "schema (intended for the pre-commit commit-msg stage)."
+            "Lint a commit message subject against the Keep a Changelog commit schema (intended for the pre-commit commit-msg stage)."
         ),
     )
     parser.add_argument(
@@ -116,8 +115,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         line_number=Range(start=1),
         column_number=Range(start=1),
         message=(
-            f"commit subject is not classifiable by the '{options.schema}' "
-            f"schema: {result.reason}"
+            f"commit subject is not classifiable by the '{options.schema}' schema: {result.reason}"
         ),
         line=subject,
     ).report()

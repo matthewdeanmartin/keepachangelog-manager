@@ -314,8 +314,8 @@ def test_command_github_release_supports_dry_run_and_real_execution(
         ("create_release", changelog, True),
     ]
     assert (
-        "Created draft GitHub release v1.2.3 in owner/repo: "
-        "https://github.com/owner/repo/releases/tag/v1.2.3" in create_output
+        "Created draft GitHub release v1.2.3 in owner/repo: https://github.com/owner/repo/releases/tag/v1.2.3"
+        in create_output
     )
 
 

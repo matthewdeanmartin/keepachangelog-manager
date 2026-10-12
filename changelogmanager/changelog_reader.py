@@ -125,8 +125,7 @@ ENTRY_RULES: list[_EntryRule] = [
         "pattern": re2.compile(r"^([+*-]) .*"),
         "error": "Doubled list markers are not permitted in changelog entries",
         "hint": (
-            "Use a single '- ' marker per line; a nested bullet belongs on "
-            "its own indented line"
+            "Use a single '- ' marker per line; a nested bullet belongs on its own indented line"
         ),
     },
     {
@@ -314,8 +313,7 @@ class ChangelogReader:
                     line_number=logging.Range(start=line_number),
                     column_number=logging.Range(start=1, range=depth),
                     message=(
-                        f"'{content}' is a change section but is at heading "
-                        f"level {depth} (##); change sections MUST be level 3 (###)"
+                        f"'{content}' is a change section but is at heading level {depth} (##); change sections MUST be level 3 (###)"
                     ),
                     expectations=f"Use '### {change_type}' instead of '## {content}'",
                 )
@@ -404,8 +402,7 @@ class ChangelogReader:
                     f"Incompatible release date for release version '{version}', MUST be 'yyyy-mm-dd'"  # pylint: disable=C0301
                 ),
                 expectations=(
-                    f"'{release_date}' is not a real calendar date; "
-                    "use a valid ISO date like '2022-12-31'"
+                    f"'{release_date}' is not a real calendar date; use a valid ISO date like '2022-12-31'"
                 ),
             )
 
@@ -430,8 +427,7 @@ class ChangelogReader:
                 column_number=logging.Range(start=line.find("#") + 4, range=depth - 3),
                 message="Heading depth is too high, MUST be less or equal to 3",
                 expectations=(
-                    "Keep a Changelog uses '# Changelog', "
-                    "'## [version] - date', and '### Change type' only"
+                    "Keep a Changelog uses '# Changelog', '## [version] - date', and '### Change type' only"
                 ),
             )
             return
@@ -505,8 +501,7 @@ class ChangelogReader:
             logging.Error(
                 file_path=self.file_path,
                 message=(
-                    "Missing canonical Keep a Changelog preamble; "
-                    f"expected references to: {', '.join(missing)}"
+                    f"Missing canonical Keep a Changelog preamble; expected references to: {', '.join(missing)}"
                 ),
             )
         ]
@@ -748,8 +743,7 @@ class ChangelogReader:
                     logging.Warning(
                         file_path=self.file_path,
                         message=(
-                            f"Versions are incorrectly ordered: "
-                            f"{prev_version} -> {new_version}"
+                            f"Versions are incorrectly ordered: {prev_version} -> {new_version}"
                         ),
                     ).report()
 
@@ -839,9 +833,7 @@ class ChangelogReader:
                     continue
                 label = version.capitalize() if version == UNRELEASED_ENTRY else version
                 violations.append(
-                    f"Version '{label}' is missing a link reference "
-                    f"('[{label}]: ...'); strict mode requires every linked "
-                    "version to have one"
+                    f"Version '{label}' is missing a link reference ('[{label}]: ...'); strict mode requires every linked version to have one"
                 )
 
         # --- Ordering / empty / duplicate --------------------------------
@@ -857,8 +849,7 @@ class ChangelogReader:
                 new_version = parse_version(version, self.versioning_scheme)
                 if prev_version and prev_version <= new_version:
                     violations.append(
-                        f"Versions are incorrectly ordered: {prev_version} -> "
-                        f"{new_version}"
+                        f"Versions are incorrectly ordered: {prev_version} -> {new_version}"
                     )
                 prev_version = new_version
 
@@ -889,8 +880,7 @@ class ChangelogReader:
         )
         if any(keyword not in head for keyword in expected):
             violations.append(
-                "Missing canonical Keep a Changelog preamble (references to "
-                f"Keep a Changelog and {expected[1]})"
+                f"Missing canonical Keep a Changelog preamble (references to Keep a Changelog and {expected[1]})"
             )
 
         return violations
@@ -922,8 +912,7 @@ class ChangelogReader:
             for key, count in seen.items():
                 if count > 1:
                     out.append(
-                        f"Duplicate entry under '{change_type}' in version "
-                        f"'{version}' ({count}x): '{key}'"
+                        f"Duplicate entry under '{change_type}' in version '{version}' ({count}x): '{key}'"
                     )
         return out
 
@@ -989,8 +978,7 @@ class ChangelogReader:
                     logging.Warning(
                         file_path=self.file_path,
                         message=(
-                            f"Duplicate entry under '{change_type}' in version "
-                            f"'{version}' ({count}x): '{key}'"
+                            f"Duplicate entry under '{change_type}' in version '{version}' ({count}x): '{key}'"
                         ),
                     ).report()
 
@@ -1025,8 +1013,7 @@ class ChangelogReader:
                 canonical = change_type.lower()
                 if canonical != change_type:
                     applied.append(
-                        f"Renamed change type '{change_type}' -> '{canonical}' "
-                        f"in version '{version}'"
+                        f"Renamed change type '{change_type}' -> '{canonical}' in version '{version}'"
                     )
 
                 if canonical not in TYPES_OF_CHANGE:
@@ -1045,8 +1032,7 @@ class ChangelogReader:
                     key = str(entry).strip().lower()
                     if key in seen:
                         applied.append(
-                            f"Removed duplicate entry under '{canonical}' "
-                            f"in version '{version}': '{entry}'"
+                            f"Removed duplicate entry under '{canonical}' in version '{version}': '{entry}'"
                         )
                         continue
                     seen.add(key)
@@ -1080,8 +1066,7 @@ class ChangelogReader:
         new_keys = [key for key, _ in sorted_releases]
         if prev_keys != new_keys:
             applied.append(
-                "Reordered released versions in descending "
-                f"{version_scheme_label(self.versioning_scheme)} order"
+                f"Reordered released versions in descending {version_scheme_label(self.versioning_scheme)} order"
             )
         for key, value in sorted_releases:
             result[key] = value

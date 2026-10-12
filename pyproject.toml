@@ -3,17 +3,15 @@ name = "keepachangelog-manager-fork"
 description = "Python package allowing you to manage your CHANGELOG.md files"
 readme = "README.md"
 version = "6.9.0"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICENSE.md"]
 dependencies = [
     "jsonschema>=4.25.1,<5",
     "packaging>=24.0",
     "semantic_version>=2.10.0,<3",
-    "urllib3>=2.7.0; python_version >= '3.10'",
-    "urllib3>=2.6.0; python_version < '3.10'",
+    "urllib3>=2.7.0",
     "inquirer>=3.4.0",
-    "tomli>=2.4.1; python_version < '3.11'",
     "keyring>=25.0,<27",
     "tomlkit>=0.13.2,<1",
 ]
@@ -58,14 +56,12 @@ format = [
 # native wheels are not available on every interpreter (e.g. brand-new CPython
 # releases); the code falls back to stdlib re/json when they are absent.
 fast = [
-    "google-re2>=1.1.20251105; python_version >= '3.10'",
-    "google-re2==1.1.20250805; python_version < '3.10'",
+    "google-re2>=1.1.20251105",
     "orjson>=3.11.5",
 ]
 all = [
     "mdformat>=0.7",
-    "google-re2>=1.1.20251105; python_version >= '3.10'",
-    "google-re2==1.1.20250805; python_version < '3.10'",
+    "google-re2>=1.1.20251105",
     "orjson>=3.11.5",
 ]
 
@@ -106,10 +102,10 @@ dev = [
     { include-group = "security" },
     # Install the fast backends in the dev env so day-to-day work exercises the
     # orjson/re2 code paths (CI on new interpreters tests the stdlib fallback).
-    "google-re2>=1.1.20251105; python_version >= '3.10'",
+    "google-re2>=1.1.20251105",
     "orjson>=3.11.5",
     "dead>=2.1.0",
-    "dont-be-lazy>=0.1.0; python_version >= '3.10'",
+    "dont-be-lazy>=0.1.0",
     "vulture>=2.16",
 ]
 
@@ -121,7 +117,7 @@ build-backend = "hatchling.build"
 
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.11"
 strict = true
 warn_unused_configs = true
 check_untyped_defs = true
@@ -166,11 +162,11 @@ changelog = "CHANGELOG.md"
 
 [tool.ruff]
 line-length = 160
-target-version = "py39"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "RET", "ARG", "PTH", "ERA"]
-ignore = [
+ignore = ["RUF100", 
     "E203", "E501", # line length handled by line-length,
     "E402", # Sick and tired of this stupid rule.
     "UP045",

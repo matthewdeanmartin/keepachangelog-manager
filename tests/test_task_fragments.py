@@ -273,8 +273,7 @@ def test_ships_to_changelog_flags():
 
 def test_github_profile_maps_state_and_drops_gitlab_weight():
     frag = parse_fragment_text(
-        "# e — E\n- **Category:** added\n- **Status:** done\n"
-        "- **Labels:** ui\n- **Assignees:** @m\n- **Weight:** 5\n\n---\n\nbody\n",
+        "# e — E\n- **Category:** added\n- **Status:** done\n- **Labels:** ui\n- **Assignees:** @m\n- **Weight:** 5\n\n---\n\nbody\n",
         stem="e",
     )
     payload = fragment_to_issue(frag, "github")

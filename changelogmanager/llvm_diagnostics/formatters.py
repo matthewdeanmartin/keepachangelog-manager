@@ -45,10 +45,7 @@ class Llvm(DiagnosticsFormatter):
 
         msg = ""
         if message.file_path:
-            msg = (
-                f"{message.file_path}:{message.line_number.start}:"
-                f"{message.column_number.start}: "
-            )
+            msg = f"{message.file_path}:{message.line_number.start}:{message.column_number.start}: "
 
         msg = utils.format_string(
             f"{msg}{self.LEVEL_FORMAT[message.level]}: {message.message}",
