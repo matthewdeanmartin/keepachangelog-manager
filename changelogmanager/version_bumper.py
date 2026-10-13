@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import tomlkit
+
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.file_updates import rollback_file_updates
 from changelogmanager.runtime_logging import get_logger
@@ -14,6 +16,7 @@ from changelogmanager.vendor.jiggle_version import (
     update_pyproject_toml,
     update_python_file,
 )
+from changelogmanager.vendor.jiggle_version.update import has_editable_python_version
 from changelogmanager.versioning import parse_version
 
 logger = get_logger(__name__)
@@ -27,6 +30,28 @@ HAS_JIGGLE = True
 def jiggle_available() -> bool:
     """Returns True; the version-bump helpers are vendored and always available."""
     return HAS_JIGGLE
+
+
+def version_file_issue(path: Path) -> str | None:
+    """Check explicit version ownership without changing the file."""
+    if not path.is_file():
+        return f"Version file does not exist: {path}"
+    try:
+        content = path.read_text(encoding="utf-8")
+        if path.name == "pyproject.toml":
+            document = tomlkit.parse(content)
+            tables = (
+                document.get("project", {}),
+                document.get("tool", {}).get("setuptools", {}),
+            )
+            editable = any(isinstance(table.get("version"), str) for table in tables)
+        else:
+            editable = has_editable_python_version(content, filename=path.name)
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
+        return f"Cannot read version file {path}: {exc}"
+    return (
+        None if editable else f"Explicit version file has no editable version: {path}"
+    )
 
 
 def plan_version_files(

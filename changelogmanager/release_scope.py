@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from string import Formatter
+from typing import Any
 
 import changelogmanager.llvm_diagnostics as logging
 
@@ -21,16 +23,26 @@ class ReleaseScope:
     def tag(self, version: str) -> str:
         return self.tag_template.format(component=self.component, version=version)
 
-    def tag_pattern(self) -> str:
+    def tag_parts(self) -> tuple[str, str]:
         prefix, suffix = self.tag_template.replace("{component}", self.component).split(
             "{version}"
         )
+        return prefix, suffix
+
+    def tag_pattern(self) -> str:
+        prefix, suffix = self.tag_parts()
         return re.escape(prefix) + r"[0-9][0-9A-Za-z._!+-]*" + re.escape(suffix)
 
-    def version(self, value: str) -> str:
-        prefix, suffix = self.tag_template.replace("{component}", self.component).split(
-            "{version}"
+    def owns_tag(self, tag: str) -> bool:
+        return re.fullmatch(self.tag_pattern(), tag) is not None
+
+    def tag_glob(self) -> str:
+        return self.tag_template.replace("{component}", self.component).replace(
+            "{version}", "*"
         )
+
+    def version(self, value: str) -> str:
+        prefix, suffix = self.tag_parts()
         if re.fullmatch(self.tag_pattern(), value):
             return value[len(prefix) : len(value) - len(suffix) if suffix else None]
         if re.fullmatch(r"[0-9][0-9A-Za-z._!+-]*", value):
@@ -52,13 +64,26 @@ def release_scope(config: str | None, component: str = "default") -> ReleaseScop
         return ReleaseScope(root=Path.cwd())
     from changelogmanager.config import get_components_from_config
 
-    components = get_components_from_config(config)
+    scopes = resolve_release_scopes(config, get_components_from_config(config))
+    if component not in scopes:
+        raise logging.Error(message=f"Unknown component name: {component}")
+    return scopes[component]
+
+
+def resolve_release_scopes(
+    config: str, components: Sequence[Mapping[str, Any]]
+) -> dict[str, ReleaseScope]:
+    """Validate release ownership without loading configuration recursively."""
     root = Path(config).resolve().parent
     scopes: dict[str, ReleaseScope] = {}
     owned: dict[Path, str] = {}
     tags: dict[str, str] = {}
     for item in components:
         name = item["name"]
+        if name in scopes:
+            raise logging.Error(
+                file_path=config, message=f"Duplicate component name: {name}"
+            )
         if len(components) > 1 and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", name):
             raise logging.Error(
                 message=f"Component {name!r} needs a simple identifier (letters, digits, hyphens, underscores) for release branches"
@@ -131,7 +156,15 @@ def release_scope(config: str | None, component: str = "default") -> ReleaseScop
                 owned[path] = name
                 resolved.append(path)
             paths = tuple(resolved)
-        scopes[name] = ReleaseScope(name, root, paths, template, len(components) > 1)
-    if component not in scopes:
-        raise logging.Error(message=f"Unknown component name: {component}")
-    return scopes[component]
+        scope = ReleaseScope(name, root, paths, template, len(components) > 1)
+        for other in scopes.values():
+            prefix = max((scope.tag_parts()[0], other.tag_parts()[0]), key=len)
+            suffix = max((scope.tag_parts()[1], other.tag_parts()[1]), key=len)
+            witness = prefix + "0.1.0" + suffix
+            if other.owns_tag(witness) and scope.owns_tag(witness):
+                raise logging.Error(
+                    file_path=config,
+                    message=f"Components {other.component!r} and {name!r} have colliding tag templates",
+                )
+        scopes[name] = scope
+    return scopes

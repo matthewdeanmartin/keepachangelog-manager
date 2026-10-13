@@ -127,7 +127,7 @@ def test_git_log_with_files_invokes_git_and_parses_output(monkeypatch):
         "log",
         "--no-merges",
         "--name-only",
-        "--pretty=format:\x1ecommit\x1e%s",
+        "--pretty=format:\x1ecommit\x1e%H%x1f%s",
         "v1.0.0..HEAD",
     ]
     assert commits == [
@@ -233,10 +233,21 @@ def test_main_from_commits_all_dry_run_reports_json_and_skips_unmatched_strict_c
     assert payload["since"] is None
     assert payload["dry_run"] == "would add 1 entries across 3 components"
     assert payload["components"] == [
-        {"component": "api", "path": str(tmp_path / "api/CHANGELOG.md"), "added": []},
-        {"component": "web", "path": str(tmp_path / "web/CHANGELOG.md"), "added": []},
+        {
+            "component": "api",
+            "since": None,
+            "path": str(tmp_path / "api/CHANGELOG.md"),
+            "added": [],
+        },
+        {
+            "component": "web",
+            "since": None,
+            "path": str(tmp_path / "web/CHANGELOG.md"),
+            "added": [],
+        },
         {
             "component": "default",
+            "since": None,
             "path": str(tmp_path / "CHANGELOG.md"),
             "added": [{"change_type": "added", "message": "improve overview"}],
         },

@@ -79,7 +79,10 @@ own file until collection time.
 
 ### Fragment directory discovery
 
-Unless you pass `--fragment-dir`, the CLI looks for:
+`--fragment-dir` overrides configured fragment directories. Otherwise selection
+uses the component's `fragment_directory`, then `[fragments].directory`, then
+discovery in the configuration directory (or the working directory without a
+config):
 
 1. `changelog.d`
 1. `changes`
@@ -222,6 +225,9 @@ subcommands act on that component's task file:
 # adds to api/TASKS.md
 changelogmanager --component api tasks add fixed "Handle empty payloads"
 
+# after completing the task, mark it done
+changelogmanager --component api tasks check "Handle empty payloads"
+
 # promotes api/TASKS.md into api/CHANGELOG.md's [Unreleased]
 changelogmanager --component api tasks promote
 ```
@@ -234,3 +240,6 @@ In the GUI, picking a component in the Workspace panel (or on the
 **Components / Batch** screen) repoints both the Changelog and the Tasks-file
 pickers at that component's files. The **New…** component dialog prompts for an
 optional tasks file.
+
+For a complete configuration with independent releases, routing, and fragment
+directories, see [Component Workflows](components.md).

@@ -28,6 +28,7 @@ from changelogmanager import services
 from changelogmanager.cli.config_resolve import resolved_config_path  # noqa: E402
 from changelogmanager.cli.context import CliContext, emit, print_dry_run
 from changelogmanager.cli.loaders import resolve_formatter
+from changelogmanager.commit_routing import component_history
 from changelogmanager.config import (
     config_format_from_path,
     default_config_path_for_format,
@@ -95,6 +96,53 @@ def command_config(args: argparse.Namespace, ctx: CliContext) -> None:
     ctx.json_payload["config_source"] = source
     if active_path:
         ctx.json_payload["config_path"] = active_path
+
+
+def command_components(args: argparse.Namespace, ctx: CliContext) -> None:
+    """Inspect configured components without loading or modifying changelogs."""
+    from changelogmanager.components import inspect_components
+
+    config = resolved_config_path(args)
+    if not config:
+        raise logging.Error(
+            message="components requires a configuration file (use --config)"
+        )
+    components = inspect_components(config)
+    if args.components_command == "show":
+        name = args.name or args.component
+        components = [item for item in components if item["name"] == name]
+        if not components:
+            raise logging.Error(message=f"Unknown component name: {name}")
+    ctx.json_payload["config_path"] = str(Path(config).resolve())
+    ctx.json_payload["components"] = components
+    valid = all(
+        not item["issues"] and not item["routing_issues"] for item in components
+    )
+    ctx.json_payload["valid"] = valid
+    for item in components:
+        emit(
+            ctx,
+            text=f"[{item['name']}] {item['changelog']} (tags: {item['tag_template']})",
+        )
+        if args.components_command == "show":
+            for key in (
+                "tasks_file",
+                "fragment_directory",
+                "fragment_source",
+                "match",
+                "fallback",
+                "version_files",
+                "version_file_selection",
+                "release_branch_template",
+            ):
+                emit(ctx, text=f"  {key}: {item[key]}")
+            emit(ctx, text="  inherited settings:")
+            for key, value in item["inherited"].items():
+                emit(ctx, text=f"    {key}: {value}")
+        for issue in item["issues"] + item["routing_issues"]:
+            emit(ctx, text=f"  issue: {issue}")
+        for warning in item["warnings"]:
+            emit(ctx, text=f"  warning: {warning}")
 
 
 def command_config_init(args: argparse.Namespace, ctx: CliContext) -> None:
@@ -553,13 +601,18 @@ def command_add(args: argparse.Namespace, ctx: CliContext) -> None:
 
     if getattr(args, "fragment", None) is not None:
         from changelogmanager.fragments import (  # noqa: PLC0415
-            discover_fragment_dir,
             write_fragment,
         )
 
         fragment_value = getattr(args, "fragment", None)
         slug = None if fragment_value is True else str(fragment_value)
-        fragment_dir = discover_fragment_dir(getattr(args, "fragment_dir", None))
+        from changelogmanager.components import resolve_fragment_directory
+
+        fragment_dir = resolve_fragment_directory(
+            resolved_config_path(args),
+            args.component,
+            getattr(args, "fragment_dir", None),
+        )
         if changelog_entry["confirm"] == "Yes":
             if args.dry_run:
                 path = write_fragment_preview(
@@ -811,8 +864,11 @@ def command_fragments(args: argparse.Namespace, ctx: CliContext) -> None:
 
     config = getattr(args, "resolved_config_path", None)
     options = get_fragments_options(config)
-    directory_arg = getattr(args, "fragment_dir", None) or options.get("directory")
-    fragment_dir = fragment_files.discover_fragment_dir(directory_arg)
+    from changelogmanager.components import resolve_fragment_directory
+
+    fragment_dir = resolve_fragment_directory(
+        config, args.component, getattr(args, "fragment_dir", None)
+    )
     subcommand = args.fragments_command
 
     if subcommand == "list":
@@ -1290,8 +1346,12 @@ def command_release_rollback(args: argparse.Namespace, ctx: CliContext) -> None:
     # Smart defaults: auto-detect tag + repo when the user omits them.
     # ------------------------------------------------------------------
     # 1. Tag: use the latest local tag via `git describe` when not supplied.
+    config = resolved_config_path(args)
+    scope = release_scope(config, args.component) if config else None
     if not args.tag:
-        latest = services.last_release_tag()
+        latest = (
+            services.last_release_tag(scope) if scope else services.last_release_tag()
+        )
         if latest:
             logger.info("Auto-detected latest tag: %s", latest)
             args.tag = latest
@@ -1301,6 +1361,10 @@ def command_release_rollback(args: argparse.Namespace, ctx: CliContext) -> None:
     )
     if not tag:
         raise logging.Error(message="release-rollback requires a tag (e.g. v1.2.0)")
+    if scope and not scope.owns_tag(tag):
+        raise logging.Error(
+            message=f"Tag {tag!r} does not match component {scope.component!r} ({scope.tag_template})"
+        )
 
     # 2. Repository: infer from git remote URL when not explicitly provided.
     if not args.repository:
@@ -1491,12 +1555,17 @@ def command_from_commits(args: argparse.Namespace, ctx: CliContext) -> None:
     """Seeds [Unreleased] from git commit messages."""
 
     since = args.since
-    if since is None and not args.all_history:
-        since = services.last_release_tag()
-
     if getattr(args, "all_components", False):
         from_commits_all(args, ctx, since)
         return
+
+    history = component_history(resolved_config_path(args), args.component)
+    if since is None and not args.all_history:
+        since = (
+            services.last_release_tag(history.release)
+            if history
+            else services.last_release_tag()
+        )
 
     logger.info("Running from-commits command for %s", ctx.changelog.get_file_path())
     result = services.seed_unreleased_from_commits(
@@ -1505,6 +1574,7 @@ def command_from_commits(args: argparse.Namespace, ctx: CliContext) -> None:
         commit_schema=getattr(args, "commit_schema", "auto"),
         strict=args.strict,
         dry_run=args.dry_run,
+        history=history,
     )
 
     if result.no_commits:
@@ -1543,6 +1613,7 @@ def from_commits_all(
         commit_schema=getattr(args, "commit_schema", "auto"),
         strict=args.strict,
         dry_run=args.dry_run,
+        auto_since=since is None and not args.all_history,
     )
 
     if result.no_commits:
@@ -1560,6 +1631,7 @@ def from_commits_all(
         summaries.append(
             {
                 "component": component.component,
+                "since": component.since,
                 "path": component.path,
                 "added": component.added,
             }
@@ -1569,7 +1641,7 @@ def from_commits_all(
     ctx.json_payload["skipped"] = result.skipped
     ctx.json_payload["since"] = since
     if args.dry_run:
-        total = sum(len(s["added"]) for s in summaries)
+        total = sum(len(component.added) for component in result.components)
         print_dry_run(
             ctx, f"would add {total} entries across {len(summaries)} components"
         )
@@ -1838,6 +1910,9 @@ def command_backfill(args: argparse.Namespace, ctx: CliContext) -> None:
         repository=repository,
         token=token,
         package=package,
+        history=component_history(
+            resolved_config_path(args), getattr(args, "component", "default")
+        ),
     )
     ctx.json_payload.update(plan.to_json())
 
@@ -1908,10 +1983,13 @@ def backfill_unreleased(args: argparse.Namespace, ctx: CliContext) -> None:
         commit_schema=getattr(args, "commit_schema", "auto"),
         dry_run=args.dry_run,
         max_commits=getattr(args, "max_commits", None),
+        history=component_history(
+            resolved_config_path(args), getattr(args, "component", "default")
+        ),
     )
 
     ctx.json_payload["unreleased_added"] = result.added
-    ctx.json_payload["since"] = args.since
+    ctx.json_payload["since"] = result.since
 
     if not result.added:
         emit(

@@ -236,7 +236,7 @@ def test_plain_validate_still_passes_but_warns(tmp_path: Path, monkeypatch):
     import changelogmanager.llvm_diagnostics.messages as messages
 
     buf = io.StringIO()
-    monkeypatch.setattr(messages, "stderr", buf)
+    monkeypatch.setattr(messages.sys, "stderr", buf)
 
     changelog = tmp_path / "CHANGELOG.md"
     changelog.write_text(FIXTURE, encoding="utf-8")

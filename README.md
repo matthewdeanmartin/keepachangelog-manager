@@ -75,7 +75,7 @@ Online integration with Git Forge Release pages
 
 ## Examples
 
-These are the happy-path workflows. For every alternate path and every extra flag, use [`./docs/`](docs/).
+These are the happy-path workflows. For every alternate path and every extra flag, use [`./docs/`](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/).
 
 ### 1. Initialize a new repo
 
@@ -192,7 +192,7 @@ changelogmanager tasks list
 ```
 
 When tasks are complete, mark them checked and promote them into the changelog. If your team prefers fragment files
-instead of a shared task list, the tool also supports changelog fragments; see [`./docs/tasks.md`](docs/tasks.md).
+instead of a shared task list, the tool also supports changelog fragments; see [`./docs/tasks.md`](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/tasks.md).
 
 ## CLI Visuals
 
@@ -220,7 +220,3 @@ instead of a shared task list, the tool also supports changelog fragments; see [
 - [Scripting and CI integration](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/scripting.md)
 - [CLI reference](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/cli.md)
 - [Desktop GUI](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/gui.md)
-
-## Python 3.15 wheel verification — 2026-10-04
-
-Windows Python 3.15.0rc3 passes 992 tests, two skips, and 16 snapshots with the stdlib/test toolchain, using published dependency wheels. The same result holds on Python 3.14 and with dependency prereleases allowed (none selected). Fast/all extras and the broad dev group remain blocked by google-re2 wheel availability. Local checkout tests describe version 6.8.0; published 6.9.0 separately passes wheel-install/CLI-startup smoke checks. Require wheels and separate optional acceleration from core verification.

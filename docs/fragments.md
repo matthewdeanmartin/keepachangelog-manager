@@ -215,13 +215,21 @@ under a component, `collect` writes into that component's changelog:
 changelogmanager --component api fragments collect
 ```
 
-The fragment *folder* itself is shared by default. To keep a component's
-fragments in their own folder, point at it explicitly with `--fragment-dir`:
+Configure `fragment_directory` on each component to isolate its fragments. The
+selection order is `--fragment-dir` > component `fragment_directory` >
+`[fragments].directory` > discovery in the configuration directory. Configured
+paths are relative to that directory; CLI paths are relative to the working
+directory. Both `fragments` commands and `add --fragment` use this selection.
+
+If components inherit one folder, collection reads and consumes all of its
+fragments into the selected changelog. To select a folder explicitly:
 
 ```sh
 changelogmanager --component api fragments add added "Add API filtering" --fragment-dir api/changelog.d
 changelogmanager --component api fragments collect            --fragment-dir api/changelog.d
 ```
+
+See [Component Workflows](components.md) for configuration and inspection commands.
 
 ## Configuration
 

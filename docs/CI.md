@@ -40,6 +40,15 @@ CHANGELOG.md:5:3: error: Incompatible change type provided, MUST be one of: Adde
 
 ## Multi-component repositories
 
+For configuration and the full independent-release process, see
+[Component Workflows](components.md).
+
+Check component configuration and file/release readiness:
+
+```sh
+uv run changelogmanager --config changelogmanager.toml components validate
+```
+
 Validate every configured component:
 
 ```sh

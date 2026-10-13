@@ -213,7 +213,26 @@ Seed `[Unreleased]` from git commit subjects.
 changelogmanager from-commits [--since REF] [--all-history] [--all] [--strict] [--commit-schema auto|conventional|gitmoji|keepachangelog] [--dry-run]
 ```
 
-`--all` routes commits into all configured components by their `match` globs.
+With a config, both single-component imports and `--all` route commits by `match`
+globs. Each component defaults to its own nearest reachable release tag;
+`--since REF` overrides that boundary and `--all-history` selects full history.
+Batch JSON results include each component's boundary as `since`.
+
+### `components`
+
+Inspect effective component settings or check file and release readiness without
+changing files:
+
+```sh
+changelogmanager components list
+changelogmanager components show [NAME]
+changelogmanager --json components validate
+```
+
+`show` defaults to the global `--component` selection. `validate` exits 1 when
+component files or release/routing configuration are unusable. Use `validate --all`
+to validate changelog contents. See [Component Workflows](components.md) for the complete
+configuration, routing, fragments, and independent-release model.
 
 ## Commit message quality tools
 

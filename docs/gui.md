@@ -35,7 +35,7 @@ The current app has a menubar, a shared workspace panel, and eight screens:
 | **Initialize / Backfill** | `create`, config bootstrap, `backfill`, and `from-commits` |
 | **Commit Lint** | `lint-commits` audit plus `rewrite-messages` planning for unpushed commits |
 | **Releases** | `github-release`, `github-pr`, and `gitlab-release`, plus sample CI snippets |
-| **Components / Batch** | configured component list plus `validate --all`, `validate --all --changed-only`, and `from-commits --all` |
+| **Components / Batch** | configured component list, **Inspect active**, **Check configuration**, `validate --all`, `validate --all --changed-only`, and `from-commits --all` |
 | **Tools / Export** | `version`, `to-json`, `to-html`, `skill export`, and `credentials check` |
 
 ## Scope

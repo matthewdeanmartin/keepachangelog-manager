@@ -25,6 +25,8 @@ class ComponentsScreen(Screen):  # pylint: disable=too-many-ancestors
 
     def build_body(self) -> None:
         self.commands.add("Add component", self.add_component)
+        self.commands.add("Inspect active", self.inspect_active)
+        self.commands.add("Check configuration", self.check_configuration)
         self.commands.add("Validate all", self.validate_all)
         self.commands.add("Validate changed", self.validate_changed)
         self.commands.add("From-commits all", self.from_commits_all)
@@ -122,6 +124,12 @@ class ComponentsScreen(Screen):  # pylint: disable=too-many-ancestors
 
     def validate_all(self) -> None:
         self.run(self.base_argv() + ["validate", "--all"])
+
+    def inspect_active(self) -> None:
+        self.run(self.base_argv() + ["components", "show", self.app_state.component])
+
+    def check_configuration(self) -> None:
+        self.run(self.base_argv() + ["components", "validate"])
 
     def validate_changed(self) -> None:
         self.run(self.base_argv() + ["validate", "--all", "--changed-only"])

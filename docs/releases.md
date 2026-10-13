@@ -212,3 +212,7 @@ a transaction that survives a power failure between multiple replacements.
 Configured changelog and task paths are relative to the configuration file.
 Explicit command-line paths stay relative to the working directory. Validation
 of a missing changelog fails; use `create` to initialize it.
+
+For repositories with multiple independently released packages, see
+[Component Workflows](components.md). Each component owns a separate changelog,
+release-tag namespace, and optional set of version files.

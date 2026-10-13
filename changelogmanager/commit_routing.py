@@ -14,12 +14,44 @@ import shutil
 import subprocess  # nosec
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from functools import cache
+from functools import cache, cached_property
+from pathlib import Path
+from typing import Any
 
 import changelogmanager.llvm_diagnostics as logging
+from changelogmanager.release_scope import ReleaseScope, release_scope
 from changelogmanager.runtime_logging import VERBOSE, get_logger
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class ComponentHistory:
+    """The release namespace and file routing used by one component's history."""
+
+    release: ReleaseScope
+    components: Sequence[Mapping[str, Any]]
+
+    @property
+    def cwd(self) -> str:
+        return str(self.release.root)
+
+    def owns(self, files: Sequence[str]) -> bool:
+        return self.release.component in route_commit(files, self.routing_components)
+
+    @cached_property
+    def routing_components(self) -> Sequence[Mapping[str, Any]]:
+        validate_routing_components(self.components, config_path=self.cwd)
+        return self.components
+
+
+def component_history(config: str | None, component: str) -> ComponentHistory | None:
+    if not config:
+        return None
+    from changelogmanager.config import get_components_from_config
+
+    components = get_components_from_config(config)
+    return ComponentHistory(release_scope(config, component), components)
 
 
 @dataclass(frozen=True)
@@ -28,6 +60,7 @@ class CommitWithFiles:
 
     subject: str
     files: tuple[str, ...]
+    sha: str = ""
 
 
 def git_executable() -> str:
@@ -37,7 +70,9 @@ def git_executable() -> str:
     return git
 
 
-def git_log_with_files(since: str | None) -> list[CommitWithFiles]:
+def git_log_with_files(
+    since: str | None, *, cwd: str | Path | None = None, until: str = "HEAD"
+) -> list[CommitWithFiles]:
     """Returns non-merge commits (subject + touched files) since a ref.
 
     Uses a record separator so multi-file commits parse unambiguously.
@@ -48,14 +83,16 @@ def git_log_with_files(since: str | None) -> list[CommitWithFiles]:
         "log",
         "--no-merges",
         "--name-only",
-        "--pretty=format:\x1ecommit\x1e%s",
+        "--pretty=format:\x1ecommit\x1e%H%x1f%s",
     ]
     if since:
-        cmd.append(f"{since}..HEAD")
+        cmd.append(f"{since}..{until}")
+    elif until != "HEAD":
+        cmd.append(until)
     logger.info("Collecting commits with files since %s", since or "<all>")
     try:
         result = subprocess.run(  # nosec B603
-            cmd, check=True, capture_output=True, text=True
+            cmd, check=True, capture_output=True, text=True, cwd=cwd
         )
     except (subprocess.CalledProcessError, FileNotFoundError) as exc:
         logger.error("git log --name-only failed: %s", exc)
@@ -73,10 +110,13 @@ def parse_log_with_files(output: str) -> list[CommitWithFiles]:
         if not chunk.strip():
             continue
         lines = chunk.splitlines()
-        subject = lines[0].strip() if lines else ""
+        header = lines[0].strip() if lines else ""
+        sha, separator, subject = header.partition("\x1f")
+        if not separator:
+            subject, sha = header, ""
         files = tuple(line.strip() for line in lines[1:] if line.strip())
         if subject:
-            commits.append(CommitWithFiles(subject=subject, files=files))
+            commits.append(CommitWithFiles(subject=subject, files=files, sha=sha))
     return commits
 
 

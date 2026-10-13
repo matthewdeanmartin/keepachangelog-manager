@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Changed
 - Requires Python 3.11 or newer; Python 3.9-3.10 are no longer supported.
+- Single-component and batch commit imports route changes by touched files and use each component's own release tag as the default history boundary.
+
+### Added
+- Inspect resolved component paths, routing, release tags, inherited settings, and readiness with components list, show, and validate.
+
+### Fixed
+- Honor per-component fragment directories in fragments commands and add --fragment, resolving configured paths from the configuration directory.
+- Keep local and GitHub release-history backfill within the selected component's tag namespace and file routing, without importing older release commits across a requested lower boundary.
+- Select the chosen component's release tag for rollback and reject sibling tags before deleting releases or tags.
+- Reject duplicate component names, shared changelog or version-file ownership, invalid routing settings, and overlapping release tag namespaces when loading configuration.
+- Keep desktop fragment operations on the selected component and display CLI configuration errors in desktop command output.
 
 ## [6.9.0] - 2026-09-11
 ### Added

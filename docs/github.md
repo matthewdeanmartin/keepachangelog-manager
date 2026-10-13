@@ -45,7 +45,6 @@ scheme = "pep440"
 
 ```sh
 kaclm github-release --repository owner/repo --version 1.4.0rc2
-kaclm --component plugin github-release --repository owner/repo --version plugin-v1.4.0rc2
 ```
 
 An existing numbered section supplies its own notes. Otherwise the command uses
@@ -216,59 +215,31 @@ fails with `403 Resource not accessible by integration`.
 
 ## Independent packages in a monorepo
 
-A Git tag belongs to the whole repository, not a package directory. Two packages can
-both release version `0.1.0`, but they need different tags. Configure each component's
-version files and tag template. Use letters, digits, hyphens, and underscores for
-component names:
+For configuration, ownership rules, and the overall release process, see
+[Component Workflows](components.md). Each component publishes a separate GitHub
+release using its own changelog and tag namespace.
 
-```toml
-[[tool.changelogmanager.components]]
-name = "core"
-changelog = "CHANGELOG.md"
-version_files = ["pyproject.toml", "pycodetags/__about__.py"]
-tag_template = "v{version}"
-
-[[tool.changelogmanager.components]]
-name = "issue-tracker"
-changelog = "plugins/pycodetags_issue_tracker/CHANGELOG.md"
-version_files = [
-    "plugins/pycodetags_issue_tracker/pyproject.toml",
-    "plugins/pycodetags_issue_tracker/pycodetags_issue_tracker/__about__.py",
-]
-tag_template = "pycodetags-issue-tracker-v{version}"
-```
-
-For a standalone `changelogmanager.toml`, use `[[components]]` instead. Changelog and
-version-file paths are relative to the configuration file's directory, including when
-using `--config` from another working directory. Explicit `--input-file` still overrides
-the changelog path.
-
-`version_files` is an exact list of Python files and `pyproject.toml` files. It does not
-expand globs or search recursively. Paths must remain inside the configuration directory,
-and two components cannot own the same version file. Multi-component projects must supply
-this list when bumping versions. Single-component projects without it retain automatic
-file discovery. `--pyproject-only` narrows an explicit list to its pyproject files.
-
-Tag templates must contain `{version}` exactly once and may also contain `{component}`.
-With no template, a single-component project uses `v{version}`; multiple components use
-`{component}-v{version}`. Identical tag namespaces are rejected. A component-specific tag
-cannot be used to bump another component. Existing tags are not renamed.
+With the `core`/`plugin` configuration in that guide and pending plugin notes:
 
 ```shell
 # Preview the next draft and its component-specific tag.
-kaclm --component issue-tracker --json github-release --repository owner/repo --dry-run
+kaclm --component plugin --json github-release --repository owner/repo --dry-run
 
 # Publish/update only this component's draft release.
-kaclm --component issue-tracker github-release --repository owner/repo
+kaclm --component plugin github-release --repository owner/repo
 
-# Prepare its version bump and PR using the tag from that release.
-kaclm --component issue-tracker --json release-bump \
-  --version pycodetags-issue-tracker-v0.1.0 --base main \
+# After publication, prepare its version bump and PR.
+# Replace this example tag with the tag actually published.
+kaclm --component plugin --json release-bump \
+  --version plugin-v0.1.0 --base main \
   --repository owner/repo --open-pr --yes
 ```
 
-`github-release` cleans up only draft tags in the selected component's namespace; other
-components' drafts remain intact. GitLab release creation uses the same tag template.
+The second command creates or refreshes a draft; publish it in GitHub, or add
+`--release` to publish immediately. The release-bump step promotes the selected
+component's local `[Unreleased]` notes and changes its owned version files.
+
+`github-release` refreshes the selected tag in place and preserves sibling drafts.
 `release-bump` accepts either the matching tag or a bare version. Its generated branch
 name includes the component in multi-component projects, so independent releases of the
 same version do not collide. The JSON result includes `component`, `tag_name`, `branch`,
@@ -279,3 +250,8 @@ bump refuses pre-existing tracked edits and stages only its changelog and change
 files, rather than every tracked modification. Untracked log/output files are not committed.
 Run release commands from inside the intended Git repository. Shared lockfiles and changes
 to dependency constraints are not updated by this feature.
+
+If you already promoted a local changelog section, publish those notes explicitly
+with `--version VERSION`. For PEP 440 prereleases, set the shared versioning scheme
+to `pep440`; either a bare version such as `1.4.0rc2` or the selected component's
+matching tag such as `plugin-v1.4.0rc2` is accepted.

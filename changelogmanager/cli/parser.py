@@ -173,6 +173,26 @@ examples:
     )
     config_init_parser.set_defaults(handler=commands.command_config_init)
 
+    components_parser = subparsers.add_parser(
+        "components", help="Inspect and validate configured components"
+    )
+    components_subparsers = components_parser.add_subparsers(
+        dest="components_command", required=True
+    )
+    components_subparsers.add_parser(
+        "list", help="List components and resolved release settings"
+    ).set_defaults(handler=commands.command_components)
+    component_show_parser = components_subparsers.add_parser(
+        "show", help="Show resolved paths, routing, and inherited settings"
+    )
+    component_show_parser.add_argument(
+        "name", nargs="?", help="Component name (defaults to --component)"
+    )
+    component_show_parser.set_defaults(handler=commands.command_components)
+    components_subparsers.add_parser(
+        "validate", help="Check component files and release/routing readiness"
+    ).set_defaults(handler=commands.command_components)
+
     skill_parser = subparsers.add_parser(
         "skill",
         help="Export bundled AI skill files",

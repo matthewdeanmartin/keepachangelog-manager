@@ -5,9 +5,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Requires Python 3.11 or newer; Python 3.9-3.10 are no longer supported.
+- Single-component and batch commit imports route changes by touched files and use each component's own release tag as the default history boundary.
+
+### Added
+- Inspect resolved component paths, routing, release tags, inherited settings, and readiness with components list, show, and validate.
+
+### Fixed
+- Honor per-component fragment directories in fragments commands and add --fragment, resolving configured paths from the configuration directory.
+- Keep local and GitHub release-history backfill within the selected component's tag namespace and file routing, without importing older release commits across a requested lower boundary.
+- Select the chosen component's release tag for rollback and reject sibling tags before deleting releases or tags.
+- Reject duplicate component names, shared changelog or version-file ownership, invalid routing settings, and overlapping release tag namespaces when loading configuration.
+- Keep desktop fragment operations on the selected component and display CLI configuration errors in desktop command output.
+
+## [6.9.0] - 2026-09-11
+### Added
+- Changelog-owned Release Phase and optional Target metadata for opt-in PEP 440 prerelease progression, with desktop editing and validation; preserve SemVer and CalVer behavior.
+- Component-scoped version files and independent release tags for monorepos.
+- Explicit GitHub release versions and existing-section publication, including configured PEP 440 prereleases, with direct GitHub Actions outputs from release-bump.
+
+### Fixed
+- Refresh GitHub releases in place, preserving assets and human notes outside generated sections; handle prerelease publication events.
+- Preserve TOML comments and release ownership settings, and restore changelog and companion files when release updates fail.
+- Use configured component paths consistently in validation and GUI releases; reject missing changelogs and equivalent already-released versions.
+- Correct SemVer prerelease ordering, preserve PEP 440 epochs, respect explicit CLI defaults, and constrain recursive component globs correctly.
+- Exclude web dependencies, build caches, and local connection data from Python source distributions.
+- Preserve sibling components during version bumps, draft cleanup, and release commits.
+- Version bumping no longer descends into virtualenvs, site-packages, package caches (.uv-cache), node_modules, or gitignored directories, and refuses files a build backend marks as generated. Previously 'release --bump-versions' could rewrite __version__ in installed third-party packages.
+- A bumped file keeps its version_tuple in step with its version string instead of leaving the two disagreeing.
+- 'release --bump-versions --dry-run' now enumerates every candidate file instead of only naming pyproject.toml.
+- Restored the bundled SKILL.md YAML frontmatter, which a bare mdformat run had folded into a heading, leaving the skill's description unreadable so agents never selected it.
+
+## [6.8.0] - 2026-09-09
 ### Fixed
 - Release workflow now publishes successfully: pinned `pypa/gh-action-pypi-publish` to v1.14.2, whose bundled Twine v7 accepts Metadata-Version 2.5. Hatchling emits 2.5 for PEP 639 license metadata (`license` + `license-files`), and the previously pinned v1.14.0 rejected it with `InvalidDistribution: Invalid distribution metadata: '2.5' is not a valid metadata version`, so 6.7.0 built and tagged but never reached PyPI.
 - Restored `pyrefly` clean-check under newer pyrefly releases, which flag returning a bare `Any` from the JSON-decoding helpers in `github.py`/`gitlab.py` (`no-any-return-explicit`). The decoded payloads are genuinely dynamic, so the return types are unchanged and the values are now widened with an explicit `cast`, which both pyrefly and mypy accept.
+
+### Added
+- Release pipeline now validates distribution metadata with `twine check --strict` in the build job (and via `make build` / `make check-dist`), so a package the PyPI upload would reject fails at build time instead of after the release is tagged.
 
 ## [6.7.0] - 2026-09-09
 ### Added

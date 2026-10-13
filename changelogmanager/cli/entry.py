@@ -133,7 +133,7 @@ def main(  # pylint: disable=too-many-return-statements
             logger.info("Finished CLI command %s successfully", args.command)
             return 0
 
-        if args.command in {"config", "skill"}:
+        if args.command in {"config", "skill", "components"}:
             # `config` / `config init` may legitimately point --config at a path
             # that does not exist yet (the init handler creates it). Only resolve
             # the versioning scheme from a config file that is actually present;
@@ -165,7 +165,13 @@ def main(  # pylint: disable=too-many-return-statements
                     ).decode()
                 )
             logger.info("Finished CLI command %s successfully", args.command)
-            return 0
+            return (
+                1
+                if args.command == "components"
+                and args.components_command == "validate"
+                and not context.json_payload["valid"]
+                else 0
+            )
 
         if args.command == "validate":
             from changelogmanager.cli.loaders import resolve_changelog_file

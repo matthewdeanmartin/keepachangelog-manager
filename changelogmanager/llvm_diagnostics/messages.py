@@ -3,8 +3,8 @@
 
 """Diagnostic Messages"""
 
+import sys
 from dataclasses import dataclass
-from sys import stderr
 from typing import Optional
 
 from changelogmanager.llvm_diagnostics import formatters
@@ -40,7 +40,7 @@ class Message(Exception):  # pylint: disable=C0103
 
     def report(self) -> None:
         """Formats the Diagnostics message and sends it to `stderr`"""
-        print(self, file=stderr)
+        print(self, file=sys.stderr)
 
     def __str__(self) -> str:
         """Formats the Diagnostics message"""

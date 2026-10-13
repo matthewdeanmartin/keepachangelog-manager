@@ -24,6 +24,7 @@ nav:
   - Releasing: releases.md
   - Changelog fragments: fragments.md
   - Tasks and fragments: tasks.md
+  - Component Workflows: components.md
   - Scripting and CI integration: scripting.md
   - CLI reference: cli.md
   - Desktop GUI: gui.md

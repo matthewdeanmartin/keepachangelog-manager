@@ -25,7 +25,7 @@ def test_message_report_uses_configured_formatter(monkeypatch):
     original = formatters.get_config()
     formatters.config(PlainFormatter())
     stderr = StringIO()
-    monkeypatch.setattr(diagnostics_messages, "stderr", stderr)
+    monkeypatch.setattr(diagnostics_messages.sys, "stderr", stderr)
     try:
         Error(message="boom").report()
     finally:

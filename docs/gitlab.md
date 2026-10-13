@@ -27,6 +27,10 @@ Unlike GitHub, GitLab has no draft-release concept. The command is therefore an 
 
 If `[Unreleased]` has no entries, the command prints a clear skip notice and exits `0`.
 
+For several independently released packages in one repository, configure them as
+described in [Component Workflows](components.md) and select one with the global
+`--component NAME` option. GitLab uses that component's changelog and tag template.
+
 ## Authentication and the `CI_JOB_TOKEN` caveat
 
 Token lookup order is:

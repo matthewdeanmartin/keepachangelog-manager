@@ -132,16 +132,63 @@ def _clear_configuration_cache_for_path(path: Path) -> None:
 def validate_configuration(file_path: str, config: Mapping[str, Any]) -> None:
     """Verifies if the provided configuration file is accoriding to expectations"""
     logger.log(VERBOSE, "Validating configuration structure from %s", file_path)
-    if not config.get("project") or not config["project"].get("components"):
+    if (
+        not isinstance(config, Mapping)
+        or not isinstance(config.get("project"), Mapping)
+        or not config["project"].get("components")
+    ):
         raise logging.Error(
             file_path=file_path, message="Incorrect Project configuration format!"
         )
 
-    for component in config["project"]["components"]:
-        if not component.get("name") or not component.get("changelog"):
+    components = config["project"]["components"]
+    if not isinstance(components, list):
+        raise logging.Error(
+            file_path=file_path, message="Components must be an array of tables"
+        )
+    changelogs: dict[Path, str] = {}
+    names: set[str] = set()
+    for component in components:
+        if not isinstance(component, Mapping) or any(
+            not isinstance(component.get(key), str) or not component[key].strip()
+            for key in ("name", "changelog")
+        ):
             raise logging.Error(
                 file_path=file_path, message="Incorrect Component configuration format!"
             )
+        name = component["name"]
+        if name in names:
+            raise logging.Error(
+                file_path=file_path, message=f"Duplicate component name: {name}"
+            )
+        names.add(name)
+        path = Path(resolve_config_file(file_path, component["changelog"])).resolve()
+        if path in changelogs:
+            raise logging.Error(
+                file_path=file_path,
+                message=f"Changelog {component['changelog']!r} is owned by both {changelogs[path]!r} and {name!r}",
+            )
+        changelogs[path] = name
+        for key in ("tasks_file", "fragment_directory"):
+            if key in component and (
+                not isinstance(component[key], str) or not component[key].strip()
+            ):
+                raise logging.Error(
+                    file_path=file_path,
+                    message=f"Component {name!r} {key} must be a nonempty path",
+                )
+        match = component.get("match", [])
+        if not (isinstance(match, str) and match.strip()) and not (
+            isinstance(match, list)
+            and all(isinstance(glob, str) and glob.strip() for glob in match)
+        ):
+            raise logging.Error(
+                file_path=file_path,
+                message=f"Component {name!r} match must be a glob or a list of nonempty globs",
+            )
+    from changelogmanager.release_scope import resolve_release_scopes
+
+    resolve_release_scopes(file_path, components)
 
 
 def wrap_unwrapped_schema(config: Mapping[str, Any]) -> dict[str, Any]:
@@ -276,7 +323,9 @@ def get_effective_configuration(config_path: Optional[str]) -> dict[str, Any]:
         logger.info("Using built-in default configuration")
         return normalize_configuration(None)
     logger.log(VERBOSE, "Resolving effective configuration from %s", config_path)
-    return normalize_configuration(load_configuration(config_path))
+    configuration = normalize_configuration(load_configuration(config_path))
+    validate_configuration(config_path, configuration)
+    return configuration
 
 
 def get_component_from_config(config: str, component: str) -> dict[str, Any]:
@@ -630,6 +679,7 @@ def config_format_from_path(config_path: str) -> str:
 def write_configuration(config_path: str, config: Mapping[str, Any]) -> None:
     """Writes configuration to pyproject.toml or a standalone .toml file."""
 
+    validate_configuration(config_path, normalize_configuration(config))
     path = Path(config_path)
     logger.info("Writing configuration to %s", path)
     path.parent.mkdir(parents=True, exist_ok=True)

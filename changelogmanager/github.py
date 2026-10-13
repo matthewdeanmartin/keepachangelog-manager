@@ -252,6 +252,26 @@ class GitHub:
         logger.info("Fetched %d releases from %s", len(releases), self.repository)
         return releases
 
+    def get_pr_files(self, number: int) -> list[str]:
+        """Return changed paths, including old paths for renames, for routing."""
+        files: list[str] = []
+        page = 1
+        while True:
+            data = (
+                self._get_with_rate_check(
+                    f"pulls/{number}/files",
+                    {"per_page": RELEASES_CHUNK_SIZE, "page": page},
+                )
+                or []
+            )
+            for item in data:
+                files.append(item["filename"])
+                if item.get("previous_filename"):
+                    files.append(item["previous_filename"])
+            if len(data) < RELEASES_CHUNK_SIZE:
+                return files
+            page += 1
+
     def get_releases(self) -> Sequence[dict[str, Any]]:
         """Retrieves available releases"""
         logger.info("Fetching releases for %s", self.repository)

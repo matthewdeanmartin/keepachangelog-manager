@@ -27,7 +27,8 @@ try:
 except ImportError:  # pragma: no cover - exercised on interpreters lacking re2 wheels
     pass
 
-compile = _backend.compile  # noqa: A001 - mirror the stdlib/re2 module attribute name
+# Mirror the stdlib/re2 API, including its built-in name.
+compile = _backend.compile  # noqa: A001 # pylint: disable=redefined-builtin
 sub = _backend.sub
 
 __all__ = ["USING_RE2", "compile", "sub"]

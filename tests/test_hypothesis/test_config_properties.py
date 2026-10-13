@@ -12,7 +12,7 @@ from changelogmanager.config import validate_configuration
 # ---------------------------------------------------------------------------
 
 component_name = st.text(
-    alphabet=st.characters(whitelist_categories=("L", "N")),
+    alphabet="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
     min_size=1,
     max_size=40,
 )
@@ -22,14 +22,21 @@ changelog_path = st.builds(
     name=component_name,
 )
 
-valid_component = st.fixed_dictionaries(
-    {"name": component_name, "changelog": changelog_path}
+valid_component = component_name.map(
+    lambda name: {"name": name, "changelog": f"path/to/{name}/CHANGELOG.md"}
 )
 
 valid_config = st.fixed_dictionaries(
     {
         "project": st.fixed_dictionaries(
-            {"components": st.lists(valid_component, min_size=1, max_size=5)}
+            {
+                "components": st.lists(
+                    valid_component,
+                    min_size=1,
+                    max_size=5,
+                    unique_by=lambda component: component["name"].lower(),
+                )
+            }
         )
     }
 )
@@ -45,7 +52,14 @@ class TestValidConfigPasses:
     def test_valid_config_does_not_raise(self, config):
         validate_configuration("config.yaml", config)
 
-    @given(components=st.lists(valid_component, min_size=1, max_size=5))
+    @given(
+        components=st.lists(
+            valid_component,
+            min_size=1,
+            max_size=5,
+            unique_by=lambda component: component["name"].lower(),
+        )
+    )
     def test_any_number_of_valid_components_passes(self, components):
         config = {"project": {"components": components}}
         validate_configuration("config.yaml", config)

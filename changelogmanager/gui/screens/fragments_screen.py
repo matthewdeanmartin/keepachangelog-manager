@@ -93,6 +93,7 @@ class FragmentsScreen(
         argv: list[str] = []
         if self.app_state.config_path:
             argv += ["--config", self.app_state.config_path]
+        argv += ["--component", self.app_state.component]
         argv += ["--error-format", self.app_state.error_format]
         argv += ["--input-file", self.app_state.input_file]
         return argv

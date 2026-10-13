@@ -323,6 +323,58 @@ def test_fragments_screen_collect_argv(gui_root, tmp_path, monkeypatch):
     assert "--dry-run" in argv
 
 
+def test_gui_fragments_use_the_selected_component_and_inspection_reports_issues(
+    gui_root, tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "changelogmanager.toml").write_text(
+        """[defaults]
+bump_versions = true
+[[components]]
+name = "default"
+changelog = "CHANGELOG.md"
+match = ["root/**"]
+[[components]]
+name = "api"
+changelog = "api/CHANGELOG.md"
+match = ["api/**"]
+fragment_directory = "api/changelog.d"
+""",
+        encoding="utf-8",
+    )
+    write_changelog(tmp_path / "CHANGELOG.md")
+    write_changelog(tmp_path / "api/CHANGELOG.md")
+    controller = AppController(gui_root)
+    controller.component_var.set("api")
+    controller.on_component_selected()
+    controller.dry_run_var.set(False)
+    controller.sync_state_from_vars()
+    screen = controller.screens[FragmentsScreen.title]
+    screen.add_type_var.set("added")
+    screen.add_message_var.set("API feature")
+    screen.add_fragment()
+    assert (tmp_path / "api/changelog.d/api-feature.added.md").is_file()
+    assert not (tmp_path / "changelog.d/api-feature.added.md").exists()
+    components = controller.screens[ComponentsScreen.title]
+    components.inspect_active()
+    assert "api/changelog.d" in components.output.get("1.0", tk.END).replace("\\", "/")
+    components.check_configuration()
+    assert "require explicit version_files" in components.output.get("1.0", tk.END)
+    assert "[exit 1]" in components.output.get("1.0", tk.END)
+
+
+def test_gui_embedded_cli_captures_configuration_errors(tmp_path):
+    from changelogmanager.gui.cli_runner import run_cli
+
+    config = tmp_path / "changelogmanager.toml"
+    config.write_text(
+        '[[components]]\nname = "api"\nchangelog = "CHANGELOG.md"\nmatch = [42]\n'
+    )
+    code, text = run_cli(["--config", str(config), "components", "list"])
+    assert code == 1
+    assert "match must be" in text
+
+
 def test_lint_screen_lint_and_rewrite_argv(gui_root, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     write_changelog(tmp_path / "CHANGELOG.md")

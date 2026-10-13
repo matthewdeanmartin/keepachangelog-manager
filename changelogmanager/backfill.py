@@ -16,6 +16,7 @@ from typing import Any, Optional
 import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
+from changelogmanager.commit_routing import ComponentHistory, git_log_with_files
 from changelogmanager.runtime_logging import VERBOSE, get_logger
 from changelogmanager.versioning import parse_version, version_scheme_label
 
@@ -289,6 +290,7 @@ def discover_tags(
     since: str | None = None,
     until: str | None = None,
     cwd: str | None = None,
+    history: ComponentHistory | None = None,
 ) -> list[GitTag]:
     """Discovers local git tags in creatordate order."""
 
@@ -305,20 +307,28 @@ def discover_tags(
             check=True,
             capture_output=True,
             text=True,
-            cwd=cwd,
+            cwd=history.cwd if history else cwd,
         )
     except (subprocess.CalledProcessError, FileNotFoundError) as exc:
         logger.warning("git tag discovery failed (not a git repo?): %s", exc)
         return []
 
     rows = [line.split("\t", 1) for line in result.stdout.splitlines() if line.strip()]
+    if history:
+        rows = [row for row in rows if history.release.owns_tag(row[0].strip())]
+        since = history.release.tag(history.release.version(since)) if since else None
+        until = history.release.tag(history.release.version(until)) if until else None
     if since or until:
         rows = filter_tag_rows(rows, since=since, until=until)
     return [
         GitTag(
             tag=row[0].strip(),
             date=(row[1].strip() or None) if len(row) > 1 else None,
-            version=normalize_tag_version(row[0].strip()),
+            version=(
+                history.release.version(row[0].strip())
+                if history
+                else normalize_tag_version(row[0].strip())
+            ),
         )
         for row in rows
     ]
@@ -330,12 +340,13 @@ def discover_tag_releases(
     until: str | None = None,
     cwd: str | None = None,
     versioning_scheme: str = "semver",
+    history: ComponentHistory | None = None,
 ) -> tuple[list[BackfillRelease], list[str]]:
     """Discovers local git tags and returns normalized releases plus skipped tags."""
 
     releases: list[BackfillRelease] = []
     skipped: list[str] = []
-    for tag in discover_tags(since=since, until=until, cwd=cwd):
+    for tag in discover_tags(since=since, until=until, cwd=cwd, history=history):
         try:
             parse_version(tag.version, versioning_scheme)
         except ValueError:
@@ -388,6 +399,7 @@ def discover_commit_releases(
     versioning_scheme: str = "semver",
     commit_schema: str = "auto",
     max_commits: int = MAX_COMMITS_DEFAULT,
+    history: ComponentHistory | None = None,
 ) -> tuple[list[BackfillRelease], list[str]]:
     """Discovers releases from tag intervals and classifies commit subjects.
 
@@ -402,6 +414,7 @@ def discover_commit_releases(
         until=until,
         cwd=cwd,
         versioning_scheme=versioning_scheme,
+        history=history,
     )
     ascending = sorted(
         tag_releases,
@@ -415,12 +428,33 @@ def discover_commit_releases(
     newest_tag = tagged[-1].tag
     if newest_tag is None:
         return [], skipped
+    cwd = history.cwd if history else cwd
     enforce_commit_budget(newest_tag, max_commits=max_commits, cwd=cwd)
 
-    commit_rows = git_log_all_decorated(newest_tag, cwd=cwd)
+    commit_rows = (
+        git_log_scoped_decorated(newest_tag, history)
+        if history
+        else git_log_all_decorated(newest_tag, cwd=cwd)
+    )
+    # A lower bound selects releases to report, not a new history origin. Keep
+    # older component tags as boundaries so their commits cannot spill forward.
+    partition_tags = tagged
+    if since:
+        all_releases, _skipped = discover_tag_releases(
+            cwd=cwd, versioning_scheme=versioning_scheme, history=history
+        )
+        newest_version = parse_version(tagged[-1].version, versioning_scheme)
+        partition_tags = sorted(
+            (
+                release
+                for release in all_releases
+                if parse_version(release.version, versioning_scheme) <= newest_version
+            ),
+            key=lambda release: parse_version(release.version, versioning_scheme),
+        )
     commits_by_tag = partition_commits_by_tag(
         commit_rows,
-        ascending_tags=[str(release.tag) for release in tagged if release.tag],
+        ascending_tags=[str(release.tag) for release in partition_tags if release.tag],
     )
 
     releases: list[BackfillRelease] = []
@@ -428,7 +462,7 @@ def discover_commit_releases(
         tag = tag_release.tag
         if tag is None:
             continue
-        commits = commits_by_tag.get(tag, [])
+        commits = [commit for commit in commits_by_tag.get(tag, []) if commit.subject]
         entries = entries_from_commits(commits, commit_schema=commit_schema)
         entries = cap_release_entries(entries, len(commits))
         release = BackfillRelease(
@@ -613,6 +647,44 @@ def parse_decoration_tags(decoration: str) -> list[str]:
     return tags
 
 
+def git_log_scoped_decorated(
+    revision: str, history: ComponentHistory
+) -> list[tuple[str, list[str], str]]:
+    """Keep tag boundaries even when their commits belong to a sibling component."""
+    try:
+        output = subprocess.run(  # nosec B603
+            [
+                git_executable(),
+                "log",
+                "--no-merges",
+                "--name-only",
+                "--pretty=format:%x1e%H%x1f%D%x1f%s",
+                revision,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=history.cwd,
+        ).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        raise logging.Error(message=f"git log failed: {exc}") from exc
+    rows = []
+    for record in output.split("\x1e"):
+        if not record.strip():
+            continue
+        lines = record.splitlines()
+        sha, decoration, subject = lines[0].split("\x1f", 2)
+        files = [line.strip() for line in lines[1:] if line.strip()]
+        rows.append(
+            (
+                sha,
+                parse_decoration_tags(decoration),
+                subject if history.owns(files) else "",
+            )
+        )
+    return rows
+
+
 def git_log_between(
     previous_ref: str | None, current_ref: str, *, cwd: str | None = None
 ) -> list[GitCommit]:
@@ -780,6 +852,7 @@ def discover_github_prs(
     since: str | None = None,
     until: str | None = None,
     versioning_scheme: str = "semver",
+    history: ComponentHistory | None = None,
 ) -> tuple[list[BackfillRelease], list[str]]:
     """Fetches merged GitHub PRs and groups them into versions by date window.
 
@@ -796,7 +869,7 @@ def discover_github_prs(
 
     # Build a sorted tag timeline from local git tags.  Fall back to an empty
     # timeline when there are no tags (calendar-month grouping is used instead).
-    local_tags = discover_tags()
+    local_tags = discover_tags(history=history) if history else discover_tags()
     tag_timeline: list[tuple[str, str]] = []
     for gt in sorted(local_tags, key=lambda t: t.date or ""):
         if not gt.date:
@@ -808,6 +881,12 @@ def discover_github_prs(
         tag_timeline.append((gt.date, gt.version))
 
     use_calendar_months = not tag_timeline
+    if history and use_calendar_months:
+        logger.warning(
+            "No release tags found for component %s; no released PR history to backfill",
+            history.release.component,
+        )
+        return [], []
     if use_calendar_months:
         logger.warning(
             "No local git tags found; grouping GitHub PRs into calendar-month "
@@ -818,6 +897,8 @@ def discover_github_prs(
     # Group PRs by assigned version.
     buckets: dict[str, list[dict[str, Any]]] = {}
     for pr in raw_prs:
+        if history and not history.owns(client.get_pr_files(pr["number"])):
+            continue
         merged_at: str = (pr.get("merged_at") or "")[:10]
         if not merged_at:
             continue
@@ -920,18 +1001,28 @@ def discover_github_releases(
     since: str | None = None,
     until: str | None = None,
     versioning_scheme: str = "semver",
+    history: ComponentHistory | None = None,
 ) -> tuple[list[BackfillRelease], list[str]]:
     """Fetches GitHub Releases and returns normalized BackfillRelease list plus skipped tags."""
     from changelogmanager.github import GitHub  # noqa: PLC0415
 
     client = GitHub(repository=repository, token=token or "")
     raw = client.get_releases_for_backfill()
+    if history:
+        since = history.release.version(since) if since else None
+        until = history.release.version(until) if until else None
 
     releases: list[BackfillRelease] = []
     skipped: list[str] = []
     for item in raw:
         tag_name: str = item.get("version", "")
-        version = normalize_tag_version(tag_name)
+        if history and not history.release.owns_tag(tag_name):
+            continue
+        version = (
+            history.release.version(tag_name)
+            if history
+            else normalize_tag_version(tag_name)
+        )
         try:
             parse_version(version, versioning_scheme)
         except ValueError:
@@ -1109,6 +1200,7 @@ def plan_backfill(
     repository: str | None = None,
     token: str | None = None,
     package: str | None = None,
+    history: ComponentHistory | None = None,
 ) -> BackfillPlan:
     """Builds a backfill plan from the selected source set.
 
@@ -1126,6 +1218,7 @@ def plan_backfill(
             since=since,
             until=until,
             versioning_scheme=versioning_scheme,
+            history=history,
         )
         sources = ["tags"]
     elif source == "commits":
@@ -1135,6 +1228,7 @@ def plan_backfill(
             versioning_scheme=versioning_scheme,
             commit_schema=commit_schema,
             max_commits=max_commits,
+            history=history,
         )
         sources = ["commits"]
     elif source in {"local", "all"}:
@@ -1144,6 +1238,7 @@ def plan_backfill(
             versioning_scheme=versioning_scheme,
             commit_schema=commit_schema,
             max_commits=max_commits,
+            history=history,
         )
         sources = ["tags", "commits"]
         if source == "all" and repository:
@@ -1153,6 +1248,7 @@ def plan_backfill(
                 since=since,
                 until=until,
                 versioning_scheme=versioning_scheme,
+                history=history,
             )
             gh_prs, pr_skipped = discover_github_prs(
                 repository,
@@ -1160,6 +1256,7 @@ def plan_backfill(
                 since=since,
                 until=until,
                 versioning_scheme=versioning_scheme,
+                history=history,
             )
             releases = _merge_releases(releases, gh_releases, gh_prs)
             skipped_tags = skipped_tags + gh_skipped + pr_skipped
@@ -1179,6 +1276,7 @@ def plan_backfill(
             since=since,
             until=until,
             versioning_scheme=versioning_scheme,
+            history=history,
         )
         sources = ["github-releases"]
     elif source == "pypi":
@@ -1202,6 +1300,7 @@ def plan_backfill(
             since=since,
             until=until,
             versioning_scheme=versioning_scheme,
+            history=history,
         )
         sources = ["github-prs"]
     else:
@@ -1276,10 +1375,17 @@ def filter_existing_entries(
 
 
 def latest_release_tag(
-    *, cwd: str | None = None, versioning_scheme: str = "semver"
+    *,
+    cwd: str | None = None,
+    versioning_scheme: str = "semver",
+    history: ComponentHistory | None = None,
 ) -> str | None:
     """Returns the most recent scheme-compatible tag, or None when there is none."""
 
+    if history:
+        from changelogmanager.services import last_release_tag
+
+        return last_release_tag(history.release)
     tags = discover_tags(cwd=cwd)
     compatible: list[GitTag] = []
     for tag in tags:
@@ -1301,6 +1407,7 @@ def plan_unreleased_backfill(
     commit_schema: str = "auto",
     cwd: str | None = None,
     max_commits: int = MAX_COMMITS_DEFAULT,
+    history: ComponentHistory | None = None,
 ) -> list[BackfillEntry]:
     """Returns new [Unreleased] entries derived from commits since the latest release.
 
@@ -1311,10 +1418,21 @@ def plan_unreleased_backfill(
     """
 
     versioning_scheme = changelog.get_versioning_scheme()
-    boundary = since or latest_release_tag(cwd=cwd, versioning_scheme=versioning_scheme)
+    boundary = since or latest_release_tag(
+        cwd=cwd, versioning_scheme=versioning_scheme, history=history
+    )
+    cwd = history.cwd if history else cwd
     revision = f"{boundary}..HEAD" if boundary else "HEAD"
     enforce_commit_budget(revision, max_commits=max_commits, cwd=cwd)
-    commits = git_log_between(boundary, "HEAD", cwd=cwd)
+    commits = (
+        [
+            GitCommit(sha="", subject=commit.subject)
+            for commit in git_log_with_files(boundary, cwd=cwd)
+            if history.owns(commit.files)
+        ]
+        if history
+        else git_log_between(boundary, "HEAD", cwd=cwd)
+    )
     candidates = entries_from_commits(commits, commit_schema=commit_schema)
 
     existing: set[tuple[str, str]] = set()

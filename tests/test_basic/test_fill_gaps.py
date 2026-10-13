@@ -340,7 +340,7 @@ def test_command_backfill_include_unreleased_adds_entries(monkeypatch):
     monkeypatch.setattr(
         services,
         "plan_unreleased_backfill",
-        lambda cl, *, since, commit_schema, max_commits=None: [
+        lambda cl, *, since, commit_schema, max_commits=None, history=None: [
             backfill.BackfillEntry(
                 change_type="added", text="new thing", source="commits"
             )
@@ -371,7 +371,7 @@ def test_command_backfill_include_unreleased_dry_run(monkeypatch, capsys):
     monkeypatch.setattr(
         services,
         "plan_unreleased_backfill",
-        lambda cl, *, since, commit_schema, max_commits=None: [
+        lambda cl, *, since, commit_schema, max_commits=None, history=None: [
             backfill.BackfillEntry(change_type="fixed", text="a fix", source="commits")
         ],
     )

@@ -76,8 +76,9 @@ removed automatically.
 changelogmanager from-commits
 ```
 
-By default this starts at the most recent git tag and classifies subjects using
-the selected schema.
+By default this starts after the nearest reachable release tag and classifies
+subjects using the selected schema. With a configuration, the tag must match its
+release-tag template (`v{version}` by default for a single project).
 
 Useful variants:
 
@@ -85,7 +86,6 @@ Useful variants:
 changelogmanager from-commits --since v1.2.0
 changelogmanager from-commits --all-history
 changelogmanager from-commits --strict
-changelogmanager --config changelogmanager.toml from-commits --all
 ```
 
 `--strict` skips subjects that do not match the selected schema. Without it,
@@ -124,7 +124,8 @@ changelogmanager backfill --source tags
 ```
 
 This is the usual "adopt the tool in an existing repository" path. It walks git
-tags, normalizes a leading `v`, filters them through the active versioning
+tags, obtains versions using the configured release-tag template (or strips a
+leading `v` without configuration), filters them through the active versioning
 scheme, and adds missing release sections.
 
 ### Backfill from online sources
@@ -199,40 +200,6 @@ changelogmanager validate --fix
 Autofix can normalize safe layout issues, reorder releases, remove empty
 sections, and deduplicate identical entries. Add `--dry-run` to preview.
 
-### Validate all configured components
-
-```sh
-changelogmanager --config changelogmanager.toml validate --all
-changelogmanager --config changelogmanager.toml validate --all --changed-only
-```
-
-## Multi-component repositories
-
-When one repository contains multiple packages, define components in config and
-target them explicitly:
-
-```toml
-[versioning]
-scheme = "pep440"
-
-[[components]]
-name = "Service Component"
-changelog = "service/CHANGELOG.md"
-match = ["service/**"]
-
-[[components]]
-name = "Client Interface"
-changelog = "client/CHANGELOG.md"
-match = ["client/**"]
-```
-
-Then run:
-
-```sh
-changelogmanager --config changelogmanager.toml --component "Client Interface" version
-changelogmanager --config changelogmanager.toml --component "Service Component" release
-```
-
 ## Export and automation helpers
 
 ```sh
@@ -244,3 +211,6 @@ changelogmanager credentials check
 
 See [Scripting and CI integration](scripting.md) for `--json`, `--quiet`, exit
 codes, and CI patterns.
+
+If your repository has several independently released packages, see
+[Component Workflows](components.md) for their configuration and release process.

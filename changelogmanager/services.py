@@ -27,6 +27,7 @@ import changelogmanager.llvm_diagnostics as logging
 from changelogmanager.change_types import UNRELEASED_ENTRY
 from changelogmanager.changelog import Changelog
 from changelogmanager.changelog_reader import ChangelogReader
+from changelogmanager.commit_routing import ComponentHistory
 from changelogmanager.config import (
     get_components_from_config,
     get_preamble_keywords,
@@ -35,7 +36,7 @@ from changelogmanager.config import (
     resolve_config_file,
 )
 from changelogmanager.file_updates import atomic_write_text, rollback_file_updates
-from changelogmanager.release_scope import ReleaseScope
+from changelogmanager.release_scope import ReleaseScope, release_scope
 from changelogmanager.runtime_logging import VERBOSE, get_logger
 
 logger = get_logger(__name__)
@@ -264,31 +265,53 @@ def git_log_since(since: str | None) -> list[str]:
     return [line for line in result.stdout.splitlines() if line.strip()]
 
 
-def last_release_tag() -> str | None:
+def last_release_tag(scope: ReleaseScope | None = None) -> str | None:
     logger.log(VERBOSE, "Looking up last release tag with git describe")
     try:
+        cmd = [git_executable(), "describe", "--tags", "--abbrev=0"]
+        if scope is not None:
+            tags = subprocess.run(  # nosec B603
+                [
+                    git_executable(),
+                    "tag",
+                    "--merged",
+                    "HEAD",
+                    "--list",
+                    scope.tag_glob(),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+                cwd=scope.root,
+            ).stdout.splitlines()
+            tags = [tag for tag in tags if scope.owns_tag(tag)]
+            if not tags:
+                return None
+            for tag in tags:
+                cmd.extend(["--match", tag])
         result = subprocess.run(  # nosec B603
-            [git_executable(), "describe", "--tags", "--abbrev=0"],
+            cmd,
             check=True,
             capture_output=True,
             text=True,
+            cwd=scope.root if scope else None,
         )
-        tag = result.stdout.strip() or None
-        logger.info("Resolved last release tag: %s", tag or "<none>")
-        return tag
+        latest = result.stdout.strip() or None
+        logger.info("Resolved last release tag: %s", latest or "<none>")
+        return latest
     except (subprocess.CalledProcessError, FileNotFoundError):
         logger.warning("Unable to determine the last release tag")
         return None
 
 
-def git_log_with_files(since: str | None) -> list[Any]:
+def git_log_with_files(since: str | None, *, cwd: str | None = None) -> list[Any]:
     """Returns commits (with touched files) since a ref. Module-level so tests can patch it."""
 
     from changelogmanager.commit_routing import (
         git_log_with_files as _impl,
     )  # noqa: PLC0415
 
-    return _impl(since)
+    return _impl(since, cwd=cwd)
 
 
 def classify_commit(subject: str) -> tuple[str, str] | None:
@@ -353,12 +376,21 @@ def seed_unreleased_from_commits(
     commit_schema: str = "auto",
     strict: bool = False,
     dry_run: bool = False,
+    history: ComponentHistory | None = None,
 ) -> FromCommitsResult:
     """Classifies commits since ``since`` and adds them to [Unreleased]."""
 
     from changelogmanager.backfill import classify_commit_subject  # noqa: PLC0415
 
-    subjects = git_log_since(since)
+    subjects = (
+        [
+            commit.subject
+            for commit in git_log_with_files(since, cwd=history.cwd)
+            if history.owns(commit.files)
+        ]
+        if history
+        else git_log_since(since)
+    )
     if not subjects:
         return FromCommitsResult(added=[], skipped=0, since=since, no_commits=True)
 
@@ -395,6 +427,7 @@ class ComponentSeedResult:
     component: str
     path: str
     added: list[dict[str, str]]
+    since: str | None = None
 
 
 @dataclass
@@ -414,6 +447,7 @@ def seed_components_from_commits(
     commit_schema: str = "auto",
     strict: bool = False,
     dry_run: bool = False,
+    auto_since: bool = False,
 ) -> ComponentsSeedResult:
     """Routes commits to components by touched files and seeds each [Unreleased]."""
 
@@ -432,36 +466,39 @@ def seed_components_from_commits(
     components = get_components_from_config(config_path)
     validate_routing_components(components, config_path=config_path)
 
-    commits = git_log_with_files(since)
-    if not commits:
-        return ComponentsSeedResult(
-            components=[], skipped=0, since=since, no_commits=True
-        )
-
     versioning_scheme = get_versioning_scheme(config_path)
     enforce_preamble = bool(
         get_validation_options(config_path).get("enforce_preamble", False)
     )
     preamble_keywords = get_preamble_keywords(config_path)
 
-    per_component: dict[str, list[tuple[str, str]]] = {
-        str(component.get("name")): [] for component in components
-    }
-    skipped = 0
-    for commit in commits:
-        classified = classify_commit_subject(commit.subject, schema=commit_schema)
-        if classified is None:
-            if strict:
-                skipped += 1
-                continue
-            classified = ("changed", commit.subject)
-        targets = route_commit(commit.files, components)
-        for name in targets:
-            per_component.setdefault(name, []).append(classified)
-
+    skipped_commits: set[str | tuple[str, tuple[str, ...]]] = set()
+    histories: dict[str | None, list[Any]] = {}
+    saw_commits = False
     results: list[ComponentSeedResult] = []
     for component in components:
         name = str(component.get("name"))
+        scope = release_scope(config_path, name)
+        boundary = last_release_tag(scope) if auto_since else since
+        if boundary not in histories:
+            histories[boundary] = (
+                git_log_with_files(boundary)
+                if scope.root == Path.cwd()
+                else git_log_with_files(boundary, cwd=str(scope.root))
+            )
+        commits = histories[boundary]
+        saw_commits = saw_commits or bool(commits)
+        classified_entries: list[tuple[str, str]] = []
+        for commit in commits:
+            if name not in route_commit(commit.files, components):
+                continue
+            classified = classify_commit_subject(commit.subject, schema=commit_schema)
+            if classified is None:
+                if strict:
+                    skipped_commits.add(commit.sha or (commit.subject, commit.files))
+                    continue
+                classified = ("changed", commit.subject)
+            classified_entries.append(classified)
         path = resolve_config_file(config_path, str(component.get("changelog")))
         changelog = Changelog(
             file_path=path,
@@ -473,12 +510,19 @@ def seed_components_from_commits(
             ).read(),
             versioning_scheme=versioning_scheme,
         )
-        added = apply_classified_to_changelog(changelog, per_component.get(name, []))
+        added = apply_classified_to_changelog(changelog, classified_entries)
         if added and not dry_run:
             changelog.write_to_file()
-        results.append(ComponentSeedResult(component=name, path=path, added=added))
+        results.append(
+            ComponentSeedResult(component=name, path=path, added=added, since=boundary)
+        )
 
-    return ComponentsSeedResult(components=results, skipped=skipped, since=since)
+    return ComponentsSeedResult(
+        components=results,
+        skipped=len(skipped_commits),
+        since=since,
+        no_commits=not saw_commits,
+    )
 
 
 # ----------------------------------------------------------------------
@@ -554,6 +598,7 @@ def plan_changelog_backfill(
     repository: str | None = None,
     token: str | None = None,
     package: str | None = None,
+    history: ComponentHistory | None = None,
 ) -> Any:
     """Returns a backfill plan (see :func:`changelogmanager.backfill.plan_backfill`)."""
 
@@ -575,6 +620,7 @@ def plan_changelog_backfill(
         repository=repository,
         token=token,
         package=package,
+        history=history,
     )
 
 
@@ -602,6 +648,7 @@ def plan_unreleased_backfill(
     since: str | None,
     commit_schema: str = "auto",
     max_commits: int | None = None,
+    history: ComponentHistory | None = None,
 ) -> list[Any]:
     """Module-level wrapper so tests can patch services.plan_unreleased_backfill."""
 
@@ -613,6 +660,7 @@ def plan_unreleased_backfill(
         since=since,
         commit_schema=commit_schema,
         max_commits=MAX_COMMITS_DEFAULT if max_commits is None else max_commits,
+        history=history,
     )
 
 
@@ -623,14 +671,18 @@ def backfill_unreleased(
     commit_schema: str = "auto",
     dry_run: bool = False,
     max_commits: int | None = None,
+    history: ComponentHistory | None = None,
 ) -> UnreleasedBackfillResult:
     """Seeds [Unreleased] from commits since the latest release tag."""
 
+    if history and since is None:
+        since = last_release_tag(history.release)
     entries = plan_unreleased_backfill(
         changelog,
         since=since,
         commit_schema=commit_schema,
         max_commits=max_commits,
+        history=history,
     )
     added = [
         {"change_type": entry.change_type, "message": entry.text} for entry in entries
@@ -1216,7 +1268,9 @@ def release_rollback(
             if repository:
                 cmd += ["--repo", repository]
             logger.info("Running gh release delete %s", tag)
-            proc = subprocess.run(cmd, capture_output=True, text=True)  # nosec B603
+            proc = subprocess.run(
+                cmd, capture_output=True, text=True, check=False
+            )  # nosec B603
             if proc.returncode == 0:
                 result.release_deleted = True
             else:

@@ -25,7 +25,7 @@ On top of the base parser/serializer, this tool provides:
 - **Bundled skill export**
 - **GitHub and GitLab release automation**
 - **Stored credential support** through the OS keyring
-- **Multi-component repository support**
+- **Independent component releases** for repositories with multiple packages
 - **Tkinter GUI** for editing, staging, auditing, backfill, release, and export flows
 
 ## Next steps
@@ -36,6 +36,7 @@ On top of the base parser/serializer, this tool provides:
 - [Releasing](releases.md)
 - [Changelog fragments](fragments.md)
 - [Tasks and fragments](tasks.md)
+- [Component Workflows](components.md) for independently released packages in one repository
 - [Scripting and CI integration](scripting.md)
 - [CLI reference](cli.md)
 - [Desktop GUI](gui.md)
