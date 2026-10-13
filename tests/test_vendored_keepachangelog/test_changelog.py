@@ -11,7 +11,8 @@ from changelogmanager.vendor import keepachangelog
 def changelog(tmpdir):
     changelog_file_path = os.path.join(tmpdir, "CHANGELOG.md")
     with open(changelog_file_path, mode="wt", encoding="utf-8") as file:
-        file.write("""# Changelog
+        file.write(
+            """# Changelog
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
@@ -72,7 +73,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.0.2]: https://github.test_url/test_project/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.test_url/test_project/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.test_url/test_project/releases/tag/v1.0.0
-""")
+"""
+        )
     return changelog_file_path
 
 

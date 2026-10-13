@@ -127,20 +127,28 @@ class GitHub:
                 url,
                 http_error.code,
             )
-            raise logging.Error(message=dedent(f"""
+            raise logging.Error(
+                message=dedent(
+                    f"""
                 Failure during GitHub request:
                   URL:    {url}
                   Method: {method.value}
                   Status: {http_error.code} {http_error.reason}
                   Data:   {data}
-                  Body:   {response_body or "<empty>"}""")) from http_error
+                  Body:   {response_body or "<empty>"}"""
+                )
+            ) from http_error
         except URLError as url_error:
             logger.error("GitHub API request failed for %s %s", method.value, url)
-            raise logging.Error(message=dedent(f"""
+            raise logging.Error(
+                message=dedent(
+                    f"""
                 Failure during GitHub request:
                   URL:    {url}
                   Method: {method.value}
-                  Data:   {data}""")) from url_error
+                  Data:   {data}"""
+                )
+            ) from url_error
 
     def _get_with_rate_check(
         self, api: str, data: Mapping[str, Any] | None = None

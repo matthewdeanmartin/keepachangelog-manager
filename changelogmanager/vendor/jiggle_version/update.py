@@ -39,7 +39,9 @@ LOGGER = logging.getLogger(__name__)
 
 # ``__version__ = "1.0"`` and the chained ``__version__ = version = "1.0"``.
 # The chain is captured into group 1 so only the string literal is replaced.
-_PYTHON_DUNDER_VERSION_RE = re.compile(r"""(?m)^(\s*__version__\s*(?::[^=\n]+)?=\s*(?:version\s*=\s*)*)(['"])(.*?)(\2)""")
+_PYTHON_DUNDER_VERSION_RE = re.compile(
+    r"""(?m)^(\s*__version__\s*(?::[^=\n]+)?=\s*(?:version\s*=\s*)*)(['"])(.*?)(\2)"""
+)
 # Only applied to setup.py -- see the module docstring. Anchored to the start of
 # a line so it cannot match the trailing half of ``__version__ = version = '...'``.
 _PYTHON_SETUP_VERSION_RE = re.compile(r"""(?m)^(\s*version\s*=\s*)(['"])(.*?)(\2)""")

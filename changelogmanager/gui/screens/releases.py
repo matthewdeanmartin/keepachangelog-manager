@@ -157,8 +157,8 @@ class ReleasesScreen(
 
         self.select("github-release")
 
-    def field(  # type: ignore[no-untyped-def]
-        self, parent, label, var, *, secret=False
+    def field(
+        self, parent: tk.Misc, label: str, var: tk.Variable, *, secret: bool = False
     ) -> ttk.Frame:
         row = ttk.Frame(parent)
         row.pack(fill=tk.X, padx=4, pady=2)

@@ -113,19 +113,27 @@ class GitLab:
                 url,
                 http_error.code,
             )
-            raise logging.Error(message=dedent(f"""
+            raise logging.Error(
+                message=dedent(
+                    f"""
                 Failure during GitLab request:
                   URL:    {url}
                   Method: {method.value}
                   Status: {http_error.code}
-                  Data:   {data}""")) from http_error
+                  Data:   {data}"""
+                )
+            ) from http_error
         except URLError as url_error:
             logger.error("GitLab API request failed for %s %s", method.value, url)
-            raise logging.Error(message=dedent(f"""
+            raise logging.Error(
+                message=dedent(
+                    f"""
                 Failure during GitLab request:
                   URL:    {url}
                   Method: {method.value}
-                  Data:   {data}""")) from url_error
+                  Data:   {data}"""
+                )
+            ) from url_error
 
     def get_release(self, tag_name: str) -> Optional[Mapping[str, Any]]:
         """Returns the release for ``tag_name`` or ``None`` if absent."""

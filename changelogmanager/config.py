@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import re
+import tomllib
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from pathlib import Path
@@ -21,18 +22,9 @@ from changelogmanager.toml_edits import update_document
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from changelogmanager.message_lint import LintOptions
 
-try:
-    import tomllib  # type: ignore
 
-    HAS_TOMLLIB = True
-except ImportError:  # Python < 3.11
-    try:
-        import tomli as tomllib  # type: ignore
-
-        HAS_TOMLLIB = True
-    except ImportError:
-        tomllib = None
-        HAS_TOMLLIB = False
+# Kept for callers that predate the Python 3.11 floor; tomllib is always available now.
+HAS_TOMLLIB = True
 
 
 CONFIG_FILE_CANDIDATES = (

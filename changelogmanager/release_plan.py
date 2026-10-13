@@ -165,7 +165,9 @@ def change_bump(entries: Mapping[str, Any]) -> VersionCore | None:
 def suggest_pep440(data: Mapping[str, Any], initial: VersionValue) -> VersionValue:
     """Choose a target and counter exclusively from recorded changelog history."""
     raw_plan = get_plan(data)
-    plan = validate_plan(raw_plan, "pep440") if raw_plan is not None else {}
+    plan: dict[str, str] = (
+        validate_plan(raw_plan, "pep440") if raw_plan is not None else {}
+    )
     history = [
         parse_version(version, "pep440")
         for version in data

@@ -305,7 +305,9 @@ def existing_unreleased_keys(changelog: Changelog) -> set[tuple[str, str]]:
 
     existing: set[tuple[str, str]] = set()
     data = changelog.get()
-    unreleased = data.get(UNRELEASED_ENTRY, {}) if UNRELEASED_ENTRY in data else {}
+    unreleased: dict[str, Any] = (
+        data.get(UNRELEASED_ENTRY, {}) if UNRELEASED_ENTRY in data else {}
+    )
     for change_type, entries in unreleased.items():
         if change_type == "metadata" or not isinstance(entries, list):
             continue

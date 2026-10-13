@@ -48,7 +48,8 @@ def _freeze_today():
 # Known-state changelog fixtures
 # ---------------------------------------------------------------------------
 
-_FULL_CHANGELOG = textwrap.dedent("""\
+_FULL_CHANGELOG = textwrap.dedent(
+    """\
     # Changelog
     All notable changes to this project will be documented in this file.
 
@@ -88,9 +89,11 @@ _FULL_CHANGELOG = textwrap.dedent("""\
     [1.2.0]: https://github.com/example/repo/compare/v1.1.0...v1.2.0
     [1.1.0]: https://github.com/example/repo/compare/v1.0.0...v1.1.0
     [1.0.0]: https://github.com/example/repo/releases/tag/v1.0.0
-""")
+"""
+)
 
-_MINIMAL_CHANGELOG = textwrap.dedent("""\
+_MINIMAL_CHANGELOG = textwrap.dedent(
+    """\
     # Changelog
     All notable changes to this project will be documented in this file.
 
@@ -103,9 +106,11 @@ _MINIMAL_CHANGELOG = textwrap.dedent("""\
     - Initial release
 
     [1.0.0]: https://github.com/example/repo/releases/tag/v1.0.0
-""")
+"""
+)
 
-_NO_UNRELEASED_CHANGELOG = textwrap.dedent("""\
+_NO_UNRELEASED_CHANGELOG = textwrap.dedent(
+    """\
     # Changelog
     All notable changes to this project will be documented in this file.
 
@@ -124,7 +129,8 @@ _NO_UNRELEASED_CHANGELOG = textwrap.dedent("""\
 
     [2.0.0]: https://github.com/example/repo/compare/v1.0.0...v2.0.0
     [1.0.0]: https://github.com/example/repo/releases/tag/v1.0.0
-""")
+"""
+)
 
 
 @pytest.fixture()

@@ -27,7 +27,9 @@ GENERATED_VERSION_MODULE = (
 
 def make_project(root):
     """A minimal project whose own package should be bumped."""
-    (root / "pyproject.toml").write_text('[project]\nname = "demo"\nversion = "0.1.0"\n', encoding="utf-8")
+    (root / "pyproject.toml").write_text(
+        '[project]\nname = "demo"\nversion = "0.1.0"\n', encoding="utf-8"
+    )
     pkg = root / "demo"
     pkg.mkdir()
     (pkg / "__init__.py").write_text("__version__ = '0.1.0'\n", encoding="utf-8")
