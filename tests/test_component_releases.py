@@ -265,10 +265,13 @@ def test_real_release_branch_stages_only_selected_component(tmp_path, monkeypatc
         "--github-output",
     )
     assert code == 0, error
+    from changelogmanager.recovery import manifest_name
+
     assert set(git("diff", "--name-only", "main", "HEAD").splitlines()) == {
         "plugin/CHANGELOG.md",
         "plugin/pyproject.toml",
         "plugin/__about__.py",
+        manifest_name("plugin-v0.1.0"),
     }
     result = json.loads(output)
     assert result["commit_sha"] == git("rev-parse", "HEAD").strip()
@@ -278,6 +281,7 @@ def test_real_release_branch_stages_only_selected_component(tmp_path, monkeypatc
         "plugin/CHANGELOG.md",
         "plugin/pyproject.toml",
         "plugin/__about__.py",
+        manifest_name("plugin-v0.1.0"),
     }
     assert git("ls-remote", "--heads", "origin", "release/plugin/bump-0.1.0")
 

@@ -43,6 +43,7 @@ On top of the base parser/serializer, this tool provides:
 - [Pre-commit](precommit.md)
 - [Generic CI](CI.md)
 - [GitHub automation](github.md)
+- [Failed release recovery](release-recovery.md)
 - [GitLab automation](gitlab.md)
 - [Vendored code and forks](vendored.md)
 - [Contributing](contributing.md)

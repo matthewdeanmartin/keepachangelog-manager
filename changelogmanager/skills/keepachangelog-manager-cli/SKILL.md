@@ -37,6 +37,8 @@ Prefer the `changelogmanager` CLI over manual changelog edits when the task maps
 
 ## Guidance
 
+- For failed GitHub releases, use `release-rollback --dry-run` before applying. Add `--restore-unreleased --restore-versions` to recover files, `--bump-commit SHA` for older releases without manifests, and `--commit --push` only when requested. `--no-github`, `--no-local-tag`, and `--no-remote-tag` select deletion steps. Use `--resume PATH` with the original action flags after a partial failure. `--check-pypi PACKAGE` checks publication before applying; dry-run remains offline. Read current `release-rollback --help` because older installed releases support deletion only.
+
 - Use `--dry-run` before mutating files when preview helps
 - Use `--json` or `--quiet` for automation
 - Pass `--input-file` for non-default changelog paths

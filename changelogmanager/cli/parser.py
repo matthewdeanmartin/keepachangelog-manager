@@ -963,7 +963,7 @@ examples:
 
     release_rollback_parser = subparsers.add_parser(
         "release-rollback",
-        help="Delete a failed GitHub release and its git tag (local + remote)",
+        help="Recover a failed release: delete artifacts and optionally restore notes/versions",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 examples:
@@ -975,6 +975,15 @@ examples:
 
   # only drop the tags, leave the GitHub release alone
   kaclm release-rollback --tag v5.2.0 --no-github --yes
+
+  # preview file restoration for an older release (global --json comes first)
+  kaclm --json release-rollback --tag v5.2.0 --bump-commit SHA --restore-unreleased --restore-versions --dry-run
+
+  # restore files using the recorded manifest, then commit and push recovery
+  kaclm release-rollback --tag v5.2.0 --restore-unreleased --restore-versions --commit --push --yes
+
+  # resume with the original action/repository/remote flags
+  kaclm release-rollback --resume RECEIPT --restore-unreleased --restore-versions --commit --push --yes
 
 equivalent manual steps:
   gh release delete v5.2.0 -y --repo owner/repo
@@ -1026,6 +1035,39 @@ equivalent manual steps:
         "--yes",
         action="store_true",
         help="Confirm the deletion non-interactively (required in CI).",
+    )
+    release_rollback_parser.add_argument(
+        "--restore-unreleased",
+        action="store_true",
+        help="Move the failed release notes back into Unreleased, preserving newer entries",
+    )
+    release_rollback_parser.add_argument(
+        "--restore-versions",
+        action="store_true",
+        help="Restore version assignments changed by the release bump",
+    )
+    release_rollback_parser.add_argument(
+        "--bump-commit",
+        help="Original bump commit for releases without a recorded manifest",
+    )
+    release_rollback_parser.add_argument(
+        "--commit",
+        action="store_true",
+        help="Create a forward recovery commit",
+    )
+    release_rollback_parser.add_argument(
+        "--push",
+        action="store_true",
+        help="Push the recovery branch without force (requires --commit)",
+    )
+    release_rollback_parser.add_argument(
+        "--resume",
+        help="Resume a recovery receipt inside this checkout's git directory",
+    )
+    release_rollback_parser.add_argument(
+        "--check-pypi",
+        metavar="PACKAGE",
+        help="Check publication before recovery; never contacts PyPI during dry-run",
     )
     add_dry_run_argument(release_rollback_parser)
     release_rollback_parser.set_defaults(handler=commands.command_release_rollback)

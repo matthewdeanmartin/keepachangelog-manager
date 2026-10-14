@@ -1,0 +1,15 @@
+# Proposed extension to keepachangelog-manager-fork
+
+Extend `release-rollback` rather than introduce a competing recovery command. Version 6.10.1 already handles GitHub release, local tag, and remote tag deletion, with opt-out switches, but leaves the bump commit and changelog for manual repair.
+
+Proposed opt-in options: `--restore-unreleased`, `--restore-versions`, `--bump-commit SHA`, `--commit`, and `--push`. Keep existing deletion-only behavior compatible. A plan should list each selected action, current and proposed file values, exact release ID/tag SHA, previous version source, and unresolved conflicts. Let users select any subset. JSON output must distinguish planned, succeeded, already absent, skipped, and failed operations.
+
+Record a release manifest during release-bump: base SHA, bump SHA, repository/component, tag/release ID, version-file before/after values, changelog entries moved, and compare-link changes. For older releases, accept an explicit bump commit and derive an inverse patch limited to its version changes. Never restore whole files from the parent: later fixes and new changelog entries must survive. Handle a manually restored Unreleased heading and merged release PRs.
+
+Plan all local edits and validate the resulting changelog before external deletion. Refuse ambiguous version edits or changed release/tag identities. Treat absent resources as idempotent success, but distinguish authorization/network failures from absence. Verify remote tag SHA immediately before deletion, using a lease where supported. Stop on failure and persist a resumable receipt; do not pretend remote deletion and a git push are atomic. Permit cleanup of a GitHub release even if PyPI was published, but block recommendations to reuse that published version.
+
+Commit and push only with explicit options. Avoid force-pushing main. Report automatic draft-release recreation after push. Keep planning offline when `--dry-run` promises no network; a separate online inspection/plan mode can verify live state.
+
+Acceptance cases: merged/unmerged bump PR; later fix commits; already-restored heading; newer Unreleased entries; absent local/remote tag or release; independently failed GitHub and git authentication; changed remote SHA; package version already published; pyproject/Cargo/lock synchronization; partial failure and retry; multiple components; non-v tag prefixes; prerelease versions; dry-run has no mutations; redirection outside checkout remains clean.
+
+Evidence from rmarc on 2026-10-14: bump d557612 changed pyproject 5.3.1 to 5.4.0 and removed Unreleased; a7c1e5d restored only the heading. The remote release/tag were subsequently absent, but a local v5.4.0 remained. Run 38506404676 failed because release-bump.json was opened in the checkout before the clean-tree check. The pre-bump uv.lock and Cargo.toml already remained at 5.3.1. Historical commit 37adfa0 is labeled v5.3.1 ready to publish and precedes the PyPI upload; no historical remote tags remained. This supports a commit-based changelog baseline without manufacturing a tag.

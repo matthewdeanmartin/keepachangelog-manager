@@ -1101,6 +1101,7 @@ def release_bump(
     pyproject_only: bool = False,
     dry_run: bool = False,
     scope: ReleaseScope | None = None,
+    release_id: str | None = None,
 ) -> ReleaseBumpResult:
     """Bumps the changelog + version files, commits, pushes a branch, opens a PR.
 
@@ -1133,6 +1134,9 @@ def release_bump(
             message="Release bump requires a clean working tree; commit or stash unrelated changes first"
         )
 
+    from changelogmanager.recovery import record_manifest
+
+    base_sha = _run_git(["rev-parse", "HEAD"]).stdout.strip()
     # 1. Bump changelog + version files on disk (the only place versions are
     #    written into the repo).
     released = release_changelog(
@@ -1143,11 +1147,30 @@ def release_bump(
         scope=scope,
     )
 
+    manifest = record_manifest(
+        tag=scope.tag(normalized) if scope else f"v{normalized}",
+        version=normalized,
+        base_sha=base_sha,
+        changelog=changelog.get_file_path(),
+        files=released.bumped_files,
+        scope=scope or ReleaseScope(root=Path.cwd()),
+        repository=repository,
+        release_id=release_id,
+    )
+
     # 2. Create the bump branch off HEAD (the caller checked out `base`).
     _run_git(["checkout", "-B", branch])
 
     # 3. Stage only the selected changelog and version files changed by the bump.
-    _run_git(["add", "--", str(changelog.get_file_path()), *released.bumped_files])
+    _run_git(
+        [
+            "add",
+            "--",
+            str(changelog.get_file_path()),
+            *released.bumped_files,
+            str(manifest),
+        ]
+    )
 
     # 4. Nothing to commit means the version was already bumped; surface it.
     staged = _run_git(["diff", "--cached", "--quiet"], check=False)
@@ -1166,7 +1189,11 @@ def release_bump(
         branch=branch,
         committed=True,
         commit_sha=_run_git(["rev-parse", "HEAD"]).stdout.strip(),
-        changed_files=[str(changelog.get_file_path()), *released.bumped_files],
+        changed_files=[
+            str(changelog.get_file_path()),
+            *released.bumped_files,
+            str(manifest),
+        ],
         skip_ci=skip_ci,
     )
 
@@ -1312,10 +1339,12 @@ def release_rollback(
             logger.info("Would delete local git tag %s", tag)
             result.local_tag_deleted = True
         else:
-            deleted = _run_git(["tag", "-d", tag], check=False)
-            result.local_tag_deleted = deleted.returncode == 0
-            if not result.local_tag_deleted:
-                logger.warning("Local git tag %s not found (already deleted?)", tag)
+            from changelogmanager.recovery import tag_sha
+
+            current = tag_sha(tag)
+            if current:
+                _run_git(["update-ref", "-d", f"refs/tags/{tag}", current])
+                result.local_tag_deleted = True
 
     # 3. Remote git tag.
     if delete_remote_tag:
@@ -1323,12 +1352,15 @@ def release_rollback(
             logger.info("Would delete remote git tag %s from %s", tag, remote)
             result.remote_tag_deleted = True
         else:
-            deleted = _run_git(["push", "--delete", remote, tag], check=False)
-            result.remote_tag_deleted = deleted.returncode == 0
-            if not result.remote_tag_deleted:
-                logger.warning(
-                    "Remote git tag %s not found on %s (already deleted?)", tag, remote
+            from changelogmanager.recovery import tag_sha
+
+            current = tag_sha(tag, remote)
+            if current:
+                ref = f"refs/tags/{tag}"
+                _run_git(
+                    ["push", f"--force-with-lease={ref}:{current}", remote, f":{ref}"]
                 )
+                result.remote_tag_deleted = True
 
     return result
 

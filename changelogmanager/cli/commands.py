@@ -1291,6 +1291,7 @@ def command_release_bump(args: argparse.Namespace, ctx: CliContext) -> None:
         pyproject_only=bool(getattr(args, "pyproject_only", False)),
         dry_run=bool(args.dry_run),
         scope=scope,
+        release_id=args.release_id,
     )
 
     ctx.json_payload.update(
@@ -1341,6 +1342,33 @@ def command_release_bump(args: argparse.Namespace, ctx: CliContext) -> None:
 
 def command_release_rollback(args: argparse.Namespace, ctx: CliContext) -> None:
     """Rolls back a failed release: deletes the GitHub release and the git tag."""
+
+    import json
+
+    saved_plan = None
+    if args.resume:
+        try:
+            saved_plan = json.loads(Path(args.resume).read_text(encoding="utf-8"))
+            required = {
+                "schema",
+                "tag",
+                "component",
+                "root",
+                "files",
+                "actions",
+                "head",
+                "version",
+            }
+            if (
+                not isinstance(saved_plan, dict)
+                or required - saved_plan.keys()
+                or saved_plan["schema"] != 1
+            ):
+                raise ValueError("Unsupported or incomplete receipt")
+        except (OSError, ValueError) as exc:
+            raise logging.Error(message=f"Cannot load recovery receipt: {exc}") from exc
+        if not args.tag:
+            args.tag = saved_plan["tag"]
 
     # ------------------------------------------------------------------
     # Smart defaults: auto-detect tag + repo when the user omits them.
@@ -1423,6 +1451,79 @@ def command_release_rollback(args: argparse.Namespace, ctx: CliContext) -> None:
         args.repository,
         bool(args.dry_run),
     )
+
+    if args.restore_unreleased or args.restore_versions or args.resume:
+        from changelogmanager.cli.loaders import (
+            resolve_changelog_file,
+            resolve_versioning_scheme,
+        )
+        from changelogmanager.recovery import execute_recovery, plan_recovery
+        from changelogmanager.release_scope import ReleaseScope
+
+        receipt = Path(args.resume) if args.resume else None
+        if receipt:
+            if saved_plan is None:
+                raise logging.Error(message="Recovery receipt was not loaded")
+            plan = saved_plan
+            if plan.get("tag") != tag or plan.get("component") != (
+                scope.component if scope else "default"
+            ):
+                raise logging.Error(
+                    message="Receipt does not match the selected tag/component"
+                )
+        else:
+            filename = resolve_changelog_file(config, args.component, args.input_file)
+            plan = plan_recovery(
+                tag=tag,
+                scope=scope or ReleaseScope(root=Path.cwd()),
+                changelog=filename,
+                scheme=resolve_versioning_scheme(config, filename),
+                bump_commit=args.bump_commit,
+                restore_unreleased=args.restore_unreleased,
+                restore_versions=args.restore_versions,
+            )
+        result_plan = execute_recovery(
+            plan,
+            repository=args.repository or "",
+            token=token,
+            remote=args.remote,
+            delete_release=delete_release,
+            delete_local_tag=not args.no_local_tag,
+            delete_remote_tag=not args.no_remote_tag,
+            commit=args.commit,
+            push=args.push,
+            dry_run=args.dry_run,
+            receipt=receipt,
+            check_pypi=args.check_pypi,
+        )
+        ctx.json_payload.update(result_plan)
+        emit(ctx, text=("Would recover " if args.dry_run else "Recovered ") + tag)
+        for item in result_plan["files"]:
+            emit(ctx, text=f"  {item['path']}: {item['status']}")
+            if args.dry_run and not ctx.json_output:
+                import difflib
+
+                emit(
+                    ctx,
+                    text="".join(
+                        difflib.unified_diff(
+                            item["before"].splitlines(keepends=True),
+                            item["after"].splitlines(keepends=True),
+                            fromfile=item["path"],
+                            tofile=item["path"],
+                        )
+                    ),
+                )
+        for action, state in result_plan["actions"].items():
+            emit(ctx, text=f"  {action}: {state}")
+        if result_plan.get("receipt"):
+            emit(ctx, text=f"Receipt: {result_plan['receipt']}")
+        emit(ctx, text=result_plan["publication_check"])
+        return
+    if args.commit or args.push or args.bump_commit or args.check_pypi:
+        raise logging.Error(
+            message="--commit, --push and --bump-commit require a restoration option or --resume"
+        )
 
     result = services.release_rollback(
         tag=tag,
