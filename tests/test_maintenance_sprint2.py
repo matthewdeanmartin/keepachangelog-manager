@@ -59,8 +59,10 @@ def test_refresh_exact_release_preserves_human_notes_and_metadata(
     method, api, data = requests.pop()
     assert method == HttpMethods.PATCH and api == "releases/17"
     assert set(data) == {
-        "body"
-    }  # assets/name/channel/tag/target remain owned by GitHub/user
+        "body",
+        "tag_name",
+    }  # assets/name/channel/target remain owned by GitHub/user
+    assert data["tag_name"] == "plugin-v1.1.0rc1"
     assert data["body"].startswith("Human introduction\n")
     assert data["body"].endswith("\nHuman footer")
     assert "Repair parsing." in data["body"]
@@ -245,3 +247,90 @@ def test_gui_remote_release_passes_component_and_explicit_version(
     argv = runner.call_args.args[0]
     assert argv[argv.index("--component") + 1] == "plugin"
     assert argv[argv.index("--version") + 1] == "1.1.0rc1"
+
+
+def test_repeated_draft_refresh_retains_tag(tmp_path, monkeypatch):
+    config = project(tmp_path)
+    releases = []
+    calls = []
+    monkeypatch.setattr(GitHub, "get_releases", lambda self: releases)
+
+    def request(self, method, api, data=None):
+        calls.append(method)
+        if method == HttpMethods.POST:
+            releases.append({"id": 17, **data})
+        else:
+            releases[0].update(data)
+            # Model GitHub's observed body-only PATCH behavior for a draft.
+            releases[0]["tag_name"] = data.get("tag_name", "untagged-placeholder")
+        return dict(releases[0])
+
+    monkeypatch.setattr(GitHub, "github_request", request)
+    github = GitHub("owner/repo", "fake")
+    changelog = load_changelog(str(config), "plugin", None)
+    for _ in range(3):
+        result = github.create_release(changelog, True, tag_name="plugin-v1.0.1")
+        assert result["tag_name"] == "plugin-v1.0.1"
+    assert calls == [HttpMethods.POST, HttpMethods.PATCH, HttpMethods.PATCH]
+    assert len(releases) == 1
+
+
+@pytest.mark.parametrize("count", [1, 4])
+def test_untagged_drafts_recover_newest_without_deleting_others(
+    tmp_path, monkeypatch, count
+):
+    config = project(tmp_path)
+    releases = [
+        {
+            "id": i,
+            "tag_name": f"untagged-{i}",
+            "name": "Release plugin-v1.0.1",
+            "draft": True,
+            "body": f"Human notes\n{NOTES_START}\nOld\n{NOTES_END}",
+        }
+        for i in range(count)
+    ]
+    monkeypatch.setattr(GitHub, "get_releases", lambda self: releases)
+    request = Mock(
+        return_value={"id": count - 1, "tag_name": "plugin-v1.0.1", "draft": True}
+    )
+    monkeypatch.setattr(GitHub, "github_request", request)
+    result = GitHub("owner/repo", "fake").create_release(
+        load_changelog(str(config), "plugin", None), True, tag_name="plugin-v1.0.1"
+    )
+    assert result["id"] == count - 1
+    request.assert_called_once()
+    kwargs = request.call_args.kwargs
+    assert kwargs["method"] == HttpMethods.PATCH
+    assert kwargs["api"] == f"releases/{count - 1}"
+    assert kwargs["data"]["tag_name"] == "plugin-v1.0.1"
+    assert kwargs["data"]["body"].startswith("Human notes\n")
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"name": "Release other-v1.0.1"},
+        {"body": "A manually authored release"},
+        {"draft": False},
+        {"tag_name": "other-v1.0.1"},
+    ],
+)
+def test_recovery_leaves_unrelated_releases_alone(tmp_path, monkeypatch, overrides):
+    config = project(tmp_path)
+    unrelated = {
+        "id": 17,
+        "tag_name": "untagged-placeholder",
+        "name": "Release plugin-v1.0.1",
+        "draft": True,
+        "body": f"{NOTES_START}\nOld\n{NOTES_END}",
+        **overrides,
+    }
+    monkeypatch.setattr(GitHub, "get_releases", lambda self: [unrelated])
+    request = Mock(return_value={"id": 18})
+    monkeypatch.setattr(GitHub, "github_request", request)
+    GitHub("owner/repo", "fake").create_release(
+        load_changelog(str(config), "plugin", None), True, tag_name="plugin-v1.0.1"
+    )
+    request.assert_called_once()
+    assert request.call_args.kwargs["method"] == HttpMethods.POST

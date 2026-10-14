@@ -437,9 +437,31 @@ class GitHub:
             validate_override(get_plan(changelog.get()), parsed)
         tag = tag_name or f"v{parsed}"
         generated = generate_release_notes(changelog.get(notes_version))
+        releases = self.get_releases()
         existing = next(
-            (item for item in self.get_releases() if item.get("tag_name") == tag), None
+            (item for item in releases if item.get("tag_name") == tag), None
         )
+        if existing is None:
+            orphaned = [
+                item
+                for item in releases
+                if item.get("draft")
+                and str(item.get("tag_name", "")).startswith("untagged-")
+                and item.get("name") == f"Release {tag}"
+                and NOTES_START in str(item.get("body") or "")
+                and NOTES_END in str(item.get("body") or "")
+            ]
+            if orphaned:
+                existing = max(orphaned, key=lambda item: int(item["id"]))
+                logger.warning(
+                    "Recovering untagged draft %s as %s; preserving other drafts: %s",
+                    existing["id"],
+                    tag,
+                    ", ".join(
+                        str(item["id"]) for item in orphaned if item is not existing
+                    )
+                    or "none",
+                )
         if existing and not existing.get("draft", False) and draft:
             # Background draft refresh must never alter an already published release.
             return existing
@@ -447,9 +469,12 @@ class GitHub:
             str(existing.get("body") or "") if existing else "", generated
         )
         if existing:
-            # PATCH leaves assets, title, target commit, prerelease/latest flags and
-            # all other provider metadata alone. Publishing is explicit.
+            # GitHub can replace a draft's tag with an untagged-* placeholder
+            # when PATCH omits tag_name. Resend it so the next refresh finds us.
+            # Assets, title, target commit and channel flags remain untouched.
             data: dict[str, Any] = {"body": body}
+            if existing.get("draft"):
+                data["tag_name"] = tag
             if existing.get("draft") and not draft:
                 data["draft"] = False
             response = self.github_request(
