@@ -120,6 +120,9 @@ venv.bak/
 
 # mkdocs documentation
 /site
+landing/public/
+landing/resources/
+landing/.hugo_build.lock
 
 # mypy
 .mypy_cache/

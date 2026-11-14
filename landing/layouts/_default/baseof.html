@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ .Site.Title }} — changelogs from work to release</title>
+  <meta name="description" content="{{ .Site.Params.description }}">
+  <meta property="og:title" content="Keep a Changelog Manager — changelogs from work to release">
+  <meta property="og:description" content="{{ .Site.Params.description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ .Permalink }}">
+  <link rel="canonical" href="{{ .Permalink }}">
+  {{ $css := resources.Get "css/site.css" | minify | fingerprint }}
+  <link rel="stylesheet" href="{{ $css.RelPermalink }}" integrity="{{ $css.Data.Integrity }}">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  {{ block "main" . }}{{ end }}
+</body>
+</html>

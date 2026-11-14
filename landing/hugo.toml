@@ -1,0 +1,11 @@
+baseURL = "https://matthewdeanmartin.github.io/keepachangelog-manager/"
+locale = "en-us"
+title = "Keep a Changelog Manager"
+disableKinds = ["taxonomy", "term", "RSS"]
+
+[params]
+description = "Write, validate, and release Keep a Changelog files with a Python CLI and browser workspace."
+docs = "https://keepachangelog-manager.readthedocs.io/en/latest/"
+github = "https://github.com/matthewdeanmartin/keepachangelog-manager"
+pypi = "https://pypi.org/project/keepachangelog-manager-fork/"
+app = "https://matthewdeanmartin.github.io/keepachangelog-manager/app/"

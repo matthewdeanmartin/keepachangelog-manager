@@ -1,6 +1,6 @@
 site_name: keepachangelog-manager
 site_description: Validate and get more value out of your changelog in Keep a Changelog format.
-site_url: https://keepachangelog-manager-fork.readthedocs.io/en/latest/
+site_url: https://keepachangelog-manager.readthedocs.io/en/latest/
 repo_url: https://github.com/matthewdeanmartin/keepachangelog-manager
 repo_name: matthewdeanmartin/keepachangelog-manager
 

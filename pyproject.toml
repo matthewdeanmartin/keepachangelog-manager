@@ -21,7 +21,8 @@ authors = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/matthewdeanmartin/keepachangelog-manager"
+Homepage = "https://matthewdeanmartin.github.io/keepachangelog-manager/"
+Documentation = "https://keepachangelog-manager.readthedocs.io/en/latest/"
 Issues = "https://github.com/matthewdeanmartin/keepachangelog-manager/issues"
 Source = "https://github.com/matthewdeanmartin/keepachangelog-manager"
 

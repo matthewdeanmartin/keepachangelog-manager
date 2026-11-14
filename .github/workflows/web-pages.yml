@@ -1,20 +1,22 @@
-# Build the KATL Angular app (web/) and deploy it to GitHub Pages.
+# Build the Hugo homepage and KATL Angular app for GitHub Pages.
 #
-# - Pushes to main that touch web/ run the full quality gate, then deploy.
-# - Pull requests that touch web/ run the gate + build only (no deploy), so a
+# - Pushes to main that touch web/ or landing/ run the full quality gate, then deploy.
+# - Pull requests run the gate + build only (no deploy), so a
 #   broken change can't reach Pages.
 # - Manual runs (workflow_dispatch) build and deploy from the selected ref.
-name: Deploy KATL web app
+name: Deploy homepage and KATL app
 
 on:
   push:
     branches: [main]
     paths:
       - 'web/**'
+      - 'landing/**'
       - '.github/workflows/web-pages.yml'
   pull_request:
     paths:
       - 'web/**'
+      - 'landing/**'
       - '.github/workflows/web-pages.yml'
   workflow_dispatch:
 
@@ -50,16 +52,30 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: npm run dead-code
-      # base-href must match the repo name so assets resolve under
-      # https://<user>.github.io/keepachangelog-manager/
-      - run: npm run build -- --base-href=/keepachangelog-manager/
-      - name: SPA fallback (404 -> index.html)
-        run: cp dist/web/browser/index.html dist/web/browser/404.html
+      # The app lives below the Hugo homepage.
+      - run: npm run build -- --base-href=/keepachangelog-manager/app/
+      - name: Install verified Hugo Extended
+        working-directory: .
+        env:
+          HUGO_VERSION: '0.164.0'
+          HUGO_SHA256: '8325f3653032d0fc536503691f4833dc4eb6c6be02ee62466758f3f37a7f2fcd'
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/hugo.deb" "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb"
+          echo "${HUGO_SHA256}  $RUNNER_TEMP/hugo.deb" | sha256sum --check --strict
+          sudo dpkg -i "$RUNNER_TEMP/hugo.deb"
+      - name: Build homepage
+        working-directory: .
+        run: hugo --source landing --minify --gc --panicOnWarning
+      - name: Add KATL app below homepage
+        run: |
+          mkdir -p ../landing/public/app
+          cp -R dist/web/browser/. ../landing/public/app/
+          cp dist/web/browser/index.html ../landing/public/404.html
       - uses: actions/upload-pages-artifact@v5.0.0
         with:
           # Path is relative to the repo root (working-directory does not apply
           # to action `with:` inputs).
-          path: web/dist/web/browser
+          path: landing/public
 
   deploy:
     # Only deploy from main (or a manual dispatch); PRs stop after build.

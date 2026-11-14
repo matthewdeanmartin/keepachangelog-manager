@@ -28,6 +28,10 @@ The package name on PyPI is `keepachangelog-manager-fork`. The installed command
 longer `changelogmanager`; both are equivalent. The examples below use `changelogmanager`, but `kaclm` works
 everywhere in its place.
 
+[Homepage](https://matthewdeanmartin.github.io/keepachangelog-manager/) ·
+[Documentation](https://keepachangelog-manager.readthedocs.io/en/latest/) ·
+[KATL browser app](https://matthewdeanmartin.github.io/keepachangelog-manager/app/)
+
 > **Deprecated aliases:** `keepachangelog-manager` and `kacl-gui` still work but print a deprecation warning — use
 > `kaclm`/`changelogmanager` and `kaclm gui` instead. (`kacl` and `kacl-cli` are separate, unrelated tools on PyPI.)
 
@@ -75,7 +79,7 @@ Online integration with Git Forge Release pages
 
 ## Examples
 
-These are the happy-path workflows. For every alternate path and every extra flag, use [`./docs/`](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/).
+These are the happy-path workflows. For alternate paths and extra flags, use the [documentation](https://keepachangelog-manager.readthedocs.io/en/latest/).
 
 ### 1. Initialize a new repo
 
@@ -192,7 +196,7 @@ changelogmanager tasks list
 ```
 
 When tasks are complete, mark them checked and promote them into the changelog. If your team prefers fragment files
-instead of a shared task list, the tool also supports changelog fragments; see [`./docs/tasks.md`](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/tasks.md).
+instead of a shared task list, the tool also supports changelog fragments; see the [tasks and fragments guide](https://keepachangelog-manager.readthedocs.io/en/latest/tasks/).
 
 ## CLI Visuals
 
@@ -209,14 +213,14 @@ instead of a shared task list, the tool also supports changelog fragments; see [
 
 ## Documentation
 
-- [Generic CI](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/CI.md)
-- [GitHub automation](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/github.md)
-- [GitLab automation](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/gitlab.md)
-- [Quick start](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/quickstart.md)
-- [Installation](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/installation.md)
-- [Key workflows](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/workflows.md)
-- [Releasing](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/releases.md)
-- [Tasks and fragments](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/tasks.md)
-- [Scripting and CI integration](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/scripting.md)
-- [CLI reference](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/cli.md)
-- [Desktop GUI](https://github.com/matthewdeanmartin/keepachangelog-manager/docs/gui.md)
+- [Generic CI](https://keepachangelog-manager.readthedocs.io/en/latest/CI/)
+- [GitHub automation](https://keepachangelog-manager.readthedocs.io/en/latest/github/)
+- [GitLab automation](https://keepachangelog-manager.readthedocs.io/en/latest/gitlab/)
+- [Quick start](https://keepachangelog-manager.readthedocs.io/en/latest/quickstart/)
+- [Installation](https://keepachangelog-manager.readthedocs.io/en/latest/installation/)
+- [Key workflows](https://keepachangelog-manager.readthedocs.io/en/latest/workflows/)
+- [Releasing](https://keepachangelog-manager.readthedocs.io/en/latest/releases/)
+- [Tasks and fragments](https://keepachangelog-manager.readthedocs.io/en/latest/tasks/)
+- [Scripting and CI integration](https://keepachangelog-manager.readthedocs.io/en/latest/scripting/)
+- [CLI reference](https://keepachangelog-manager.readthedocs.io/en/latest/cli/)
+- [Desktop GUI](https://keepachangelog-manager.readthedocs.io/en/latest/gui/)
