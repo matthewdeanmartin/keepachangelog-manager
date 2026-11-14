@@ -11,7 +11,7 @@ build:
     python: "3.14"
   jobs:
     install:
-      - python -m pip install --only-binary :all: -r docs/requirements.txt
+      - "python -m pip install --only-binary :all: -r docs/requirements.txt"
     pre_build:
       - python scripts/sync_docs_changelog.py
 
